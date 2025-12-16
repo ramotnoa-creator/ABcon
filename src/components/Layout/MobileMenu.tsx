@@ -80,22 +80,14 @@ export default function MobileMenu({ onClose }: MobileMenuProps) {
         <nav className="flex flex-col p-4 stagger-children">
           {menuItems.map((item, index) => {
             const active = isActive(item.path);
-            const Component = item.path === '#' ? 'a' : Link;
-            const props = item.path === '#' 
-              ? { href: item.path, onClick: handleClose }
-              : { to: item.path, onClick: handleClose };
-
-            return (
-              <Component
-                key={item.label}
-                {...props}
-                className={`relative flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 animate-fade-in-up group overflow-hidden ${
-                  active
-                    ? 'text-primary shadow-sm'
-                    : 'hover:translate-x-1 text-text-main-light dark:text-text-main-dark'
-                }`}
-                style={{ animationDelay: `${index * 50}ms` }}
-              >
+            const className = `relative flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 animate-fade-in-up group overflow-hidden ${
+              active
+                ? 'text-primary shadow-sm'
+                : 'hover:translate-x-1 text-text-main-light dark:text-text-main-dark'
+            }`;
+            const style = { animationDelay: `${index * 50}ms` };
+            const content = (
+              <>
                 {/* Hover overlay - 20% opacity */}
                 <span className={`absolute inset-0 rounded-lg transition-opacity duration-200 ${
                   active 
@@ -111,7 +103,29 @@ export default function MobileMenu({ onClose }: MobileMenuProps) {
                     arrow_back
                   </span>
                 )}
-              </Component>
+              </>
+            );
+
+            return item.path === '#' ? (
+              <a
+                key={item.label}
+                href={item.path}
+                onClick={handleClose}
+                className={className}
+                style={style}
+              >
+                {content}
+              </a>
+            ) : (
+              <Link
+                key={item.label}
+                to={item.path}
+                onClick={handleClose}
+                className={className}
+                style={style}
+              >
+                {content}
+              </Link>
             );
           })}
         </nav>
