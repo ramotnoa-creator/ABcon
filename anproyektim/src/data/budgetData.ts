@@ -1,0 +1,48 @@
+import type { Budget } from '../types';
+
+export const seedBudgets: Budget[] = [
+  {
+    id: 'budget-1',
+    project_id: '1',
+    planned_budget: 45000000,
+    actual_budget: 12500000,
+    variance: -0.5,
+    status: 'On Track',
+    notes: 'שלב חפירה ודיפון מתקדם כמתוכנן',
+    created_at: '2024-01-01T00:00:00.000Z',
+    updated_at: '2024-01-15T00:00:00.000Z',
+  },
+  {
+    id: 'budget-2',
+    project_id: '2',
+    planned_budget: 18200000,
+    actual_budget: 450000,
+    variance: 0,
+    status: 'On Track',
+    notes: 'ממתין לאישור היתר מהעירייה',
+    created_at: '2024-01-01T00:00:00.000Z',
+    updated_at: '2024-01-10T00:00:00.000Z',
+  },
+  {
+    id: 'budget-3',
+    project_id: '3',
+    planned_budget: 5000000,
+    actual_budget: 5800000,
+    variance: 16.0,
+    status: 'Deviation',
+    notes: 'התייקרות חומרי גלם בלתי צפויה',
+    created_at: '2024-01-01T00:00:00.000Z',
+    updated_at: '2024-01-20T00:00:00.000Z',
+  },
+  {
+    id: 'budget-4',
+    project_id: '4',
+    planned_budget: 120000000,
+    actual_budget: 118500000,
+    variance: -1.2,
+    status: 'Completed',
+    notes: 'נמסר ללקוח בהצלחה',
+    created_at: '2024-01-01T00:00:00.000Z',
+    updated_at: '2024-01-25T00:00:00.000Z',
+  },
+];
