@@ -1,0 +1,127 @@
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background-light dark:bg-background-dark text-text-main-light dark:text-text-main-dark font-display antialiased transition-colors duration-200;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Reduce motion for users who prefer it */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Staggered animation delays for children */
+  .stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+  .stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+  .stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+  .stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+  .stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+  .stagger-children > *:nth-child(7) { animation-delay: 300ms; }
+  .stagger-children > *:nth-child(8) { animation-delay: 350ms; }
+  
+  /* Card hover effect */
+  .card-hover {
+    @apply transition-all duration-300 ease-smooth;
+  }
+  .card-hover:hover {
+    @apply shadow-lg -translate-y-1;
+  }
+
+  /* Button press effect */
+  .btn-press {
+    @apply transition-all duration-150 active:scale-95;
+  }
+
+  /* Link underline animation */
+  .link-underline {
+    @apply relative;
+  }
+  .link-underline::after {
+    content: '';
+    @apply absolute bottom-0 left-0 w-0 h-0.5 bg-primary transition-all duration-300;
+  }
+  .link-underline:hover::after {
+    @apply w-full;
+  }
+
+  /* Page entrance animation */
+  .page-enter {
+    @apply animate-fade-in-up;
+  }
+
+  /* Tab content transition */
+  .tab-content {
+    @apply animate-fade-in;
+  }
+
+  /* Progress bar animated fill */
+  .progress-animated {
+    animation: progress-fill 1s ease-out forwards;
+  }
+
+  /* Shimmer loading effect */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.2) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    @apply animate-shimmer;
+  }
+
+  /* Icon hover rotate */
+  .icon-hover-rotate {
+    @apply transition-transform duration-300;
+  }
+  .icon-hover-rotate:hover {
+    @apply rotate-12;
+  }
+
+  /* Glow effect on focus */
+  .focus-glow:focus {
+    @apply ring-2 ring-primary/30 ring-offset-2 ring-offset-surface-light dark:ring-offset-surface-dark;
+  }
+
+  /* Table row hover slide */
+  .row-hover {
+    @apply transition-all duration-200;
+  }
+  .row-hover:hover {
+    @apply bg-background-light dark:bg-background-dark shadow-sm;
+  }
+
+  /* Alert notification pulse */
+  .alert-pulse {
+    @apply relative;
+  }
+  .alert-pulse::before {
+    content: '';
+    @apply absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse-soft;
+  }
+
+  /* Floating animation for icons */
+  .float {
+    animation: bounce-subtle 2s ease-in-out infinite;
+  }
+}
