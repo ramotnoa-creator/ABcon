@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getProjectById } from '../../data/storage';
-import { formatDateForDisplay, formatDateHebrew } from '../../utils/dateUtils';
 import OverviewTab from './tabs/OverviewTab';
 import ProfessionalsTab from './tabs/ProfessionalsTab';
 import TasksTab from './tabs/TasksTab';

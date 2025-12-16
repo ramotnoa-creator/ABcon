@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import type { Project } from '../../../types';
 import { formatDateForDisplay, formatDateHebrew } from '../../../utils/dateUtils';
 import { getProjectProfessionals } from '../../../data/professionalsStorage';
@@ -13,7 +12,6 @@ interface OverviewTabProps {
 }
 
 export default function OverviewTab({ project, statusColors, onTabChange }: OverviewTabProps) {
-  const navigate = useNavigate();
   const [professionalsCount, setProfessionalsCount] = useState(0);
   const [openTasksCount, setOpenTasksCount] = useState(0);
   const [filesCount, setFilesCount] = useState(0);

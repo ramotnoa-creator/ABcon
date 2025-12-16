@@ -38,7 +38,7 @@ const getInitials = (name: string): string => {
 export default function GlobalFilesPage() {
   const navigate = useNavigate();
   const [files, setFiles] = useState<File[]>([]);
-  const [projects, setProjects] = useState(getProjects());
+  const [projects] = useState(getProjects);
   const [searchQuery, setSearchQuery] = useState('');
   const [entityTypeFilter, setEntityTypeFilter] = useState<string>('all');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -159,10 +159,6 @@ export default function GlobalFilesPage() {
 
     loadFiles();
     setEditingFile(null);
-  };
-
-  const handleCopyLink = (url: string) => {
-    navigator.clipboard.writeText(url);
   };
 
   const handleOpenFile = (url: string) => {

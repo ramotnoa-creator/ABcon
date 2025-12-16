@@ -22,7 +22,7 @@ export default function ProfessionalDetailPage() {
       projectProfessional: ProjectProfessional;
     }>
   >([]);
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [, setIsEditMode] = useState(false);
   const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false);
   const [formData, setFormData] = useState({
     project_id: '',
@@ -75,12 +75,6 @@ export default function ProfessionalDetailPage() {
 
   const handleEdit = () => {
     setIsEditMode(true);
-  };
-
-  const handleSave = () => {
-    if (!professional) return;
-    // TODO: Implement save when edit mode is fully implemented
-    setIsEditMode(false);
   };
 
   const handleDeactivate = () => {

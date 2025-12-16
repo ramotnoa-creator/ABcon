@@ -8,7 +8,6 @@ import ProjectDetailPage from './pages/Projects/ProjectDetailPage';
 import ProfessionalsListPage from './pages/Professionals/ProfessionalsListPage';
 import ProfessionalDetailPage from './pages/Professionals/ProfessionalDetailPage';
 import CreateProfessionalPage from './pages/Professionals/CreateProfessionalPage';
-import GlobalBudgetPage from './pages/Budget/GlobalBudgetPage';
 import GlobalFilesPage from './pages/Files/GlobalFilesPage';
 
 function App() {
