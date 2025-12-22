@@ -5,6 +5,7 @@ import { seedTasks } from '../../../data/tasksData';
 import type { Project } from '../../../types';
 import type { Task, TaskStatus, TaskPriority } from '../../../types';
 import { formatDateForDisplay } from '../../../utils/dateUtils';
+import GanttImport from '../../../components/GanttImport/GanttImport';
 
 interface TasksTabProps {
   project: Project;
@@ -34,6 +35,7 @@ const priorityIcons: Record<TaskPriority, string> = {
 export default function TasksTab({ project }: TasksTabProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [projectProfessionals, setProjectProfessionals] = useState<
     Array<{ id: string; name: string }>
@@ -127,13 +129,22 @@ export default function TasksTab({ project }: TasksTabProps) {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h3 className="text-xl font-bold">משימות</h3>
-        <button
-          onClick={() => setIsNewTaskModalOpen(true)}
-          className="flex items-center justify-center h-10 px-4 rounded-lg bg-primary text-white hover:bg-primary-hover transition text-sm font-bold"
-        >
-          <span className="material-symbols-outlined me-2 text-[18px]">add</span>
-          משימה חדשה
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="flex items-center justify-center h-10 px-4 rounded-lg bg-slate-600 text-white hover:bg-slate-700 transition text-sm font-bold"
+          >
+            <span className="material-symbols-outlined me-2 text-[18px]">upload</span>
+            ייבוא גאנט
+          </button>
+          <button
+            onClick={() => setIsNewTaskModalOpen(true)}
+            className="flex items-center justify-center h-10 px-4 rounded-lg bg-primary text-white hover:bg-primary-hover transition text-sm font-bold"
+          >
+            <span className="material-symbols-outlined me-2 text-[18px]">add</span>
+            משימה חדשה
+          </button>
+        </div>
       </div>
 
       {/* Kanban Board - Desktop */}
@@ -467,6 +478,17 @@ export default function TasksTab({ project }: TasksTabProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Gantt Import Modal */}
+      {isImportModalOpen && (
+        <GanttImport
+          project={project}
+          onClose={() => {
+            setIsImportModalOpen(false);
+            loadTasks(); // Reload tasks after import
+          }}
+        />
       )}
     </div>
   );

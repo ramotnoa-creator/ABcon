@@ -1,4 +1,4 @@
-import type { Budget } from '../types';
+import type { Budget, BudgetStatus } from '../types';
 
 const BUDGET_STORAGE_KEY = 'anproyektim:budgets';
 

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import type { Project } from '../../../types';
 import { formatDateForDisplay, formatDateHebrew } from '../../../utils/dateUtils';
 import { getProjectProfessionals } from '../../../data/professionalsStorage';
@@ -13,7 +12,6 @@ interface OverviewTabProps {
 }
 
 export default function OverviewTab({ project, statusColors, onTabChange }: OverviewTabProps) {
-  const navigate = useNavigate();
   const [professionalsCount, setProfessionalsCount] = useState(0);
   const [openTasksCount, setOpenTasksCount] = useState(0);
   const [filesCount, setFilesCount] = useState(0);
@@ -183,6 +181,132 @@ export default function OverviewTab({ project, statusColors, onTabChange }: Over
               arrow_back
             </span>
           </button>
+        </div>
+
+        {/* Milestones Snapshot Card */}
+        <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark p-6">
+          <div className="flex justify-between items-start mb-4">
+            <h3 className="text-xl font-bold">ציוני דרך</h3>
+          </div>
+          {(() => {
+            // Mock milestones data for now
+            const mockMilestones = [
+              {
+                id: '1',
+                name: 'סיום תכנון',
+                planned_date: '2024-03-15',
+                completed_tasks: 8,
+                total_tasks: 10,
+                status: 'בתהליך' as const,
+              },
+              {
+                id: '2',
+                name: 'קבלת היתר בנייה',
+                planned_date: '2024-04-20',
+                completed_tasks: 3,
+                total_tasks: 5,
+                status: 'בתהליך' as const,
+              },
+              {
+                id: '3',
+                name: 'התחלת ביצוע',
+                planned_date: '2024-05-01',
+                completed_tasks: 0,
+                total_tasks: 12,
+                status: 'בתהליך' as const,
+              },
+              {
+                id: '4',
+                name: 'סיום שלב ראשון',
+                planned_date: '2024-06-15',
+                completed_tasks: 0,
+                total_tasks: 8,
+                status: 'בתהליך' as const,
+              },
+              {
+                id: '5',
+                name: 'מסירת הפרויקט',
+                planned_date: '2024-08-30',
+                completed_tasks: 0,
+                total_tasks: 15,
+                status: 'בתהליך' as const,
+              },
+            ];
+
+            // Sort by planned_date ascending
+            const sortedMilestones = [...mockMilestones].sort((a, b) => 
+              new Date(a.planned_date).getTime() - new Date(b.planned_date).getTime()
+            );
+
+            // Get up to 5 upcoming milestones
+            const upcomingMilestones = sortedMilestones.slice(0, 5);
+
+            if (upcomingMilestones.length === 0) {
+              return (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
+                    עדיין לא הוגדרו ציוני דרך לפרויקט זה
+                  </p>
+                  <button
+                    onClick={() => handleStatClick('milestones')}
+                    className="flex items-center gap-2 text-primary hover:text-primary-hover font-medium transition-colors group"
+                  >
+                    <span>לכל ציוני הדרך</span>
+                    <span className="material-symbols-outlined text-[18px] group-hover:translate-x-[-4px] transition-transform">
+                      arrow_back
+                    </span>
+                  </button>
+                </div>
+              );
+            }
+
+            const statusBadgeColors: Record<string, string> = {
+              'בתהליך': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200',
+              'הושג': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200',
+              'באיחור': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200',
+            };
+
+            return (
+              <>
+                <div className="space-y-3 mb-4">
+                  {upcomingMilestones.map((milestone) => (
+                    <div
+                      key={milestone.id}
+                      className="flex items-center justify-between gap-4 p-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark hover:shadow-sm transition-all"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm mb-1 truncate">{milestone.name}</p>
+                        <div className="flex items-center gap-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                          <span className="flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[16px]">calendar_today</span>
+                            {formatDateForDisplay(milestone.planned_date)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                            {milestone.completed_tasks}/{milestone.total_tasks}
+                          </span>
+                        </div>
+                      </div>
+                      <span
+                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap ${statusBadgeColors[milestone.status] || statusBadgeColors['בתהליך']}`}
+                      >
+                        {milestone.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => handleStatClick('milestones')}
+                  className="flex items-center gap-2 text-primary hover:text-primary-hover font-medium transition-colors group w-full justify-center pt-2 border-t border-border-light dark:border-border-dark"
+                >
+                  <span>לכל ציוני הדרך</span>
+                  <span className="material-symbols-outlined text-[18px] group-hover:translate-x-[-4px] transition-transform">
+                    arrow_back
+                  </span>
+                </button>
+              </>
+            );
+          })()}
         </div>
       </div>
 

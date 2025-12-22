@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getProfessionals, saveProfessionals } from '../../data/professionalsStorage';
+import { getProfessionals } from '../../data/professionalsStorage';
 import type { Professional } from '../../types';
 
 export default function ProfessionalsListPage() {
