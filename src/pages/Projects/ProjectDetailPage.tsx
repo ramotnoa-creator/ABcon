@@ -7,14 +7,15 @@ import TasksTab from './tabs/TasksTab';
 import TendersTab from './tabs/TendersTab';
 import FilesTab from './tabs/FilesTab';
 import BudgetTab from './tabs/BudgetTab';
+import MilestonesTab from './tabs/MilestonesTab';
 
 const tabs = [
   { id: 'overview', label: 'סקירה', icon: 'visibility', path: '' },
-  { id: 'professionals', label: 'בעלי מקצוע', icon: 'people', path: '/professionals' },
   { id: 'tasks', label: 'משימות', icon: 'task_alt', path: '/tasks' },
+  { id: 'milestones', label: 'ציוני דרך', icon: 'flag', path: '/milestones' },
   { id: 'tenders', label: 'מכרזים', icon: 'gavel', path: '/tenders' },
+  { id: 'professionals', label: 'בעלי מקצוע', icon: 'people', path: '/professionals' },
   { id: 'files', label: 'קבצים', icon: 'folder', path: '/files' },
-  { id: 'budget', label: 'תקציב', icon: 'payments', path: '/budget' },
 ];
 
 export default function ProjectDetailPage() {
@@ -96,6 +97,8 @@ export default function ProjectDetailPage() {
           return <ProfessionalsTab project={project} />;
         case 'tasks':
           return <TasksTab project={project} />;
+        case 'milestones':
+          return <MilestonesTab project={project} />;
         case 'tenders':
           return <TendersTab project={project} />;
         case 'files':

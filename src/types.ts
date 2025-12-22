@@ -101,9 +101,12 @@ export interface Task {
   priority: TaskPriority;
   assignee_professional_id?: string; // Reference to Professional
   assignee_name?: string; // Display name (can be from professional or free text)
-  due_date?: string; // ISO date string
-  start_date?: string; // ISO date string
+  due_date?: string; // ISO date string (used for planned_end_date)
+  start_date?: string; // ISO date string (used for planned_start_date)
   completed_at?: string; // ISO date string
+  duration_days?: number; // Duration in days
+  percent_complete?: number; // 0-100
+  external_reference_id?: string; // Task ID / WBS from external system
   notes?: string;
   created_at: string; // ISO date string
   updated_at: string; // ISO date string
