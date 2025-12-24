@@ -1,23 +1,22 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Environment variables - will be set in .env.local
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Missing Supabase environment variables. Please check your .env.local file.'
-  );
-}
+// Check if we're in demo/dev mode (no Supabase configured)
+export const isDemoMode = !supabaseUrl || !supabaseAnonKey;
 
-// Create Supabase client (singleton)
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
-  },
-});
+// Create Supabase client (singleton) - only if credentials are available
+export const supabase: SupabaseClient | null = isDemoMode
+  ? null
+  : createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+      },
+    });
 
 // Database types (will match our Supabase schema)
 export interface Database {

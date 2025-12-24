@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, isDemoMode } from '../lib/supabase';
 import type { User, LoginCredentials, RegisterData } from '../types/auth';
 import type { Session as SupabaseSession } from '@supabase/supabase-js';
 
@@ -29,21 +29,38 @@ interface AuthContextType {
   hasRole: (roles: string[]) => boolean;
   error: AuthError | null;
   clearError: () => void;
+  isDemoMode: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Demo user for when Supabase is not configured
+const DEMO_USER: User = {
+  id: 'demo-user',
+  email: 'demo@example.com',
+  full_name: 'משתמש דמו',
+  phone: undefined,
+  role: 'admin',
+  is_active: true,
+  last_login: new Date().toISOString(),
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  assignedProjects: ['1', '2', '3'],
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({
-    user: null,
+    user: isDemoMode ? DEMO_USER : null,
     session: null,
-    isAuthenticated: false,
-    isLoading: true,
+    isAuthenticated: isDemoMode,
+    isLoading: !isDemoMode,
   });
   const [error, setError] = useState<AuthError | null>(null);
 
   // Fetch user profile from user_profiles table
   const fetchUserProfile = async (userId: string): Promise<User | null> => {
+    if (!supabase) return null;
+
     try {
       const { data, error } = await supabase
         .from('user_profiles')
@@ -79,6 +96,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Update last login timestamp
   const updateLastLogin = async (userId: string) => {
+    if (!supabase) return;
+
     await supabase
       .from('user_profiles')
       .update({ last_login: new Date().toISOString() })
@@ -87,7 +106,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize auth state on mount
   useEffect(() => {
+    // In demo mode, we're already authenticated with demo user
+    if (isDemoMode) {
+      return;
+    }
+
+    if (!supabase) {
+      setAuthState({
+        user: null,
+        session: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
+      return;
+    }
+
     const initializeAuth = async () => {
+      if (!supabase) return;
+
       try {
         // Get current session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -183,6 +219,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Login with email and password
   const login = async (credentials: LoginCredentials) => {
+    // In demo mode, just set the demo user
+    if (isDemoMode) {
+      setAuthState({
+        user: DEMO_USER,
+        session: null,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+      return;
+    }
+
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
+
     try {
       setError(null);
       setAuthState((prev: AuthState) => ({ ...prev, isLoading: true }));
@@ -235,6 +286,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Logout
   const logout = async () => {
+    // In demo mode, just clear the state
+    if (isDemoMode) {
+      setAuthState({
+        user: DEMO_USER,
+        session: null,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+      return;
+    }
+
+    if (!supabase) {
+      return;
+    }
+
     try {
       setError(null);
       const { error: signOutError } = await supabase.auth.signOut();
@@ -261,6 +327,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Register new user (only admins can do this in production)
   const register = async (data: RegisterData) => {
+    if (isDemoMode || !supabase) {
+      throw new Error('Registration not available in demo mode');
+    }
+
     try {
       setError(null);
       setAuthState((prev: AuthState) => ({ ...prev, isLoading: true }));
@@ -316,6 +386,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Send password reset email
   const resetPassword = async (email: string) => {
+    if (isDemoMode || !supabase) {
+      throw new Error('Password reset not available in demo mode');
+    }
+
     try {
       setError(null);
 
@@ -338,6 +412,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Update password (after reset)
   const updatePassword = async (newPassword: string) => {
+    if (isDemoMode || !supabase) {
+      throw new Error('Password update not available in demo mode');
+    }
+
     try {
       setError(null);
 
@@ -381,6 +459,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     hasRole,
     error,
     clearError,
+    isDemoMode,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
