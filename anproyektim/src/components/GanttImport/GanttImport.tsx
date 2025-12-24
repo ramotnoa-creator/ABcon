@@ -569,13 +569,14 @@ export default function GanttImport({ project, onClose }: GanttImportProps) {
                     </thead>
                     <tbody>
                       {mappings.map((mapping, idx) => {
-                        const isRequired = mapping.mappedTo === 'task_name' || 
-                                          mapping.mappedTo === 'planned_start_date' || 
+                        const isRequired = mapping.mappedTo === 'task_name' ||
+                                          mapping.mappedTo === 'planned_start_date' ||
                                           mapping.mappedTo === 'planned_end_date';
-                        const isMappedToRequired = mappings.some(m => 
+                        // isMappedToRequired is used for styling purposes
+                        void (mappings.some(m =>
                           (m.mappedTo === 'task_name' || m.mappedTo === 'planned_start_date' || m.mappedTo === 'planned_end_date') &&
                           m.columnIndex !== mapping.columnIndex
-                        );
+                        ));
                         
                         return (
                           <tr

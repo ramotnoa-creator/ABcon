@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getBudgetCategories, getAllBudgetCategories, saveBudgetCategories } from '../../../data/budgetCategoriesStorage';
-import { getBudgetChapters, getAllBudgetChapters, saveBudgetChapters, getBudgetChaptersByCategory } from '../../../data/budgetChaptersStorage';
-import { getBudgetItems, getAllBudgetItems, saveBudgetItems, getBudgetItemsByChapter, getProjectBudgetSummary } from '../../../data/budgetItemsStorage';
-import { getAllBudgetPayments, saveBudgetPayments, getBudgetPaymentsByItem } from '../../../data/budgetPaymentsStorage';
+import { getBudgetChapters, getAllBudgetChapters, saveBudgetChapters } from '../../../data/budgetChaptersStorage';
+import { getBudgetItems, getAllBudgetItems, saveBudgetItems } from '../../../data/budgetItemsStorage';
+import { getAllBudgetPayments, saveBudgetPayments } from '../../../data/budgetPaymentsStorage';
 import { seedBudgetCategories, seedBudgetChapters, seedBudgetItems, seedBudgetPayments } from '../../../data/budgetData';
 import type { Project, BudgetCategory, BudgetChapter, BudgetItem, BudgetPayment, BudgetItemStatus } from '../../../types';
 
@@ -65,9 +65,7 @@ const getCategoryColor = (type: string): { bg: string; text: string; border: str
 // ============================================================
 // SUMMARY CARDS
 // ============================================================
-const SummaryCards = ({ projectId, categories, chapters, items }: {
-  projectId: string;
-  categories: BudgetCategory[];
+const SummaryCards = ({ chapters, items }: {
   chapters: BudgetChapter[];
   items: BudgetItem[];
 }) => {
@@ -150,12 +148,10 @@ const SummaryCards = ({ projectId, categories, chapters, items }: {
 // TREE VIEW
 // ============================================================
 const TreeView = ({
-  projectId,
   categories,
   chapters,
   items
 }: {
-  projectId: string;
   categories: BudgetCategory[];
   chapters: BudgetChapter[];
   items: BudgetItem[];
@@ -654,11 +650,11 @@ export default function BudgetTab({ project }: BudgetTabProps) {
       </div>
 
       {/* Summary Cards */}
-      <SummaryCards projectId={project.id} categories={categories} chapters={chapters} items={items} />
+      <SummaryCards chapters={chapters} items={items} />
 
       {/* Views */}
       {view === 'tree' && (
-        <TreeView projectId={project.id} categories={categories} chapters={chapters} items={items} />
+        <TreeView categories={categories} chapters={chapters} items={items} />
       )}
       {view === 'table' && (
         <TableView items={items} chapters={chapters} />

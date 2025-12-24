@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   getTenders,
@@ -15,7 +15,6 @@ import {
   removeTenderParticipant,
   setTenderWinner,
   clearTenderWinner,
-  getParticipantByProfessional,
 } from '../../../data/tenderParticipantsStorage';
 import { getProfessionals } from '../../../data/professionalsStorage';
 import { addProjectProfessional } from '../../../data/professionalsStorage';

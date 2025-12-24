@@ -403,7 +403,7 @@ export function canViewSpecialIssues(user: User | null): boolean {
   return PERMISSIONS[user.role].viewSpecialIssues;
 }
 
-export function canEditSpecialIssue(user: User | null, projectId: string, issueCreatedBy?: string): boolean {
+export function canEditSpecialIssue(user: User | null, projectId: string, _issueCreatedBy?: string): boolean {
   if (!user) return false;
   if (!PERMISSIONS[user.role].editSpecialIssues) return false;
 
