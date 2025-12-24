@@ -1,5 +1,7 @@
 {
-  "buildCommand": "cd anproyektim && npm install && npm run build",
+  "framework": "vite",
+  "installCommand": "cd anproyektim && npm install",
+  "buildCommand": "cd anproyektim && npm run build",
   "outputDirectory": "anproyektim/dist",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
