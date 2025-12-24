@@ -1,6 +1,6 @@
 import type { Project } from '../types';
 
-const STORAGE_KEY = 'anproyektim:projects';
+const STORAGE_KEY = 'anprojects:projects';
 
 export function getProjects(): Project[] {
   try {

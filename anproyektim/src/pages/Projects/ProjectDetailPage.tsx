@@ -1,18 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getProjectById } from '../../data/storage';
+import { getOpenIssuesCount } from '../../data/specialIssuesStorage';
 import OverviewTab from './tabs/OverviewTab';
 import ProfessionalsTab from './tabs/ProfessionalsTab';
-import TasksTab from './tabs/TasksTab';
 import TendersTab from './tabs/TendersTab';
 import FilesTab from './tabs/FilesTab';
 import BudgetTab from './tabs/BudgetTab';
-import MilestonesTab from './tabs/MilestonesTab';
+import TasksMilestonesTab from './tabs/TasksMilestonesTab';
+import PlanningChangesTab from './tabs/PlanningChangesTab';
+import SpecialIssuesTab from './tabs/SpecialIssuesTab';
 
 const tabs = [
   { id: 'overview', label: 'סקירה', icon: 'visibility', path: '' },
-  { id: 'tasks', label: 'משימות', icon: 'task_alt', path: '/tasks' },
-  { id: 'milestones', label: 'ציוני דרך', icon: 'flag', path: '/milestones' },
+  { id: 'tasks-milestones', label: 'משימות וציוני דרך', icon: 'flag', path: '/tasks' },
+  { id: 'budget', label: 'תקציב', icon: 'payments', path: '/budget' },
+  { id: 'planning-changes', label: 'שינויים בתכנון', icon: 'change_circle', path: '/planning-changes' },
+  { id: 'special-issues', label: 'בעיות מיוחדות', icon: 'error', path: '/special-issues' },
   { id: 'tenders', label: 'מכרזים', icon: 'gavel', path: '/tenders' },
   { id: 'professionals', label: 'בעלי מקצוע', icon: 'people', path: '/professionals' },
   { id: 'files', label: 'קבצים', icon: 'folder', path: '/files' },
@@ -25,6 +29,7 @@ export default function ProjectDetailPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [tabTransition, setTabTransition] = useState(false);
   const [isHeaderVisible, setIsHeaderVisible] = useState(false);
+  const [openIssuesCount, setOpenIssuesCount] = useState(0);
   const indicatorRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -33,6 +38,7 @@ export default function ProjectDetailPage() {
       const foundProject = getProjectById(id);
       if (foundProject) {
         setProject(foundProject);
+        setOpenIssuesCount(getOpenIssuesCount(id));
       } else {
         navigate('/projects');
       }
@@ -40,6 +46,13 @@ export default function ProjectDetailPage() {
     // Animate header on mount
     setTimeout(() => setIsHeaderVisible(true), 50);
   }, [id, navigate]);
+
+  // Refresh open issues count when switching tabs
+  useEffect(() => {
+    if (id && activeTab === 'special-issues') {
+      setOpenIssuesCount(getOpenIssuesCount(id));
+    }
+  }, [id, activeTab]);
 
   // Update tab indicator position
   useEffect(() => {
@@ -76,7 +89,7 @@ export default function ProjectDetailPage() {
   };
 
   const handleNewTask = () => {
-    handleTabChange('tasks');
+    handleTabChange('tasks-milestones');
   };
 
   const statusColors: Record<string, string> = {
@@ -95,10 +108,12 @@ export default function ProjectDetailPage() {
           return <OverviewTab project={project} statusColors={statusColors} onTabChange={handleTabChange} />;
         case 'professionals':
           return <ProfessionalsTab project={project} />;
-        case 'tasks':
-          return <TasksTab project={project} />;
-        case 'milestones':
-          return <MilestonesTab project={project} />;
+        case 'tasks-milestones':
+          return <TasksMilestonesTab project={project} />;
+        case 'planning-changes':
+          return <PlanningChangesTab project={project} />;
+        case 'special-issues':
+          return <SpecialIssuesTab project={project} />;
         case 'tenders':
           return <TendersTab project={project} />;
         case 'files':
@@ -187,6 +202,11 @@ export default function ProjectDetailPage() {
               <p className="text-sm font-bold tracking-[0.015em] relative z-10">
                 {tab.label}
               </p>
+              {tab.id === 'special-issues' && openIssuesCount > 0 && (
+                <span className="relative z-10 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-red-500 text-white">
+                  {openIssuesCount}
+                </span>
+              )}
             </button>
           ))}
           {/* Animated indicator */}

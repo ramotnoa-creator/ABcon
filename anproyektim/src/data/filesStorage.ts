@@ -1,6 +1,6 @@
 import type { File } from '../types';
 
-const FILES_STORAGE_KEY = 'anproyektim:files';
+const FILES_STORAGE_KEY = 'anprojects:files';
 
 export function getFiles(projectId?: string): File[] {
   try {

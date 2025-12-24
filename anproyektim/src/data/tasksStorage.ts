@@ -1,6 +1,6 @@
 import type { Task } from '../types';
 
-const TASKS_STORAGE_KEY = 'anproyektim:tasks';
+const TASKS_STORAGE_KEY = 'anprojects:tasks';
 
 export function getTasks(projectId: string): Task[] {
   try {
