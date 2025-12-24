@@ -1,3 +1,5 @@
 {
+  "buildCommand": "cd anproyektim && npm install && npm run build",
+  "outputDirectory": "anproyektim/dist",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
