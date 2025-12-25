@@ -158,8 +158,9 @@ export default function PlanningChangesTab({ project }: PlanningChangesTabProps)
           <button
             onClick={() => handleOpenModal()}
             className="flex items-center justify-center h-10 px-5 rounded-lg bg-primary text-white hover:bg-primary-hover transition text-sm font-bold tracking-[0.015em] shadow-sm"
+            aria-label="הוסף שינוי תכנון חדש"
           >
-            <span className="material-symbols-outlined me-2 text-[20px]">add</span>
+            <span className="material-symbols-outlined me-2 text-[20px]" aria-hidden="true">add</span>
             הוסף שינוי
           </button>
         )}
@@ -242,8 +243,9 @@ export default function PlanningChangesTab({ project }: PlanningChangesTabProps)
                               onClick={() => handleOpenModal(change)}
                               className="p-1.5 rounded-lg text-text-secondary-light hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                               title="עריכה"
+                              aria-label={`ערוך שינוי מספר ${change.change_number}`}
                             >
-                              <span className="material-symbols-outlined text-[20px]">edit</span>
+                              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">edit</span>
                             </button>
                           )}
                           {canDelete && (
@@ -251,8 +253,9 @@ export default function PlanningChangesTab({ project }: PlanningChangesTabProps)
                               onClick={() => handleDelete(change.id)}
                               className="p-1.5 rounded-lg text-text-secondary-light hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                               title="מחיקה"
+                              aria-label={`מחק שינוי מספר ${change.change_number}`}
                             >
-                              <span className="material-symbols-outlined text-[20px]">delete</span>
+                              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">delete</span>
                             </button>
                           )}
                         </div>

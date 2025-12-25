@@ -204,12 +204,14 @@ const TreeView = ({
         return (
           <div key={category.id} className="bg-white dark:bg-surface-dark rounded-xl border border-gray-200 dark:border-border-dark overflow-hidden">
             {/* Category Header */}
-            <div
-              className={`flex items-center gap-3 p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-background-dark ${colors.bg}`}
+            <button
+              className={`flex items-center gap-3 p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-background-dark ${colors.bg} w-full text-right`}
               onClick={() => toggleCategory(category.id)}
+              aria-expanded={isExpanded}
+              aria-label={`קטגוריה ${category.name}, ${isExpanded ? 'פתוח' : 'סגור'}`}
             >
               <div className={`w-10 h-10 rounded-xl bg-white dark:bg-surface-dark ${colors.border} border-2 flex items-center justify-center shadow-sm`}>
-                <span className={`material-symbols-outlined ${colors.text} text-[20px]`}>{category.icon}</span>
+                <span className={`material-symbols-outlined ${colors.text} text-[20px]`} aria-hidden="true">{category.icon}</span>
               </div>
               <div className="flex-1">
                 <h3 className="font-bold text-gray-800 dark:text-white">{category.name}</h3>
@@ -231,10 +233,10 @@ const TreeView = ({
                   <div className="font-bold text-green-600">{formatCompactCurrency(totals.paid)}</div>
                 </div>
               </div>
-              <span className={`material-symbols-outlined text-gray-400 transition-transform ${isExpanded ? '' : '-rotate-90'}`}>
+              <span className={`material-symbols-outlined text-gray-400 transition-transform ${isExpanded ? '' : '-rotate-90'}`} aria-hidden="true">
                 expand_more
               </span>
-            </div>
+            </button>
 
             {/* Chapters */}
             {isExpanded && (
@@ -247,11 +249,13 @@ const TreeView = ({
                   return (
                     <div key={chapter.id}>
                       {/* Chapter Header */}
-                      <div
-                        className="flex items-center gap-3 p-3 pr-8 cursor-pointer hover:bg-gray-50 dark:hover:bg-background-dark border-b border-gray-100 dark:border-border-dark"
+                      <button
+                        className="flex items-center gap-3 p-3 pr-8 cursor-pointer hover:bg-gray-50 dark:hover:bg-background-dark border-b border-gray-100 dark:border-border-dark w-full text-right"
                         onClick={() => toggleChapter(chapter.id)}
+                        aria-expanded={isChapterExpanded}
+                        aria-label={`פרק ${chapter.name}, ${isChapterExpanded ? 'פתוח' : 'סגור'}`}
                       >
-                        <span className={`material-symbols-outlined text-gray-400 transition-transform text-[18px] ${isChapterExpanded ? '' : '-rotate-90'}`}>
+                        <span className={`material-symbols-outlined text-gray-400 transition-transform text-[18px] ${isChapterExpanded ? '' : '-rotate-90'}`} aria-hidden="true">
                           expand_more
                         </span>
                         <span className="text-sm font-mono text-gray-400">{chapter.code}</span>
@@ -270,7 +274,7 @@ const TreeView = ({
                           </div>
                         </div>
                         <span className="text-xs text-gray-400 w-8">{chapterTotals.count}</span>
-                      </div>
+                      </button>
 
                       {/* Items */}
                       {isChapterExpanded && chapterItems.length > 0 && (
@@ -602,8 +606,8 @@ export default function BudgetTab({ project }: BudgetTabProps) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="size-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="flex items-center justify-center py-12" role="status" aria-label="טוען נתוני תקציב">
+        <div className="size-5 border-2 border-primary border-t-transparent rounded-full animate-spin" aria-hidden="true" />
         <span className="mr-3 text-gray-500">טוען...</span>
       </div>
     );
@@ -618,8 +622,11 @@ export default function BudgetTab({ project }: BudgetTabProps) {
             <h3 className="text-xl font-bold text-gray-800 dark:text-white">ניהול תקציב</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">{project.project_name}</p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover text-sm shadow-sm">
-            <span className="material-symbols-outlined text-[18px]">add</span>
+          <button
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover text-sm shadow-sm"
+            aria-label="הוסף פריט תקציב חדש"
+          >
+            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">add</span>
             הוסף פריט
           </button>
         </div>
@@ -640,8 +647,10 @@ export default function BudgetTab({ project }: BudgetTabProps) {
                     : 'text-gray-500 dark:text-gray-400'
                 }`}
                 onClick={() => setView(v.id)}
+                aria-pressed={view === v.id}
+                aria-label={`תצוגת ${v.label}`}
               >
-                <span className="material-symbols-outlined text-[16px]">{v.icon}</span>
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">{v.icon}</span>
                 {v.label}
               </button>
             ))}

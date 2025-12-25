@@ -336,8 +336,9 @@ export default function TendersTab({ project }: TendersTabProps) {
         <button
           onClick={() => setIsAddTenderModalOpen(true)}
           className="flex items-center justify-center h-10 px-5 rounded-lg bg-primary text-white hover:bg-primary-hover transition text-sm font-bold tracking-[0.015em] shadow-sm"
+          aria-label="הוסף מכרז חדש"
         >
-          <span className="material-symbols-outlined me-2 text-[20px]">add</span>
+          <span className="material-symbols-outlined me-2 text-[20px]" aria-hidden="true">add</span>
           הוסף מכרז
         </button>
       </div>
@@ -398,16 +399,18 @@ export default function TendersTab({ project }: TendersTabProps) {
                         }}
                         className="p-2 rounded-lg hover:bg-background-light dark:hover:bg-background-dark text-text-secondary-light hover:text-primary transition-colors"
                         title="הוסף משתתפים"
+                        aria-label={`הוסף משתתפים למכרז ${tender.tender_name}`}
                       >
-                        <span className="material-symbols-outlined text-[20px]">person_add</span>
+                        <span className="material-symbols-outlined text-[20px]" aria-hidden="true">person_add</span>
                       </button>
                     )}
                     <button
                       onClick={() => handleDeleteTender(tender)}
                       className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-text-secondary-light hover:text-red-600 transition-colors"
                       title="מחק מכרז"
+                      aria-label={`מחק מכרז ${tender.tender_name}`}
                     >
-                      <span className="material-symbols-outlined text-[20px]">delete</span>
+                      <span className="material-symbols-outlined text-[20px]" aria-hidden="true">delete</span>
                     </button>
                   </div>
                 </div>

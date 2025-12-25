@@ -1,4 +1,5 @@
 import type { ProjectMilestone } from '../types';
+import { deleteGanttTasksByMilestone } from './ganttTasksStorage';
 
 const MILESTONES_STORAGE_KEY = 'anprojects:milestones';
 
@@ -75,6 +76,9 @@ export function updateMilestone(id: string, updates: Partial<ProjectMilestone>):
 }
 
 export function deleteMilestone(id: string): void {
+  // Cascade delete: remove associated gantt tasks first
+  deleteGanttTasksByMilestone(id);
+
   const all = getAllMilestones();
   const filtered = all.filter((milestone) => milestone.id !== id);
   saveMilestones(filtered);

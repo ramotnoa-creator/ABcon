@@ -188,6 +188,7 @@ export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
             className="h-10 px-3 rounded-lg bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as SpecialIssueStatus | 'all')}
+            aria-label="סינון לפי סטטוס"
           >
             <option value="all">כל הסטטוסים</option>
             <option value="open">פתוח</option>
@@ -198,8 +199,9 @@ export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
             <button
               onClick={() => handleOpenModal()}
               className="flex items-center justify-center h-10 px-5 rounded-lg bg-primary text-white hover:bg-primary-hover transition text-sm font-bold tracking-[0.015em] shadow-sm"
+              aria-label="הוסף בעיה מיוחדת חדשה"
             >
-              <span className="material-symbols-outlined me-2 text-[20px]">add</span>
+              <span className="material-symbols-outlined me-2 text-[20px]" aria-hidden="true">add</span>
               הוסף בעיה
             </button>
           )}
@@ -275,8 +277,9 @@ export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
                               onClick={() => handleOpenModal(issue)}
                               className="p-1.5 rounded-lg text-text-secondary-light hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                               title="עריכה"
+                              aria-label="ערוך בעיה"
                             >
-                              <span className="material-symbols-outlined text-[20px]">edit</span>
+                              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">edit</span>
                             </button>
                           )}
                           {canDelete && (
@@ -284,8 +287,9 @@ export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
                               onClick={() => handleDelete(issue.id)}
                               className="p-1.5 rounded-lg text-text-secondary-light hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                               title="מחיקה"
+                              aria-label="מחק בעיה"
                             >
-                              <span className="material-symbols-outlined text-[20px]">delete</span>
+                              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">delete</span>
                             </button>
                           )}
                         </div>
@@ -338,8 +342,9 @@ export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
                         onClick={() => handleOpenModal(issue)}
                         className="flex items-center justify-center size-8 rounded-full bg-background-light dark:bg-surface-dark border border-border-light text-primary hover:bg-primary hover:text-white transition-colors"
                         title="עריכה"
+                        aria-label="ערוך בעיה"
                       >
-                        <span className="material-symbols-outlined text-[16px]">edit</span>
+                        <span className="material-symbols-outlined text-[16px]" aria-hidden="true">edit</span>
                       </button>
                     )}
                     {canDelete && (
@@ -347,8 +352,9 @@ export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
                         onClick={() => handleDelete(issue.id)}
                         className="flex items-center justify-center size-8 rounded-full bg-background-light dark:bg-surface-dark border border-border-light text-red-600 hover:bg-red-600 hover:text-white transition-colors"
                         title="מחיקה"
+                        aria-label="מחק בעיה"
                       >
-                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                        <span className="material-symbols-outlined text-[16px]" aria-hidden="true">delete</span>
                       </button>
                     )}
                   </div>

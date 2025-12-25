@@ -1,4 +1,5 @@
 import type { BudgetItem } from '../types';
+import { deletePaymentsByBudgetItem } from './budgetPaymentsStorage';
 
 const BUDGET_ITEMS_STORAGE_KEY = 'anprojects:budget_items';
 
@@ -75,6 +76,9 @@ export function updateBudgetItem(id: string, updates: Partial<BudgetItem>): void
 }
 
 export function deleteBudgetItem(id: string): void {
+  // Cascade delete: remove associated payments first
+  deletePaymentsByBudgetItem(id);
+
   const all = getAllBudgetItems();
   const filtered = all.filter((item) => item.id !== id);
   saveBudgetItems(filtered);

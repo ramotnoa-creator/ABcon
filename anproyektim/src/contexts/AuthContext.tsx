@@ -1,14 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase, isDemoMode } from '../lib/supabase';
-import type { User, LoginCredentials, RegisterData } from '../types/auth';
+import type { User, LoginCredentials, RegisterData, AuthError } from '../types/auth';
 import type { Session as SupabaseSession } from '@supabase/supabase-js';
 
-// Define AuthError and AuthState inline to avoid module import issues
-interface AuthError {
-  message: string;
-  code?: string;
-}
-
+// AuthState uses Supabase's Session type for compatibility
 interface AuthState {
   user: User | null;
   session: SupabaseSession | null;
@@ -84,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         last_login: data.last_login,
         created_at: data.created_at,
         updated_at: data.updated_at,
-        assignedProjects: data.project_assignments?.map((pa: any) => pa.project_id) || [],
+        assignedProjects: data.project_assignments?.map((pa: { project_id: string }) => pa.project_id) || [],
       };
 
       return user;
@@ -273,11 +268,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: true,
         isLoading: false,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Login error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'שגיאה בהתחברות';
+      const errorCode = (err as { code?: string })?.code;
       setError({
-        message: err.message || 'שגיאה בהתחברות',
-        code: err.code,
+        message: errorMessage,
+        code: errorCode,
       });
       setAuthState((prev: AuthState) => ({ ...prev, isLoading: false }));
       throw err;
@@ -315,11 +312,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: false,
         isLoading: false,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Logout error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'שגיאה בהתנתקות';
+      const errorCode = (err as { code?: string })?.code;
       setError({
-        message: err.message || 'שגיאה בהתנתקות',
-        code: err.code,
+        message: errorMessage,
+        code: errorCode,
       });
       throw err;
     }
@@ -373,11 +372,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setAuthState((prev: AuthState) => ({ ...prev, isLoading: false }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Registration error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'שגיאה ברישום';
+      const errorCode = (err as { code?: string })?.code;
       setError({
-        message: err.message || 'שגיאה ברישום',
-        code: err.code,
+        message: errorMessage,
+        code: errorCode,
       });
       setAuthState((prev: AuthState) => ({ ...prev, isLoading: false }));
       throw err;
@@ -400,11 +401,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (resetError) {
         throw resetError;
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Password reset error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'שגיאה בשליחת אימייל לאיפוס סיסמה';
+      const errorCode = (err as { code?: string })?.code;
       setError({
-        message: err.message || 'שגיאה בשליחת אימייל לאיפוס סיסמה',
-        code: err.code,
+        message: errorMessage,
+        code: errorCode,
       });
       throw err;
     }
@@ -426,11 +429,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (updateError) {
         throw updateError;
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Password update error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'שגיאה בעדכון סיסמה';
+      const errorCode = (err as { code?: string })?.code;
       setError({
-        message: err.message || 'שגיאה בעדכון סיסמה',
-        code: err.code,
+        message: errorMessage,
+        code: errorCode,
       });
       throw err;
     }
