@@ -126,23 +126,21 @@ export default function GlobalBudgetPage() {
     loadData();
   }, []);
 
-  const loadData = () => {
-    let loadedBudgets = getAllBudgets();
+ function loadData() {
+  let loadedBudgets = getAllBudgets();
 
-    // Seed if empty
-    if (loadedBudgets.length === 0) {
-      loadedBudgets = seedBudgets;
-      saveBudgets(loadedBudgets);
-    }
+  // Seed if empty
+  if (loadedBudgets.length === 0) {
+    loadedBudgets = seedBudgets;
+    saveBudgets(loadedBudgets);
+  }
 
-    setBudgets(loadedBudgets);
-    setProjects(getProjects());
-  };
+  setBudgets(loadedBudgets);
+  setProjects(getProjects());
+}
 
-  // Get global summary from budget items
-  const globalSummary = useMemo(() => {
-    return getGlobalBudgetSummary();
-  }, [budgets]);
+
+ 
 
   const projectsWithBudget = useMemo(() => {
     return projects
