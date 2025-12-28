@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Project, ProjectStatus } from '../../types';
 import { addProject } from '../../data/storage';
@@ -24,21 +24,18 @@ export default function CreateProjectPage() {
     notes: '',
   });
 
-  const [targetDate, setTargetDate] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [createdAt] = useState(new Date().toISOString());
 
   // Calculate target date when start date or duration changes
-  useEffect(() => {
+  const targetDate = useMemo(() => {
     if (formData.permit_start_date && formData.permit_duration_months) {
-      const calculated = calculateTargetDate(
+      return calculateTargetDate(
         formData.permit_start_date,
         formData.permit_duration_months
       );
-      setTargetDate(calculated);
-    } else {
-      setTargetDate(null);
     }
+    return null;
   }, [formData.permit_start_date, formData.permit_duration_months]);
 
   const handleChange = (

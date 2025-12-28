@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { getBudgetCategories, getAllBudgetCategories, saveBudgetCategories } from '../../../data/budgetCategoriesStorage';
 import { getBudgetChapters, getAllBudgetChapters, saveBudgetChapters } from '../../../data/budgetChaptersStorage';
 import { getBudgetItems, getAllBudgetItems, saveBudgetItems } from '../../../data/budgetItemsStorage';
@@ -161,13 +161,21 @@ const TreeView = ({
 
   const toggleCategory = (id: string) => {
     const newSet = new Set(expandedCategories);
-    newSet.has(id) ? newSet.delete(id) : newSet.add(id);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
     setExpandedCategories(newSet);
   };
 
   const toggleChapter = (id: string) => {
     const newSet = new Set(expandedChapters);
-    newSet.has(id) ? newSet.delete(id) : newSet.add(id);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
     setExpandedChapters(newSet);
   };
 
@@ -529,89 +537,83 @@ const CashFlowView = ({ payments, items }: { payments: BudgetPayment[]; items: B
 };
 
 // ============================================================
+// DATA INITIALIZATION HELPERS
+// ============================================================
+interface BudgetData {
+  categories: BudgetCategory[];
+  chapters: BudgetChapter[];
+  items: BudgetItem[];
+  payments: BudgetPayment[];
+}
+
+const loadInitialBudgetData = (projectId: string): BudgetData => {
+  // Load categories
+  let loadedCategories = getBudgetCategories(projectId);
+  if (loadedCategories.length === 0) {
+    const seedCats = seedBudgetCategories.filter(c => c.project_id === projectId);
+    if (seedCats.length > 0) {
+      const allCats = getAllBudgetCategories();
+      allCats.push(...seedCats);
+      saveBudgetCategories(allCats);
+      loadedCategories = seedCats;
+    }
+  }
+
+  // Load chapters
+  let loadedChapters = getBudgetChapters(projectId);
+  if (loadedChapters.length === 0) {
+    const seedChaps = seedBudgetChapters.filter(c => c.project_id === projectId);
+    if (seedChaps.length > 0) {
+      const allChaps = getAllBudgetChapters();
+      allChaps.push(...seedChaps);
+      saveBudgetChapters(allChaps);
+      loadedChapters = seedChaps;
+    }
+  }
+
+  // Load items
+  let loadedItems = getBudgetItems(projectId);
+  if (loadedItems.length === 0) {
+    const seedItms = seedBudgetItems.filter(i => i.project_id === projectId);
+    if (seedItms.length > 0) {
+      const allItms = getAllBudgetItems();
+      allItms.push(...seedItms);
+      saveBudgetItems(allItms);
+      loadedItems = seedItms;
+    }
+  }
+
+  // Load payments
+  let loadedPayments = getAllBudgetPayments();
+  const itemIds = loadedItems.map(i => i.id);
+  loadedPayments = loadedPayments.filter(p => itemIds.includes(p.budget_item_id));
+
+  if (loadedPayments.length === 0) {
+    const seedPays = seedBudgetPayments.filter(p => itemIds.includes(p.budget_item_id));
+    if (seedPays.length > 0) {
+      const allPays = getAllBudgetPayments();
+      allPays.push(...seedPays);
+      saveBudgetPayments(allPays);
+      loadedPayments = seedPays;
+    }
+  }
+
+  return {
+    categories: loadedCategories,
+    chapters: loadedChapters,
+    items: loadedItems,
+    payments: loadedPayments,
+  };
+};
+
+// ============================================================
 // MAIN COMPONENT
 // ============================================================
 export default function BudgetTab({ project }: BudgetTabProps) {
   const [view, setView] = useState<ViewMode>('tree');
-  const [categories, setCategories] = useState<BudgetCategory[]>([]);
-  const [chapters, setChapters] = useState<BudgetChapter[]>([]);
-  const [items, setItems] = useState<BudgetItem[]>([]);
-  const [payments, setPayments] = useState<BudgetPayment[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [budgetData] = useState<BudgetData>(() => loadInitialBudgetData(project.id));
 
-  useEffect(() => {
-    initializeData();
-  }, [project.id]);
-
-  const initializeData = () => {
-    setIsLoading(true);
-
-    // Load categories
-    let loadedCategories = getBudgetCategories(project.id);
-    if (loadedCategories.length === 0) {
-      const seedCats = seedBudgetCategories.filter(c => c.project_id === project.id);
-      if (seedCats.length > 0) {
-        const allCats = getAllBudgetCategories();
-        allCats.push(...seedCats);
-        saveBudgetCategories(allCats);
-        loadedCategories = seedCats;
-      }
-    }
-    setCategories(loadedCategories);
-
-    // Load chapters
-    let loadedChapters = getBudgetChapters(project.id);
-    if (loadedChapters.length === 0) {
-      const seedChaps = seedBudgetChapters.filter(c => c.project_id === project.id);
-      if (seedChaps.length > 0) {
-        const allChaps = getAllBudgetChapters();
-        allChaps.push(...seedChaps);
-        saveBudgetChapters(allChaps);
-        loadedChapters = seedChaps;
-      }
-    }
-    setChapters(loadedChapters);
-
-    // Load items
-    let loadedItems = getBudgetItems(project.id);
-    if (loadedItems.length === 0) {
-      const seedItms = seedBudgetItems.filter(i => i.project_id === project.id);
-      if (seedItms.length > 0) {
-        const allItms = getAllBudgetItems();
-        allItms.push(...seedItms);
-        saveBudgetItems(allItms);
-        loadedItems = seedItms;
-      }
-    }
-    setItems(loadedItems);
-
-    // Load payments
-    let loadedPayments = getAllBudgetPayments();
-    const itemIds = loadedItems.map(i => i.id);
-    loadedPayments = loadedPayments.filter(p => itemIds.includes(p.budget_item_id));
-
-    if (loadedPayments.length === 0) {
-      const seedPays = seedBudgetPayments.filter(p => itemIds.includes(p.budget_item_id));
-      if (seedPays.length > 0) {
-        const allPays = getAllBudgetPayments();
-        allPays.push(...seedPays);
-        saveBudgetPayments(allPays);
-        loadedPayments = seedPays;
-      }
-    }
-    setPayments(loadedPayments);
-
-    setIsLoading(false);
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12" role="status" aria-label="טוען נתוני תקציב">
-        <div className="size-5 border-2 border-primary border-t-transparent rounded-full animate-spin" aria-hidden="true" />
-        <span className="mr-3 text-gray-500">טוען...</span>
-      </div>
-    );
-  }
+  const { categories, chapters, items, payments } = budgetData;
 
   return (
     <div className="space-y-6">

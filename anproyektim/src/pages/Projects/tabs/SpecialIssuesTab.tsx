@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   getSpecialIssues,
   getAllSpecialIssues,
@@ -57,9 +57,26 @@ const getTodayISO = (): string => {
   return new Date().toISOString().split('T')[0];
 };
 
+const loadInitialIssues = (projectId: string): SpecialIssue[] => {
+  let loaded = getSpecialIssues(projectId);
+
+  // Seed if empty
+  if (loaded.length === 0) {
+    const projectIssues = seedSpecialIssues.filter((si) => si.project_id === projectId);
+    if (projectIssues.length > 0) {
+      const all = getAllSpecialIssues();
+      projectIssues.forEach((issue) => all.push(issue));
+      saveSpecialIssues(all);
+      loaded = projectIssues.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }
+  }
+
+  return loaded;
+};
+
 export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
   const { user } = useAuth();
-  const [issues, setIssues] = useState<SpecialIssue[]>([]);
+  const [issues, setIssues] = useState<SpecialIssue[]>(() => loadInitialIssues(project.id));
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingIssue, setEditingIssue] = useState<SpecialIssue | null>(null);
   const [statusFilter, setStatusFilter] = useState<SpecialIssueStatus | 'all'>('all');
@@ -75,26 +92,9 @@ export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
   const canEdit = !user || canEditSpecialIssue(user, project.id);
   const canDelete = !user || canDeleteSpecialIssue(user, project.id);
 
-  useEffect(() => {
-    loadIssues();
+  const loadIssues = useCallback(() => {
+    setIssues(loadInitialIssues(project.id));
   }, [project.id]);
-
-  const loadIssues = () => {
-    let loaded = getSpecialIssues(project.id);
-
-    // Seed if empty
-    if (loaded.length === 0) {
-      const projectIssues = seedSpecialIssues.filter((si) => si.project_id === project.id);
-      if (projectIssues.length > 0) {
-        const all = getAllSpecialIssues();
-        projectIssues.forEach((issue) => all.push(issue));
-        saveSpecialIssues(all);
-        loaded = projectIssues.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      }
-    }
-
-    setIssues(loaded);
-  };
 
   const filteredIssues = useMemo(() => {
     if (statusFilter === 'all') return issues;

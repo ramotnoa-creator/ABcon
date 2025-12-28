@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   getTenders,
@@ -75,11 +75,41 @@ const getTodayISO = (): string => {
   return new Date().toISOString().split('T')[0];
 };
 
+const loadInitialTenders = (projectId: string): Tender[] => {
+  let loaded = getTenders(projectId);
+
+  // Seed if empty
+  if (loaded.length === 0) {
+    const projectTenders = seedTenders.filter((t) => t.project_id === projectId);
+    if (projectTenders.length > 0) {
+      const all = getAllTenders();
+      projectTenders.forEach((tender) => all.push(tender));
+      saveTenders(all);
+      loaded = projectTenders;
+    }
+  }
+
+  return loaded;
+};
+
+const loadInitialProfessionals = (): Professional[] => {
+  const professionals = getProfessionals();
+  return professionals.filter((p) => p.is_active);
+};
+
+const loadParticipantsMap = (tenders: Tender[]): Record<string, TenderParticipant[]> => {
+  const map: Record<string, TenderParticipant[]> = {};
+  tenders.forEach((tender) => {
+    map[tender.id] = getTenderParticipants(tender.id);
+  });
+  return map;
+};
+
 export default function TendersTab({ project }: TendersTabProps) {
   const navigate = useNavigate();
-  const [tenders, setTenders] = useState<Tender[]>([]);
-  const [allProfessionals, setAllProfessionals] = useState<Professional[]>([]);
-  const [participantsMap, setParticipantsMap] = useState<Record<string, TenderParticipant[]>>({});
+  const [tenders, setTenders] = useState<Tender[]>(() => loadInitialTenders(project.id));
+  const [allProfessionals, setAllProfessionals] = useState<Professional[]>(() => loadInitialProfessionals());
+  const [participantsMap, setParticipantsMap] = useState<Record<string, TenderParticipant[]>>(() => loadParticipantsMap(loadInitialTenders(project.id)));
 
   // Modal states
   const [isAddTenderModalOpen, setIsAddTenderModalOpen] = useState(false);
@@ -107,41 +137,21 @@ export default function TendersTab({ project }: TendersTabProps) {
     notes: '',
   });
 
-  useEffect(() => {
-    loadTenders();
-    loadProfessionals();
+  const loadTenders = useCallback(() => {
+    const loaded = loadInitialTenders(project.id);
+    setTenders(loaded);
+    setParticipantsMap(loadParticipantsMap(loaded));
   }, [project.id]);
 
-  useEffect(() => {
-    // Load participants for all tenders
-    const map: Record<string, TenderParticipant[]> = {};
-    tenders.forEach((tender) => {
-      map[tender.id] = getTenderParticipants(tender.id);
-    });
-    setParticipantsMap(map);
-  }, [tenders]);
+  const loadProfessionals = useCallback(() => {
+    setAllProfessionals(loadInitialProfessionals());
+  }, []);
 
-  const loadTenders = () => {
-    let loaded = getTenders(project.id);
-
-    // Seed if empty
-    if (loaded.length === 0) {
-      const projectTenders = seedTenders.filter((t) => t.project_id === project.id);
-      if (projectTenders.length > 0) {
-        const all = getAllTenders();
-        projectTenders.forEach((tender) => all.push(tender));
-        saveTenders(all);
-        loaded = projectTenders;
-      }
-    }
-
-    setTenders(loaded);
-  };
-
-  const loadProfessionals = () => {
-    const professionals = getProfessionals();
-    setAllProfessionals(professionals.filter((p) => p.is_active));
-  };
+  const refreshData = useCallback(() => {
+    loadTenders();
+    loadProfessionals();
+  }, [loadTenders, loadProfessionals]);
+  void refreshData; // Available for refresh button
 
   // Filter professionals by tender type
   const getFilteredProfessionals = (typeFilter: TenderType | 'all'): Professional[] => {
@@ -263,17 +273,17 @@ export default function TendersTab({ project }: TendersTabProps) {
     });
 
     // Create ProjectProfessional automatically
-    const newProjectProfessional = {
-      id: `pp-${Date.now()}`,
-      project_id: project.id,
-      professional_id: participant.professional_id,
-      project_role: undefined,
-      source: 'Tender' as const,
-      related_tender_id: tender.id,
-      related_tender_name: tender.tender_name,
-      is_active: true,
-      notes: undefined,
-    };
+const newProjectProfessional = {
+  id: `pp-${crypto.randomUUID()}`,
+  project_id: project.id,
+  professional_id: participant.professional_id,
+  project_role: undefined,
+  source: 'Tender' as const,
+  related_tender_id: tender.id,
+  related_tender_name: tender.tender_name,
+  is_active: true,
+};
+
 
     addProjectProfessional(newProjectProfessional);
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import {
   getPlanningChanges,
   getAllPlanningChanges,
@@ -43,9 +43,26 @@ const formatCurrency = (amount?: number): string => {
   }).format(amount);
 };
 
+const loadInitialChanges = (projectId: string): PlanningChange[] => {
+  let loaded = getPlanningChanges(projectId);
+
+  // Seed if empty
+  if (loaded.length === 0) {
+    const projectChanges = seedPlanningChanges.filter((pc) => pc.project_id === projectId);
+    if (projectChanges.length > 0) {
+      const all = getAllPlanningChanges();
+      projectChanges.forEach((change) => all.push(change));
+      savePlanningChanges(all);
+      loaded = projectChanges;
+    }
+  }
+
+  return loaded;
+};
+
 export default function PlanningChangesTab({ project }: PlanningChangesTabProps) {
   const { user } = useAuth();
-  const [changes, setChanges] = useState<PlanningChange[]>([]);
+  const [changes, setChanges] = useState<PlanningChange[]>(() => loadInitialChanges(project.id));
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingChange, setEditingChange] = useState<PlanningChange | null>(null);
   const [formData, setFormData] = useState({
@@ -60,26 +77,9 @@ export default function PlanningChangesTab({ project }: PlanningChangesTabProps)
   const canEdit = !user || canEditPlanningChange(user, project.id);
   const canDelete = !user || canDeletePlanningChange(user, project.id);
 
-  useEffect(() => {
-    loadChanges();
+  const loadChanges = useCallback(() => {
+    setChanges(loadInitialChanges(project.id));
   }, [project.id]);
-
-  const loadChanges = () => {
-    let loaded = getPlanningChanges(project.id);
-
-    // Seed if empty
-    if (loaded.length === 0) {
-      const projectChanges = seedPlanningChanges.filter((pc) => pc.project_id === project.id);
-      if (projectChanges.length > 0) {
-        const all = getAllPlanningChanges();
-        projectChanges.forEach((change) => all.push(change));
-        savePlanningChanges(all);
-        loaded = projectChanges;
-      }
-    }
-
-    setChanges(loaded);
-  };
 
   const resetForm = () => {
     setFormData({

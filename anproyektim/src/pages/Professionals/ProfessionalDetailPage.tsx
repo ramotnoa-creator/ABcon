@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   getProfessionalById,
@@ -12,16 +12,38 @@ import { getProjects } from '../../data/storage';
 import type { Professional, ProjectProfessional } from '../../types';
 import type { Project } from '../../types';
 
+type RelatedProject = {
+  project: Project;
+  projectProfessional: ProjectProfessional;
+};
+
+const loadRelatedProjectsData = (professionalId: string): RelatedProject[] => {
+  const allProjectProfessionals = getAllProjectProfessionals();
+  const projects = getProjects();
+
+  return allProjectProfessionals
+    .filter((pp) => pp.professional_id === professionalId && pp.is_active)
+    .map((pp) => {
+      const project = projects.find((p) => p.id === pp.project_id);
+      if (project) {
+        return { project, projectProfessional: pp };
+      }
+      return null;
+    })
+    .filter((item): item is RelatedProject => item !== null);
+};
+
 export default function ProfessionalDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [professional, setProfessional] = useState<Professional | null>(null);
-  const [relatedProjects, setRelatedProjects] = useState<
-    Array<{
-      project: Project;
-      projectProfessional: ProjectProfessional;
-    }>
-  >([]);
+
+  // Initialize state with data if id exists
+  const [professional, setProfessional] = useState<Professional | null>(() =>
+    id ? getProfessionalById(id) : null
+  );
+  const [relatedProjects, setRelatedProjects] = useState<RelatedProject[]>(() =>
+    id ? loadRelatedProjectsData(id) : []
+  );
   const [, setIsEditMode] = useState(false);
   const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -30,48 +52,27 @@ export default function ProfessionalDetailPage() {
     start_date: '',
     notes: '',
   });
-  const [availableProjects, setAvailableProjects] = useState<Project[]>([]);
 
+  // Navigate away if professional not found on initial load
   useEffect(() => {
-    if (id) {
-      const foundProfessional = getProfessionalById(id);
-      if (foundProfessional) {
-        setProfessional(foundProfessional);
-        loadRelatedProjects(id);
-      } else {
-        navigate('/professionals');
-      }
+    if (id && !professional) {
+      navigate('/professionals');
     }
-  }, [id, navigate]);
+  }, [id, professional, navigate]);
 
-  useEffect(() => {
-    if (isAddToProjectOpen) {
-      const allProjects = getProjects();
-      const assignedProjectIds = new Set(
-        relatedProjects.map((rp) => rp.projectProfessional.project_id)
-      );
-      const available = allProjects.filter((p) => !assignedProjectIds.has(p.id));
-      setAvailableProjects(available);
-    }
+  const loadRelatedProjects = useCallback((professionalId: string) => {
+    setRelatedProjects(loadRelatedProjectsData(professionalId));
+  }, []);
+
+  // Compute available projects when modal is open
+  const availableProjects = useMemo(() => {
+    if (!isAddToProjectOpen) return [];
+    const allProjects = getProjects();
+    const assignedProjectIds = new Set(
+      relatedProjects.map((rp) => rp.projectProfessional.project_id)
+    );
+    return allProjects.filter((p) => !assignedProjectIds.has(p.id));
   }, [isAddToProjectOpen, relatedProjects]);
-
-  const loadRelatedProjects = (professionalId: string) => {
-    const allProjectProfessionals = getAllProjectProfessionals();
-    const projects = getProjects();
-
-    const related = allProjectProfessionals
-      .filter((pp) => pp.professional_id === professionalId && pp.is_active)
-      .map((pp) => {
-        const project = projects.find((p) => p.id === pp.project_id);
-        if (project) {
-          return { project, projectProfessional: pp };
-        }
-        return null;
-      })
-      .filter((item): item is { project: Project; projectProfessional: ProjectProfessional } => item !== null);
-
-    setRelatedProjects(related);
-  };
 
   const handleEdit = () => {
     setIsEditMode(true);

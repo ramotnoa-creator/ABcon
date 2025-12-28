@@ -1,19 +1,14 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getProfessionals } from '../../data/professionalsStorage';
 import type { Professional } from '../../types';
 
 export default function ProfessionalsListPage() {
   const navigate = useNavigate();
-  const [professionals, setProfessionals] = useState<Professional[]>([]);
+  const [professionals] = useState<Professional[]>(() => getProfessionals());
   const [searchQuery, setSearchQuery] = useState('');
   const [fieldFilter, setFieldFilter] = useState<string>('all');
   const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'inactive'>('all');
-
-  useEffect(() => {
-    const loaded = getProfessionals();
-    setProfessionals(loaded);
-  }, []);
 
   // Get unique fields for filter
   const uniqueFields = useMemo(() => {

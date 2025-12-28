@@ -709,7 +709,11 @@ const MilestonesListView = ({ apartments }: { apartments: Apartment[] }) => {
 
   const toggleApt = (id: string) => {
     const newSet = new Set(expandedApts);
-    newSet.has(id) ? newSet.delete(id) : newSet.add(id);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
     setExpandedApts(newSet);
   };
 
@@ -913,7 +917,11 @@ const GanttView = ({
 
   const toggleApt = (id: string) => {
     const newSet = new Set(expandedApts);
-    newSet.has(id) ? newSet.delete(id) : newSet.add(id);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
     setExpandedApts(newSet);
   };
 

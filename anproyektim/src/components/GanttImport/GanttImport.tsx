@@ -31,7 +31,7 @@ interface ColumnMapping {
 }
 
 interface ParsedRow {
-  [key: string]: any;
+  [key: string]: string | number | boolean | null | undefined;
 }
 
 interface ValidatedRow {
@@ -96,7 +96,7 @@ export default function GanttImport({ project, onClose }: GanttImportProps) {
       const worksheet = workbook.Sheets[firstSheetName];
 
       // Convert to JSON
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as (string | number | boolean | null | undefined)[][];
 
       if (jsonData.length === 0) {
         alert('הקובץ ריק');
@@ -163,7 +163,7 @@ export default function GanttImport({ project, onClose }: GanttImportProps) {
       const workbook = XLSX.read(buffer, { type: 'array' });
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as (string | number | boolean | null | undefined)[][];
 
       const allRows: ParsedRow[] = jsonData.slice(1).map((row) => {
         const rowObj: ParsedRow = {};
@@ -190,40 +190,49 @@ export default function GanttImport({ project, onClose }: GanttImportProps) {
           const value = String(row[mapping.columnName] ?? '').trim();
 
           switch (mapping.mappedTo) {
-            case 'task_name':
+            case 'task_name': {
               result.taskName = value;
               break;
-            case 'planned_start_date':
+            }
+            case 'planned_start_date': {
               result.plannedStart = value;
               break;
-            case 'planned_end_date':
+            }
+            case 'planned_end_date': {
               result.plannedEnd = value;
               break;
-            case 'duration':
+            }
+            case 'duration': {
               const duration = parseFloat(value);
               if (!isNaN(duration) && duration > 0) {
                 result.duration = Math.round(duration);
               }
               break;
-            case 'percent_complete':
+            }
+            case 'percent_complete': {
               const percent = parseFloat(value);
               if (!isNaN(percent) && percent >= 0 && percent <= 100) {
                 result.percentComplete = Math.round(percent);
               }
               break;
-            case 'task_id_wbs':
+            }
+            case 'task_id_wbs': {
               result.taskId = value;
               break;
-            case 'milestone_link':
+            }
+            case 'milestone_link': {
               result.milestoneLink = value;
               break;
-            case 'notes':
+            }
+            case 'notes': {
               result.notes = value;
               break;
-            case 'assignee':
+            }
+            case 'assignee': {
               result.assignee = value;
               break;
-            case 'status':
+            }
+            case 'status': {
               // Map status values - try to match Hebrew or English
               const statusLower = value.toLowerCase();
               if (statusLower.includes('backlog') || statusLower.includes('ממתין')) {
@@ -240,6 +249,7 @@ export default function GanttImport({ project, onClose }: GanttImportProps) {
                 result.status = 'Canceled';
               }
               break;
+            }
           }
         });
 
@@ -322,7 +332,9 @@ export default function GanttImport({ project, onClose }: GanttImportProps) {
         if (!isNaN(date.getTime()) && date.getFullYear() > 1900 && date.getFullYear() < 2100) {
           return date.toISOString().split('T')[0];
         }
-      } catch {}
+      } catch {
+        // Date parsing failed, continue to try other formats
+      }
     }
 
     // Try various date formats
