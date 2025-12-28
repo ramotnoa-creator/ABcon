@@ -26,3 +26,13 @@ dist-ssr
 # Ignore Word exports
 **/*.docx
 
+# Other projects inside ABcon repo
+YT test/
+catch-ten-game/
+
+# Claude local files
+**/.claude/
+
+# Weird windows file
+**/nul
+
