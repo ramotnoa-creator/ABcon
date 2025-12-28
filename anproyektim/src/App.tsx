@@ -12,6 +12,7 @@ import ProfessionalsListPage from './pages/Professionals/ProfessionalsListPage';
 import ProfessionalDetailPage from './pages/Professionals/ProfessionalDetailPage';
 import CreateProfessionalPage from './pages/Professionals/CreateProfessionalPage';
 import GlobalFilesPage from './pages/Files/GlobalFilesPage';
+import GlobalBudgetPage from './pages/Budget/GlobalBudgetPage';
 
 // Layout wrapper for authenticated pages
 function AppLayout() {
@@ -106,6 +107,15 @@ function App() {
                   <>
                     <Breadcrumbs items={[{ label: 'קבצים' }]} />
                     <GlobalFilesPage />
+                  </>
+                }
+              />
+              <Route
+                path="/budget"
+                element={
+                  <>
+                    <Breadcrumbs items={[{ label: 'תקציב' }]} />
+                    <GlobalBudgetPage />
                   </>
                 }
               />

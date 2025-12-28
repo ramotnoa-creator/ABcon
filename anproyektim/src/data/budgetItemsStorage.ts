@@ -153,3 +153,59 @@ export function calculateBudgetItemTotals(item: Partial<BudgetItem>): {
 
   return { total_price, vat_amount, total_with_vat };
 }
+
+// Get cross-project budget totals for global budget page
+export function getGlobalBudgetSummary(): {
+  totalBudget: number;
+  totalSpent: number;
+  totalRemaining: number;
+  projectCount: number;
+  projectIds: string[];
+} {
+  const allItems = getAllBudgetItems();
+
+  // Get unique project IDs
+  const projectIds = [...new Set(allItems.map((item) => item.project_id))];
+
+  // Calculate totals
+  const totalBudget = allItems.reduce((sum, item) => sum + item.total_with_vat, 0);
+  const totalSpent = allItems.reduce((sum, item) => sum + item.paid_amount, 0);
+  const totalRemaining = totalBudget - totalSpent;
+
+  return {
+    totalBudget,
+    totalSpent,
+    totalRemaining,
+    projectCount: projectIds.length,
+    projectIds,
+  };
+}
+
+// Get budget summary grouped by category type across all projects
+export function getCategoryBudgetSummary(): {
+  categoryType: string;
+  totalBudget: number;
+  totalSpent: number;
+}[] {
+  // We need to import chapters to get category info
+  // For now, return placeholder - will integrate with chapters storage
+  const allItems = getAllBudgetItems();
+
+  // Group by chapter and calculate totals
+  const chapterTotals = new Map<string, { budget: number; spent: number }>();
+
+  allItems.forEach((item) => {
+    const existing = chapterTotals.get(item.chapter_id) || { budget: 0, spent: 0 };
+    chapterTotals.set(item.chapter_id, {
+      budget: existing.budget + item.total_with_vat,
+      spent: existing.spent + item.paid_amount,
+    });
+  });
+
+  // For now return a simplified summary - can enhance later with category integration
+  return Array.from(chapterTotals.entries()).map(([chapterId, totals]) => ({
+    categoryType: chapterId,
+    totalBudget: totals.budget,
+    totalSpent: totals.spent,
+  }));
+}
