@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import type { Project } from '../../../types';
 import { formatDateForDisplay, formatDateHebrew } from '../../../utils/dateUtils';
 import { getProjectProfessionals } from '../../../data/professionalsStorage';
@@ -12,22 +12,20 @@ interface OverviewTabProps {
 }
 
 export default function OverviewTab({ project, statusColors, onTabChange }: OverviewTabProps) {
-  const [professionalsCount, setProfessionalsCount] = useState(0);
-  const [openTasksCount, setOpenTasksCount] = useState(0);
-  const [filesCount, setFilesCount] = useState(0);
-
-  useEffect(() => {
+  // Compute counts using useMemo instead of useState + useEffect
+  const { professionalsCount, openTasksCount, filesCount } = useMemo(() => {
     const projectProfessionals = getProjectProfessionals(project.id);
-    setProfessionalsCount(projectProfessionals.length);
-    
     const projectTasks = getTasks(project.id);
     const openTasks = projectTasks.filter(
       (t) => t.status !== 'Done' && t.status !== 'Canceled'
     );
-    setOpenTasksCount(openTasks.length);
-    
     const projectFiles = getFiles(project.id);
-    setFilesCount(projectFiles.length);
+
+    return {
+      professionalsCount: projectProfessionals.length,
+      openTasksCount: openTasks.length,
+      filesCount: projectFiles.length,
+    };
   }, [project.id]);
 
   const statusLabels: Record<string, string> = {

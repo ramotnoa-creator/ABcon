@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 interface MobileMenuProps {
@@ -24,12 +24,12 @@ export default function MobileMenu({ onClose }: MobileMenuProps) {
     { label: 'תקציב', path: '/budget', icon: 'payments' },
   ];
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setIsClosing(true);
     setTimeout(() => {
       onClose();
     }, 250);
-  };
+  }, [onClose]);
 
   // Close menu on escape key
   useEffect(() => {
@@ -38,7 +38,7 @@ export default function MobileMenu({ onClose }: MobileMenuProps) {
     };
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
-  }, []);
+  }, [handleClose]);
 
   return (
     <div className="fixed inset-0 z-50 lg:hidden">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { getFiles, addFile, updateFile, getAllFiles, saveFiles, removeFileFromProject } from '../../../data/filesStorage';
 import { seedFiles } from '../../../data/filesData';
 import type { Project } from '../../../types';
@@ -11,7 +11,7 @@ interface FilesTabProps {
 
 const getFileIcon = (fileType?: string, fileName?: string): { icon: string; color: string } => {
   const ext = fileName?.split('.').pop()?.toLowerCase() || '';
-  
+
   if (fileType?.includes('pdf') || ext === 'pdf') {
     return { icon: 'picture_as_pdf', color: 'bg-red-100 text-red-600' };
   }
@@ -38,36 +38,36 @@ const getInitials = (name: string): string => {
   return name.substring(0, 2).toUpperCase();
 };
 
+const loadInitialFiles = (projectId: string): File[] => {
+  let loaded = getFiles(projectId);
+
+  // Seed if empty
+  if (loaded.length === 0) {
+    const projectFiles = seedFiles.filter(
+      (f) => f.related_entity_type === 'Project' && f.related_entity_id === projectId
+    );
+    if (projectFiles.length > 0) {
+      const all = getAllFiles();
+      projectFiles.forEach((file) => all.push(file));
+      saveFiles(all);
+      loaded = projectFiles;
+    }
+  }
+
+  return loaded;
+};
+
 export default function FilesTab({ project }: FilesTabProps) {
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<File[]>(() => loadInitialFiles(project.id));
   const [searchQuery, setSearchQuery] = useState('');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [editingFile, setEditingFile] = useState<File | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  useEffect(() => {
-    loadFiles();
+  const loadFiles = useCallback(() => {
+    setFiles(loadInitialFiles(project.id));
   }, [project.id]);
-
-  const loadFiles = () => {
-    let loaded = getFiles(project.id);
-    
-    // Seed if empty
-    if (loaded.length === 0) {
-      const projectFiles = seedFiles.filter(
-        (f) => f.related_entity_type === 'Project' && f.related_entity_id === project.id
-      );
-      if (projectFiles.length > 0) {
-        const all = getAllFiles();
-        projectFiles.forEach((file) => all.push(file));
-        saveFiles(all);
-        loaded = projectFiles;
-      }
-    }
-    
-    setFiles(loaded);
-  };
 
   const filteredFiles = useMemo(() => {
     if (!searchQuery.trim()) return files;

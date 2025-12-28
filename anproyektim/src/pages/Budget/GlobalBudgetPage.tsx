@@ -1,11 +1,26 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAllBudgets, saveBudgets } from '../../data/budgetStorage';
 import { getProjects } from '../../data/storage';
-import { getGlobalBudgetSummary, getProjectBudgetSummary } from '../../data/budgetItemsStorage';
+import { getProjectBudgetSummary } from '../../data/budgetItemsStorage';
 import { seedBudgets } from '../../data/budgetData';
 import * as XLSX from 'xlsx';
 import type { Budget, Project } from '../../types';
+
+const loadInitialData = (): { budgets: Budget[]; projects: Project[] } => {
+  let loadedBudgets = getAllBudgets();
+
+  // Seed if empty
+  if (loadedBudgets.length === 0) {
+    loadedBudgets = seedBudgets;
+    saveBudgets(loadedBudgets);
+  }
+
+  return {
+    budgets: loadedBudgets,
+    projects: getProjects(),
+  };
+};
 
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('he-IL', {
@@ -114,33 +129,14 @@ function KPICard({ icon, label, value, subValue, color, progress }: KPICardProps
 
 export default function GlobalBudgetPage() {
   const navigate = useNavigate();
-  const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [data] = useState(() => loadInitialData());
+  const { budgets, projects } = data;
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [varianceFilter, setVarianceFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
- function loadData() {
-  let loadedBudgets = getAllBudgets();
-
-  // Seed if empty
-  if (loadedBudgets.length === 0) {
-    loadedBudgets = seedBudgets;
-    saveBudgets(loadedBudgets);
-  }
-
-  setBudgets(loadedBudgets);
-  setProjects(getProjects());
-}
-
-
- 
 
   const projectsWithBudget = useMemo(() => {
     return projects

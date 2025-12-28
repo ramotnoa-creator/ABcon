@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getProjectById } from '../../data/storage';
 import { getOpenIssuesCount } from '../../data/specialIssuesStorage';
@@ -25,34 +25,33 @@ const tabs = [
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [project, setProject] = useState(getProjectById(id || ''));
+
+  // Use useMemo for project lookup - it's derived from id
+  const project = useMemo(() => getProjectById(id || ''), [id]);
+
   const [activeTab, setActiveTab] = useState('overview');
   const [tabTransition, setTabTransition] = useState(false);
   const [isHeaderVisible, setIsHeaderVisible] = useState(false);
-  const [openIssuesCount, setOpenIssuesCount] = useState(0);
   const indicatorRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
 
+  // Compute open issues count - recalculates when activeTab changes to special-issues
+  const openIssuesCount = useMemo(() => {
+    if (!id) return 0;
+    // Include activeTab in deps so it recalculates when switching to special-issues tab
+    // This is intentional - we want fresh data when viewing the tab
+    return getOpenIssuesCount(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, activeTab]);
+
+  // Navigate away if project not found
   useEffect(() => {
-    if (id) {
-      const foundProject = getProjectById(id);
-      if (foundProject) {
-        setProject(foundProject);
-        setOpenIssuesCount(getOpenIssuesCount(id));
-      } else {
-        navigate('/projects');
-      }
+    if (id && !project) {
+      navigate('/projects');
     }
     // Animate header on mount
     setTimeout(() => setIsHeaderVisible(true), 50);
-  }, [id, navigate]);
-
-  // Refresh open issues count when switching tabs
-  useEffect(() => {
-    if (id && activeTab === 'special-issues') {
-      setOpenIssuesCount(getOpenIssuesCount(id));
-    }
-  }, [id, activeTab]);
+  }, [id, navigate, project]);
 
   // Update tab indicator position
   useEffect(() => {

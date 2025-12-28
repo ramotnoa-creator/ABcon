@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import type { StatusDistribution } from '../../types';
 
@@ -30,19 +30,16 @@ export default function StatusChart({ distribution }: StatusChartProps) {
   const circumference = 2 * Math.PI * radius;
   const totalPercentage = distribution.reduce((sum, item) => sum + item.percentage, 0);
 
-  let offset = 0;
-  const segments = distribution.map((item) => {
-    const percentage = (item.percentage / totalPercentage) * 100;
-    const strokeDasharray = (percentage / 100) * circumference;
-    const strokeDashoffset = circumference - strokeDasharray - offset;
-    offset += strokeDasharray;
+  const segments = useMemo(() => {
+    return distribution.reduce<Array<typeof distribution[number] & { strokeDasharray: number; strokeDashoffset: number }>>((acc, item) => {
+      const currentOffset = acc.reduce((sum, seg) => sum + seg.strokeDasharray, 0);
+      const percentage = (item.percentage / totalPercentage) * 100;
+      const strokeDasharray = (percentage / 100) * circumference;
+      const strokeDashoffset = circumference - strokeDasharray - currentOffset;
 
-    return {
-      ...item,
-      strokeDasharray,
-      strokeDashoffset,
-    };
-  });
+      return [...acc, { ...item, strokeDasharray, strokeDashoffset }];
+    }, []);
+  }, [distribution, totalPercentage, circumference]);
 
   return (
     <div 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAllFiles, addFile, updateFile, saveFiles } from '../../data/filesStorage';
 import { getProjects } from '../../data/storage';
@@ -8,7 +8,7 @@ import { formatDateForDisplay } from '../../utils/dateUtils';
 
 const getFileIcon = (fileType?: string, fileName?: string): { icon: string; color: string } => {
   const ext = fileName?.split('.').pop()?.toLowerCase() || '';
-  
+
   if (fileType?.includes('pdf') || ext === 'pdf') {
     return { icon: 'picture_as_pdf', color: 'bg-red-100 text-red-600' };
   }
@@ -35,9 +35,21 @@ const getInitials = (name: string): string => {
   return name.substring(0, 2).toUpperCase();
 };
 
+const loadInitialFiles = (): File[] => {
+  let loaded = getAllFiles();
+
+  // Seed if empty
+  if (loaded.length === 0) {
+    loaded = seedFiles;
+    saveFiles(loaded);
+  }
+
+  return loaded;
+};
+
 export default function GlobalFilesPage() {
   const navigate = useNavigate();
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<File[]>(() => loadInitialFiles());
   const [projects] = useState(getProjects);
   const [searchQuery, setSearchQuery] = useState('');
   const [entityTypeFilter, setEntityTypeFilter] = useState<string>('all');
@@ -46,21 +58,9 @@ export default function GlobalFilesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  useEffect(() => {
-    loadFiles();
+  const loadFiles = useCallback(() => {
+    setFiles(loadInitialFiles());
   }, []);
-
-  const loadFiles = () => {
-    let loaded = getAllFiles();
-    
-    // Seed if empty
-    if (loaded.length === 0) {
-      loaded = seedFiles;
-      saveFiles(loaded);
-    }
-    
-    setFiles(loaded);
-  };
 
   const filteredFiles = useMemo(() => {
     let filtered = files;
