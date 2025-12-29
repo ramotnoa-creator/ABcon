@@ -4,6 +4,18 @@ import type { Project, ProjectStatus } from '../../types';
 import { getProjects, saveProjects } from '../../data/storage';
 import { seedProjects } from '../../data/mockData';
 
+const loadInitialProjects = (): Project[] => {
+  let loaded = getProjects();
+
+  // Seed if empty
+  if (loaded.length === 0) {
+    saveProjects(seedProjects);
+    loaded = seedProjects;
+  }
+
+  return loaded;
+};
+
 const statusOptions: { value: 'all' | ProjectStatus; label: string }[] = [
   { value: 'all', label: 'כל הסטטוסים' },
   { value: 'תכנון', label: 'תכנון' },
@@ -25,24 +37,16 @@ const statusColors: Record<ProjectStatus, string> = {
 
 export default function ProjectsPage() {
   const navigate = useNavigate();
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects] = useState<Project[]>(() => loadInitialProjects());
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | ProjectStatus>('all');
   const [isVisible, setIsVisible] = useState(false);
 
-  // Initialize projects from localStorage or seed data
   useEffect(() => {
-    const stored = getProjects();
-    if (stored.length === 0) {
-      saveProjects(seedProjects);
-      setProjects(seedProjects);
-    } else {
-      setProjects(stored);
-    }
-    // Trigger entrance animation
     const timer = setTimeout(() => setIsVisible(true), 50);
     return () => clearTimeout(timer);
   }, []);
+
 
   const filteredProjects = useMemo(() => {
     let filtered = projects;

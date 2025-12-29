@@ -1,6 +1,6 @@
 import type { Tender } from '../types';
 
-const TENDERS_STORAGE_KEY = 'anproyektim:tenders';
+const TENDERS_STORAGE_KEY = 'anprojects:tenders';
 
 export function getTenders(projectId: string): Tender[] {
   try {

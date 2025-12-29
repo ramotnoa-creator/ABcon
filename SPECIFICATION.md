@@ -1,340 +1,510 @@
-# איפיון מערכת
+# AN Projects - Application Specification
 
-## Construction Project Management System
-
----
-
-## 1. מטרת המערכת
-
-מערכת ענן לניהול פרויקטי בנייה, עם דגש על:
-
-* ניהול פרויקט מקצה לקצה
-* עבודה פנימית של צוות הניהול בלבד
-* ניהול אנשי מקצוע, מכרזים, משימות, קבצים ומסמכים
-* תיעוד והיסטוריה
-
-**אין כניסה לבעלי מקצוע למערכת.**
-אנשי מקצוע מנוהלים כמאגר מידע בלבד.
+## Overview
+AN Projects is a construction and real estate project management system with Hebrew RTL interface. The application manages projects, professionals, tasks, milestones, tenders, budgets, and files.
 
 ---
 
-## 2. עקרונות יסוד
+## Pages and Routes
 
-* Team בפרויקט = **אנשי מקצוע בלבד**
-* אנשי מקצוע מגיעים אך ורק ממאגר Professionals גלובלי
-* הוספת איש מקצוע חדש מתבצעת רק במאגר אנשי מקצוע, לא מתוך פרויקט
-* בחירת זוכה במכרז מוסיפה איש מקצוע לפרויקט אוטומטית
-* Contracts ו-Documents מנוהלים כקבצים באותו טאב
-* Budget יאופיין בשלב מאוחר יותר
+### 1. Login Page
+**Route:** `/login`
+**Hebrew Name:** התחברות
+**English Name:** Login Page
 
----
+**Fields:**
+- Email (דוא״ל) - text input, email validation
+- Password (סיסמה) - password input
 
-## 3. ישויות (Entities)
+**Actions:**
+- Login button (התחבר) - authenticates user and redirects to dashboard
+- Forgot password link (שכחתי סיסמה) - currently placeholder
 
-### 3.1 Project (פרויקט)
-
-**שדות:**
-
-* project_id
-* project_name
-* client_name
-* address
-* status
-  (Planning / Permits / Tendering / Construction / Handover / Archived)
-* created_at
-* permit_start_date
-* permit_duration_months (Planned)
-* permit_target_date (מחושב)
-* permit_approved_date (nullable)
-* notes
+**Features:**
+- Logo display (construction icon)
+- Error message display for invalid credentials
+- Loading state during authentication
 
 ---
 
-### 3.2 Professional (איש מקצוע) – מאגר גלובלי
+### 2. Dashboard Page
+**Route:** `/dashboard`
+**Hebrew Name:** לוח בקרה ניהולי
+**English Name:** Management Dashboard
+**Breadcrumbs:** ראשי > לוח בקרה ניהולי
 
-**שדות:**
+**Features:**
+- Welcome message with current date
+- Quick statistics cards (total projects, active projects, total professionals)
+- Quick action buttons:
+  - Create new project (פרויקט חדש) → navigates to `/projects/new`
+  - Add professional (הוסף איש מקצוע) → navigates to `/professionals/new`
+  - View all projects (צפה בכל הפרויקטים) → navigates to `/projects`
 
-* professional_id
-* professional_name
-* company_name
-* תחום
-* phone
-* email
-* notes
-* is_active
-
----
-
-### 3.3 ProjectProfessional (שיוך איש מקצוע לפרויקט)
-
-**שדות:**
-
-* project_professional_id
-* project_id
-* professional_id
-* project_role
-* source (Tender / Manual)
-* related_tender_id (nullable)
-* related_tender_name (lookup)
-* start_date
-* end_date (nullable)
-* is_active
-* notes
-
-**חוקים:**
-
-* לא ניתן לשייך איש מקצוע שלא קיים במאגר Professionals
-* אין יצירה ידנית של אנשי מקצוע מתוך פרויקט
-* שיוך דרך מכרז נוצר אוטומטית
+**Recent Activity:**
+- Shows recent projects with:
+  - Project name
+  - Client name
+  - Status badge
+  - Last updated timestamp
+  - Click to view project details
 
 ---
 
-### 3.4 Task (משימה)
+### 3. Projects List Page
+**Route:** `/projects`
+**Hebrew Name:** פרויקטים
+**English Name:** Projects
+**Breadcrumbs:** פרויקטים
 
-**שדות:**
+**Filters:**
+- Status dropdown (all, in_progress, completed, on_hold, cancelled, planning)
+- Search box (filter by project name or client)
 
-* task_id
-* project_id
-* title
-* description
-* status
-  (Backlog / Ready / In Progress / Blocked / Done / Canceled)
-* priority
-* assignee_name
-* due_date
-* start_date
-* completed_at
-* notes
-* created_at
-* updated_at
+**Actions:**
+- Create new project button (פרויקט חדש) → navigates to `/projects/new`
 
----
-
-### 3.5 Tender (מכרז)
-
-**שדות:**
-
-* tender_id
-* project_id
-* tender_name
-* category
-* description
-* status
-  (Draft / Open / Closed / WinnerSelected / Canceled)
-* publish_date
-* due_date
-* winner_professional_id (nullable)
-* winner_professional_name (lookup)
-* notes
-
-**אין ישות Tender Offer נפרדת במערכת.**
+**Project Cards Display:**
+Each card shows:
+- Project name (project_name)
+- Client name (client_name)
+- Address (address)
+- Status badge with Hebrew labels:
+  - `in_progress`: בביצוע (blue)
+  - `completed`: הושלם (green)
+  - `on_hold`: בהמתנה (yellow)
+  - `cancelled`: בוטל (red)
+  - `planning`: בתכנון (gray)
+- Permit start date (תאריך התחלת היתר)
+- Permit duration (משך היתר) in months
+- Click on card navigates to project details
 
 ---
 
-### 3.6 File (קבצים ומסמכים)
+### 4. Create Project Page
+**Route:** `/projects/new`
+**Hebrew Name:** יצירת פרויקט חדש
+**English Name:** Create New Project
+**Breadcrumbs:** בית > פרויקטים > יצירת פרויקט חדש
 
-ישות אחת לקבצים מכל הסוגים.
+**Form Fields:**
+- Project name (שם הפרויקט) - required, text input
+- Client name (שם הלקוח) - required, text input
+- Address (כתובת) - required, text input
+- Status (סטטוס) - required, dropdown with 5 options
+- Permit start date (תאריך התחלת היתר) - date picker
+- Permit duration (משך היתר בחודשים) - number input
+- Notes (הערות) - textarea
 
-**שדות:**
+**Actions:**
+- Create project button (צור פרויקט) - saves and redirects to project detail
+- Cancel button (ביטול) - returns to projects list
 
-* file_id
-* file_name
-* file_url
-* description_short
-* related_entity_type
-  (Project / Task / Tender / Professional)
-* related_entity_id
-* related_entity_name (lookup)
-* uploaded_at
-* uploaded_by
-* notes
-
----
-
-## 4. מסכים (Screens)
-
----
-
-### 4.1 Dashboard
-
-**Project List**
-
-* project_name
-* client_name
-* address
-* status
-* permit_target_date
-* updated_at
-* notes
+**Validation:**
+- All required fields must be filled
+- Shows error messages for missing fields
 
 ---
 
-### 4.2 Project Page
+### 5. Project Detail Page
+**Route:** `/projects/:id`
+**Hebrew Name:** פרטי פרויקט
+**English Name:** Project Details
+**Breadcrumbs:** פרויקטים > פרטי פרויקט
 
-#### Overview
+**Header Actions:**
+- Edit project button (עריכת פרויקט) - toggles edit mode
+- Save button (שמור) - saves changes (shown in edit mode)
+- Cancel button (ביטול) - exits edit mode (shown in edit mode)
 
-* project_name
-* client_name
-* address
-* status
-* created_at
-* permit_start_date
-* permit_duration_months
-* permit_target_date
-* permit_approved_date
-* notes
+**Tabs:** 6 tabs total
 
-הצגת נתוני היתר רק בסטטוסים:
-Planning, Permits
+#### Tab 1: Overview (סקירה כללית)
+**Project Information:**
+- Project name (שם הפרויקט) - editable
+- Client name (שם הלקוח) - editable
+- Address (כתובת) - editable
+- Status (סטטוס) - editable dropdown
+- Permit start date (תאריך התחלת היתר) - editable date picker
+- Permit duration (משך היתר בחודשים) - editable number
+- Notes (הערות) - editable textarea
+- Created date (נוצר ב) - read-only
+- Last updated (עודכן לאחרונה) - read-only
+
+#### Tab 2: Tasks (משימות)
+**Features:**
+- Create new task button (משימה חדשה)
+- Filter tasks by status (all, pending, in_progress, completed, blocked)
+
+**Task Card Display:**
+Each task shows:
+- Title (כותרת)
+- Description (תיאור)
+- Status badge (סטטוס) with labels:
+  - `pending`: ממתינה (gray)
+  - `in_progress`: בביצוע (blue)
+  - `completed`: הושלמה (green)
+  - `blocked`: חסומה (red)
+- Priority (עדיפות) with labels:
+  - `low`: נמוכה (gray)
+  - `medium`: בינונית (yellow)
+  - `high`: גבוהה (orange)
+  - `urgent`: דחופה (red)
+- Assigned professional (איש מקצוע מוקצה)
+- Due date (תאריך יעד)
+- Start date (תאריך התחלה)
+- Completion percentage (אחוז השלמה) - with progress bar
+
+**Task Actions:**
+- Edit task button (עריכה)
+- Delete task button (מחיקה)
+
+**Create/Edit Task Form:**
+- Title - required
+- Description - optional
+- Status - dropdown
+- Priority - dropdown
+- Assigned professional - dropdown (from project professionals)
+- Due date - date picker
+- Start date - date picker
+- Completion percentage - number slider (0-100)
+- Notes - textarea
+
+#### Tab 3: Milestones (אבני דרך)
+**Features:**
+- Create milestone button (הוסף אבן דרך)
+
+**Milestone Display:**
+Each milestone shows:
+- Title (כותרת משנה)
+- Target date (תאריך יעד)
+- Status badge with labels:
+  - `pending`: ממתין (gray)
+  - `in_progress`: בביצוע (blue)
+  - `completed`: הושלם (green)
+  - `delayed`: באיחור (orange)
+  - `cancelled`: בוטל (red)
+- Description (תיאור)
+- Completion percentage with progress bar
+- Visual timeline indicator
+
+**Milestone Actions:**
+- Edit milestone button
+- Delete milestone button
+
+**Create/Edit Milestone Form:**
+- Title - required
+- Target date - required
+- Status - dropdown
+- Description - textarea
+- Completion percentage - number
+
+#### Tab 4: Tenders (מכרזים)
+**Features:**
+- Create tender button (הוסף מכרז)
+
+**Tender Display:**
+Each tender shows:
+- Tender title (כותרת מכרז)
+- Field (תחום עיסוק)
+- Status badge with labels:
+  - `planned`: מתוכנן (gray)
+  - `published`: פורסם (blue)
+  - `in_review`: בבדיקה (yellow)
+  - `awarded`: הוענק (green)
+  - `cancelled`: בוטל (red)
+- Publication date (תאריך פרסום)
+- Submission deadline (מועד אחרון להגשה)
+- Budget (תקציב) - formatted as currency
+- Selected professional (איש מקצוע נבחר)
+- Description (תיאור)
+
+**Tender Actions:**
+- Edit tender
+- Delete tender
+
+**Create/Edit Tender Form:**
+- Title - required
+- Field - required
+- Status - dropdown
+- Publication date - date picker
+- Submission deadline - date picker
+- Budget - number
+- Selected professional - dropdown
+- Description - textarea
+
+#### Tab 5: Professionals (אנשי מקצוע)
+**Features:**
+- Assign professional button (שיוך איש מקצוע) - opens professional selector modal
+
+**Professional Display:**
+Each professional shows:
+- Name (שם איש המקצוע)
+- Company (חברה)
+- Field (תחום עיסוק)
+- Phone (טלפון)
+- Email (אימייל)
+- Rating (דירוג) - stars display
+- Active badge (פעיל/לא פעיל)
+
+**Actions:**
+- View professional details - navigates to `/professionals/:id`
+- Remove from project button
+
+#### Tab 6: Files (קבצים)
+**Features:**
+- Upload file button (העלה קובץ)
+- Filter files by type (all, image, pdf, document, spreadsheet, other)
+
+**File Display:**
+Each file shows:
+- File name (שם הקובץ)
+- File type icon and badge
+- File size (גודל) - formatted (KB/MB)
+- Upload date (תאריך העלאה)
+- Uploaded by (הועלה על ידי)
+- Description/notes (תיאור)
+
+**File Actions:**
+- Download file button
+- Delete file button
+- Preview (for images and PDFs)
+
+**Upload File Form:**
+- File picker - required
+- Description - optional textarea
 
 ---
 
-#### Team (אנשי מקצוע בלבד)
+### 6. Professionals List Page
+**Route:** `/professionals`
+**Hebrew Name:** אנשי מקצוע
+**English Name:** Professionals
+**Breadcrumbs:** אנשי מקצוע
 
-רשימה של אנשי מקצוע המשויכים לפרויקט.
+**Filters:**
+- Field dropdown (all fields or specific)
+- Active/Inactive toggle
+- Search box (filter by name, company, or email)
 
-**שדות מוצגים:**
+**Actions:**
+- Create new professional button (איש מקצוע חדש) → navigates to `/professionals/new`
 
-* professional_name
-* company_name
-* תחום
-* phone
-* email
-* project_role
-* source
-* related_tender_name
-* notes
-
-**פעולות:**
-
-* לחיצה על איש מקצוע → מעבר לדף Professional
-
-אין אפשרות להוסיף איש מקצוע מתוך הפרויקט.
-
----
-
-#### Tasks
-
-תצוגת Kanban.
-
-**כרטיס משימה:**
-
-* title
-* status
-* priority
-* assignee_name
-* due_date
-* notes
+**Professional Cards Display:**
+Each card shows:
+- Professional name (שם איש המקצוע)
+- Company name (שם החברה)
+- Field (תחום עיסוק)
+- Phone (טלפון)
+- Email (אימייל)
+- Rating (דירוג) - stars display
+- Active badge (פעיל) - green if active
+- Click navigates to professional detail
 
 ---
 
-#### Tenders
+### 7. Professional Detail Page
+**Route:** `/professionals/:id`
+**Hebrew Name:** כרטיס איש מקצוע
+**English Name:** Professional Card
+**Breadcrumbs:** אנשי מקצוע > כרטיס איש מקצוע
 
-**רשימת מכרזים:**
+**Header Actions:**
+- Edit professional button (עריכת פרטים) - toggles edit mode
+- Save button (שמור) - saves changes (shown in edit mode)
+- Cancel button (ביטול) - exits edit mode (shown in edit mode)
 
-* tender_name
-* category
-* status
-* publish_date
-* due_date
-* winner_professional_name
-* notes
+**Professional Information:**
+- Professional name (שם איש המקצוע) - editable
+- Company name (שם החברה) - editable
+- Field (תחום עיסוק) - editable dropdown with options:
+  - architect: אדריכל
+  - engineer: מהנדס
+  - contractor: קבלן
+  - electrician: חשמלאי
+  - plumber: אינסטלטור
+  - designer: מעצב פנים
+  - other: אחר
+- Phone (טלפון) - editable
+- Email (אימייל) - editable
+- Rating (דירוג) - editable (1-5 stars)
+- Active status (סטטוס) - editable toggle
+- Notes (הערות) - editable textarea
+- Created date (נוצר ב) - read-only
 
----
-
-#### Files (Contracts + Documents)
-
-רשימה אחת של קבצים.
-
-**שדות:**
-
-* file_name (עם לינק)
-* description_short
-* related_entity_name
-* uploaded_at
-* uploaded_by
-* notes
-
-**פעולות:**
-
-* Upload File
-* Edit File Metadata
-
----
-
-### 4.3 Professionals – מאגר אנשי מקצוע (גלובלי)
-
-#### List
-
-* professional_name
-* company_name
-* תחום
-* phone
-* email
-* notes
-* is_active
-
-**פעולות:**
-
-* Create New Professional
-* Open Professional
-* Edit Professional
-* Deactivate Professional
+**Associated Projects Section:**
+- List of all projects where this professional is assigned
+- Shows project name and status
+- Click to navigate to project detail
 
 ---
 
-#### Professional Detail
+### 8. Create Professional Page
+**Route:** `/professionals/new`
+**Hebrew Name:** יצירת איש מקצוע חדש
+**English Name:** Create New Professional
+**Breadcrumbs:** אנשי מקצוע > יצירת איש מקצוע חדש
 
-**פרטי איש מקצוע:**
+**Form Fields:**
+- Professional name (שם איש המקצוע) - required
+- Company name (שם החברה) - optional
+- Field (תחום עיסוק) - required dropdown
+- Phone (טלפון) - optional
+- Email (אימייל) - optional, email validation
+- Rating (דירוג) - optional, 1-5 stars
+- Active (פעיל) - checkbox, default true
+- Notes (הערות) - optional textarea
 
-* professional_name
-* company_name
-* תחום
-* phone
-* email
-* notes
-* is_active
+**Actions:**
+- Create professional button (צור איש מקצוע) - saves and redirects to professional detail
+- Cancel button (ביטול) - returns to professionals list
 
-**Related Projects:**
-
-* project_name
-* project_role
-* source
-* related_tender_name
-* notes
-
----
-
-## 5. Workflows מרכזיים
-
-### 5.1 מעבר סטטוס פרויקט
-
-Planning → Permits → Tendering → Construction → Handover → Archived
-
-* מעבר ל-Construction מסתיר נתוני Permit מהתצוגה הראשית
-* נתוני היתר נשמרים להיסטוריה
+**Validation:**
+- Required fields must be filled
+- Email must be valid format if provided
 
 ---
 
-### 5.2 בחירת זוכה במכרז
+### 9. Global Files Page
+**Route:** `/files`
+**Hebrew Name:** קבצים
+**English Name:** Files
+**Breadcrumbs:** קבצים
 
-בעת מעבר Tender ל-WinnerSelected:
+**Features:**
+- Upload file button (העלה קובץ)
+- Filter by:
+  - File type (all, image, pdf, document, spreadsheet, other)
+  - Related entity type (Project, Professional)
+  - Search by filename or description
 
-1. נבחר professional
-2. נוצר ProjectProfessional אוטומטי
-3. source = Tender
-4. related_tender_id מתעדכן
+**File Display:**
+Same as Project Files tab, with additional column:
+- Related entity (גורם משויך) - shows "Project: [name]" or "Professional: [name]"
+
+**File Actions:**
+- Download file
+- Delete file
+- View related entity (navigate to project or professional detail)
 
 ---
 
-## 6. מחוץ להיקף בשלב זה
+## Common Components
 
-* Budget
-* הרשאות מורכבות
-* כניסה לבעלי מקצוע
-* ניהול תשלומים
+### Status Badges
+Color-coded badges appearing throughout the system:
+
+**Project Statuses:**
+- בביצוע (In Progress) - Blue
+- הושלם (Completed) - Green
+- בהמתנה (On Hold) - Yellow
+- בוטל (Cancelled) - Red
+- בתכנון (Planning) - Gray
+
+**Task Statuses:**
+- ממתינה (Pending) - Gray
+- בביצוע (In Progress) - Blue
+- הושלמה (Completed) - Green
+- חסומה (Blocked) - Red
+
+**Milestone Statuses:**
+- ממתין (Pending) - Gray
+- בביצוע (In Progress) - Blue
+- הושלם (Completed) - Green
+- באיחור (Delayed) - Orange
+- בוטל (Cancelled) - Red
+
+**Tender Statuses:**
+- מתוכנן (Planned) - Gray
+- פורסם (Published) - Blue
+- בבדיקה (In Review) - Yellow
+- הוענק (Awarded) - Green
+- בוטל (Cancelled) - Red
+
+### Priority Levels
+- נמוכה (Low) - Gray
+- בינונית (Medium) - Yellow
+- גבוהה (High) - Orange
+- דחופה (Urgent) - Red
+
+### Professional Fields
+- אדריכל (Architect)
+- מהנדס (Engineer)
+- קבלן (Contractor)
+- חשמלאי (Electrician)
+- אינסטלטור (Plumber)
+- מעצב פנים (Designer)
+- אחר (Other)
+
+### File Types
+- תמונה (Image) - PNG, JPG, JPEG, GIF
+- PDF - PDF documents
+- מסמך (Document) - DOC, DOCX, TXT
+- גליון אלקטרוני (Spreadsheet) - XLS, XLSX, CSV
+- אחר (Other) - all other file types
 
 ---
 
+## Navigation Structure
 
+**Header Navigation:**
+- Dashboard (לוח בקרה)
+- Projects (פרויקטים)
+- Professionals (אנשי מקצוע)
+- Files (קבצים)
+- User menu with logout option
 
+**Breadcrumbs:**
+Every page except login has breadcrumbs showing navigation path, with clickable links to parent pages.
+
+---
+
+## Data Models Summary
+
+### Project
+- id, project_name, client_name, address, status
+- permit_start_date, permit_duration_months
+- notes, created_at, updated_at
+
+### Professional
+- id, professional_name, company_name, field
+- phone, email, rating (1-5), is_active
+- notes, created_at
+
+### Task
+- id, project_id, title, description
+- status, priority, assignee_professional_id
+- due_date, start_date, percent_complete
+- notes, created_at, updated_at
+
+### Milestone
+- id, project_id, title, target_date
+- status, description, completion_percentage
+- created_at, updated_at
+
+### Tender
+- id, project_id, title, field
+- status, publication_date, submission_deadline
+- budget, selected_professional_id
+- description, created_at, updated_at
+
+### File
+- id, file_name, file_path, file_size, file_type
+- related_entity_type (Project/Professional)
+- related_entity_id, description
+- uploaded_by, uploaded_at
+
+### ProjectProfessional (Join Table)
+- id, project_id, professional_id
+- assigned_at
+
+---
+
+## Notes
+
+- All dates use ISO format (YYYY-MM-DD)
+- All text is RTL Hebrew interface
+- System uses localStorage for data persistence
+- File uploads handled via local file system
+- No backend API - pure frontend application
+- Responsive design for desktop and tablet

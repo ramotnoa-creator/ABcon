@@ -1,6 +1,6 @@
 import type { Budget, BudgetStatus } from '../types';
 
-const BUDGET_STORAGE_KEY = 'anproyektim:budgets';
+const BUDGET_STORAGE_KEY = 'anprojects:budgets';
 
 export function getBudget(projectId: string): Budget | null {
   try {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { getTasks, addTask, updateTask, getAllTasks, saveTasks } from '../../../data/tasksStorage';
 import { getProjectProfessionalsWithDetails } from '../../../data/professionalsStorage';
 import { seedTasks } from '../../../data/tasksData';
@@ -32,46 +32,53 @@ const priorityIcons: Record<TaskPriority, string> = {
   Low: '🟢',
 };
 
+const loadInitialTasks = (projectId: string): Task[] => {
+  let loaded = getTasks(projectId);
+
+  // Seed if empty
+  if (loaded.length === 0) {
+    const projectTasks = seedTasks.filter((t) => t.project_id === projectId);
+    if (projectTasks.length > 0) {
+      const all = getAllTasks();
+      projectTasks.forEach((task) => all.push(task));
+      saveTasks(all);
+      loaded = projectTasks;
+    }
+  }
+
+  return loaded;
+};
+
+const loadInitialProfessionals = (projectId: string): Array<{ id: string; name: string }> => {
+  const withDetails = getProjectProfessionalsWithDetails(projectId);
+  return withDetails.map((pp) => ({
+    id: pp.professional.id,
+    name: pp.professional.professional_name,
+  }));
+};
+
 export default function TasksTab({ project }: TasksTabProps) {
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<Task[]>(() => loadInitialTasks(project.id));
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [projectProfessionals, setProjectProfessionals] = useState<
     Array<{ id: string; name: string }>
-  >([]);
+  >(() => loadInitialProfessionals(project.id));
 
-  useEffect(() => {
-    loadTasks();
-    loadProjectProfessionals();
+  const loadTasks = useCallback(() => {
+    setTasks(loadInitialTasks(project.id));
   }, [project.id]);
 
-  const loadTasks = () => {
-    let loaded = getTasks(project.id);
-    
-    // Seed if empty
-    if (loaded.length === 0) {
-      const projectTasks = seedTasks.filter((t) => t.project_id === project.id);
-      if (projectTasks.length > 0) {
-        const all = getAllTasks();
-        projectTasks.forEach((task) => all.push(task));
-        saveTasks(all);
-        loaded = projectTasks;
-      }
-    }
-    
-    setTasks(loaded);
-  };
+  const loadProjectProfessionals = useCallback(() => {
+    setProjectProfessionals(loadInitialProfessionals(project.id));
+  }, [project.id]);
 
-  const loadProjectProfessionals = () => {
-    const withDetails = getProjectProfessionalsWithDetails(project.id);
-    setProjectProfessionals(
-      withDetails.map((pp) => ({
-        id: pp.professional.id,
-        name: pp.professional.professional_name,
-      }))
-    );
-  };
+  const refreshData = useCallback(() => {
+    loadTasks();
+    loadProjectProfessionals();
+  }, [loadTasks, loadProjectProfessionals]);
+  void refreshData; // Available for refresh button
 
   const [newTaskForm, setNewTaskForm] = useState({
     title: '',

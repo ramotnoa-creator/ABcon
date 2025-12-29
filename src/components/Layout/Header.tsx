@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { getRoleDisplayName } from '../../utils/permissions';
 import MobileMenu from './MobileMenu';
 
 const navItems = [
@@ -10,18 +12,34 @@ const navItems = [
   { label: 'תקציב', path: '/budget', icon: 'payments' },
 ];
 
-// Mock user data - replace with actual user data from auth
-const currentUser = {
-  name: 'משה כהן',
-  email: 'moshe@example.com',
-  avatar: null, // Can be a URL to user's avatar
-  initials: 'מכ',
-};
+// Helper to get user initials from full name
+function getUserInitials(fullName: string): string {
+  const parts = fullName.trim().split(' ');
+  if (parts.length >= 2) {
+    return parts[0][0] + parts[parts.length - 1][0];
+  }
+  return fullName.substring(0, 2).toUpperCase();
+}
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  // Development mode - use mock user
+  const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
+  const mockUser = isDevMode ? {
+    id: 'dev-user-1',
+    email: 'admin@anproyektim.com',
+    full_name: 'משתמש ניסיון',
+    role: 'admin' as const,
+    is_active: true,
+    created_at: new Date().toISOString(),
+  } : null;
+
+  const displayUser = user || mockUser;
 
   const isActive = (path: string) => {
     if (path === '/dashboard') {
@@ -30,11 +48,26 @@ export default function Header() {
     return location.pathname.startsWith(path);
   };
 
-  const handleLogout = () => {
-    // TODO: Implement actual logout logic
-    console.log('Logging out...');
-    setIsUserMenuOpen(false);
+  const handleLogout = async () => {
+    if (isDevMode) {
+      // In dev mode, just log to console
+      console.log('Logout (dev mode)');
+      setIsUserMenuOpen(false);
+      return;
+    }
+
+    try {
+      await logout();
+      setIsUserMenuOpen(false);
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
   };
+
+  // Get user display data
+  const userInitials = displayUser ? getUserInitials(displayUser.full_name) : '';
+  const userRole = displayUser ? getRoleDisplayName(displayUser.role) : '';
 
   return (
     <>
@@ -101,19 +134,15 @@ export default function Header() {
             >
               {/* Avatar */}
               <div className="size-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm transition-transform duration-200 group-hover:scale-105">
-                {currentUser.avatar ? (
-                  <img src={currentUser.avatar} alt={currentUser.name} className="size-full rounded-full object-cover" />
-                ) : (
-                  currentUser.initials
-                )}
+                {userInitials}
               </div>
               {/* User name - Desktop only */}
               <div className="hidden md:flex flex-col items-start">
                 <span className="text-sm font-medium text-text-main-light dark:text-text-main-dark leading-tight">
-                  {currentUser.name}
+                  {displayUser?.full_name}
                 </span>
                 <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark leading-tight">
-                  {currentUser.email}
+                  {userRole}
                 </span>
               </div>
               {/* Dropdown arrow */}
@@ -134,8 +163,9 @@ export default function Header() {
                 <div className="absolute left-0 top-full mt-2 w-56 bg-surface-light dark:bg-surface-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark z-50 overflow-hidden animate-scale-in origin-top-left">
                   {/* User info header */}
                   <div className="p-4 border-b border-border-light dark:border-border-dark">
-                    <p className="font-bold text-sm">{currentUser.name}</p>
-                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{currentUser.email}</p>
+                    <p className="font-bold text-sm">{displayUser?.full_name}</p>
+                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{displayUser?.email}</p>
+                    <p className="text-xs text-primary mt-1">{userRole}</p>
                   </div>
                   
                   {/* Menu items */}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   getProjectProfessionalsWithDetails,
@@ -13,29 +13,29 @@ interface ProfessionalsTabProps {
   project: Project;
 }
 
+type ProjectProfessionalItem = { professional: Professional; projectRole?: string; source: string };
+
+const loadInitialProjectProfessionals = (projectId: string): ProjectProfessionalItem[] => {
+  const withDetails = getProjectProfessionalsWithDetails(projectId);
+  return withDetails.map((pp) => ({
+    professional: pp.professional,
+    projectRole: pp.project_role,
+    source: pp.source,
+  }));
+};
+
 export default function ProfessionalsTab({ project }: ProfessionalsTabProps) {
   const navigate = useNavigate();
-  const [projectProfessionals, setProjectProfessionals] = useState<
-    Array<{ professional: Professional; projectRole?: string; source: string }>
-  >([]);
+  const [projectProfessionals, setProjectProfessionals] = useState<ProjectProfessionalItem[]>(
+    () => loadInitialProjectProfessionals(project.id)
+  );
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [availableProfessionals, setAvailableProfessionals] = useState<Professional[]>([]);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string>('');
 
-  useEffect(() => {
-    loadProjectProfessionals();
+  const loadProjectProfessionals = useCallback(() => {
+    setProjectProfessionals(loadInitialProjectProfessionals(project.id));
   }, [project.id]);
-
-  const loadProjectProfessionals = () => {
-    const withDetails = getProjectProfessionalsWithDetails(project.id);
-    setProjectProfessionals(
-      withDetails.map((pp) => ({
-        professional: pp.professional,
-        projectRole: pp.project_role,
-        source: pp.source,
-      }))
-    );
-  };
 
   const handleAddClick = () => {
     const allProfessionals = getProfessionals();

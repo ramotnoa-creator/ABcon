@@ -1,12 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getTenders, updateTender, getAllTenders, saveTenders } from '../../../data/tendersStorage';
+import {
+  getTenders,
+  updateTender,
+  getAllTenders,
+  saveTenders,
+  addTender,
+  deleteTender,
+} from '../../../data/tendersStorage';
+import {
+  getTenderParticipants,
+  addTenderParticipants,
+  updateTenderParticipant,
+  removeTenderParticipant,
+  setTenderWinner,
+  clearTenderWinner,
+} from '../../../data/tenderParticipantsStorage';
 import { getProfessionals } from '../../../data/professionalsStorage';
 import { addProjectProfessional } from '../../../data/professionalsStorage';
 import { seedTenders } from '../../../data/tendersData';
-import type { Project } from '../../../types';
-import type { Tender, TenderStatus } from '../../../types';
-import type { Professional } from '../../../types';
+import type { Project, Tender, TenderStatus, TenderType, TenderParticipant, Professional } from '../../../types';
 import { formatDateForDisplay } from '../../../utils/dateUtils';
 
 interface TendersTabProps {
@@ -29,103 +42,203 @@ const statusColors: Record<TenderStatus, string> = {
   Canceled: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200',
 };
 
+const tenderTypeLabels: Record<TenderType, string> = {
+  architect: 'אדריכל',
+  engineer: 'מהנדס',
+  contractor: 'קבלן',
+  electrician: 'חשמלאי',
+  plumber: 'אינסטלטור',
+  interior_designer: 'מעצב פנים',
+  other: 'אחר',
+};
+
+const professionalFieldToTenderType: Record<string, TenderType> = {
+  'אדריכלות': 'architect',
+  'הנדסה': 'engineer',
+  'קבלנות': 'contractor',
+  'חשמל': 'electrician',
+  'אינסטלציה': 'plumber',
+  'עיצוב פנים': 'interior_designer',
+};
+
+const formatCurrency = (amount?: number): string => {
+  if (amount === undefined || amount === null) return '-';
+  return new Intl.NumberFormat('he-IL', {
+    style: 'currency',
+    currency: 'ILS',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+};
+
+const getTodayISO = (): string => {
+  return new Date().toISOString().split('T')[0];
+};
+
+const loadInitialTenders = (projectId: string): Tender[] => {
+  let loaded = getTenders(projectId);
+
+  // Seed if empty
+  if (loaded.length === 0) {
+    const projectTenders = seedTenders.filter((t) => t.project_id === projectId);
+    if (projectTenders.length > 0) {
+      const all = getAllTenders();
+      projectTenders.forEach((tender) => all.push(tender));
+      saveTenders(all);
+      loaded = projectTenders;
+    }
+  }
+
+  return loaded;
+};
+
+const loadInitialProfessionals = (): Professional[] => {
+  const professionals = getProfessionals();
+  return professionals.filter((p) => p.is_active);
+};
+
+const loadParticipantsMap = (tenders: Tender[]): Record<string, TenderParticipant[]> => {
+  const map: Record<string, TenderParticipant[]> = {};
+  tenders.forEach((tender) => {
+    map[tender.id] = getTenderParticipants(tender.id);
+  });
+  return map;
+};
+
 export default function TendersTab({ project }: TendersTabProps) {
   const navigate = useNavigate();
-  const [tenders, setTenders] = useState<Tender[]>([]);
-  const [allProfessionals, setAllProfessionals] = useState<Professional[]>([]);
-  const [selectedTender, setSelectedTender] = useState<Tender | null>(null);
-  const [isSelectWinnerModalOpen, setIsSelectWinnerModalOpen] = useState(false);
+  const [tenders, setTenders] = useState<Tender[]>(() => loadInitialTenders(project.id));
+  const [allProfessionals, setAllProfessionals] = useState<Professional[]>(() => loadInitialProfessionals());
+  const [participantsMap, setParticipantsMap] = useState<Record<string, TenderParticipant[]>>(() => loadParticipantsMap(loadInitialTenders(project.id)));
 
-  useEffect(() => {
-    loadTenders();
-    loadProfessionals();
+  // Modal states
+  const [isAddTenderModalOpen, setIsAddTenderModalOpen] = useState(false);
+  const [isProfessionalPickerOpen, setIsProfessionalPickerOpen] = useState(false);
+  const [isSelectWinnerModalOpen, setIsSelectWinnerModalOpen] = useState(false);
+  const [isParticipantDetailsOpen, setIsParticipantDetailsOpen] = useState(false);
+
+  const [selectedTender, setSelectedTender] = useState<Tender | null>(null);
+  const [selectedParticipant, setSelectedParticipant] = useState<TenderParticipant | null>(null);
+
+  // Form states
+  const [tenderForm, setTenderForm] = useState({
+    tender_name: '',
+    tender_type: 'contractor' as TenderType,
+    description: '',
+    due_date: '',
+  });
+
+  const [professionalPickerFilter, setProfessionalPickerFilter] = useState<TenderType | 'all'>('all');
+  const [selectedProfessionalIds, setSelectedProfessionalIds] = useState<string[]>([]);
+
+  const [participantForm, setParticipantForm] = useState({
+    quote_file: '',
+    total_amount: '',
+    notes: '',
+  });
+
+  const loadTenders = useCallback(() => {
+    const loaded = loadInitialTenders(project.id);
+    setTenders(loaded);
+    setParticipantsMap(loadParticipantsMap(loaded));
   }, [project.id]);
 
-  const loadTenders = () => {
-    let loaded = getTenders(project.id);
-    
-    // Seed if empty
-    if (loaded.length === 0) {
-      const projectTenders = seedTenders.filter((t) => t.project_id === project.id);
-      if (projectTenders.length > 0) {
-        const all = getAllTenders();
-        projectTenders.forEach((tender) => all.push(tender));
-        saveTenders(all);
-        loaded = projectTenders;
-      }
-    }
-    
-    setTenders(loaded);
-  };
+  const loadProfessionals = useCallback(() => {
+    setAllProfessionals(loadInitialProfessionals());
+  }, []);
 
-  const loadProfessionals = () => {
-    const professionals = getProfessionals();
-    setAllProfessionals(professionals.filter((p) => p.is_active));
-  };
+  const refreshData = useCallback(() => {
+    loadTenders();
+    loadProfessionals();
+  }, [loadTenders, loadProfessionals]);
+  void refreshData; // Available for refresh button
 
-  const handleSelectWinner = (tenderId: string, professionalId: string) => {
-    const professional = allProfessionals.find((p) => p.id === professionalId);
-    if (!professional) return;
+  // Filter professionals by tender type
+  const getFilteredProfessionals = (typeFilter: TenderType | 'all'): Professional[] => {
+    if (typeFilter === 'all') return allProfessionals;
 
-    // Update tender with winner
-    updateTender(tenderId, {
-      winner_professional_id: professionalId,
-      winner_professional_name: professional.professional_name,
-      status: 'WinnerSelected',
+    return allProfessionals.filter((prof) => {
+      const mappedType = professionalFieldToTenderType[prof.field];
+      return mappedType === typeFilter || (!mappedType && typeFilter === 'other');
     });
+  };
 
-    // Create ProjectProfessional automatically
-    const newProjectProfessional = {
-      id: `pp-${Date.now()}`,
+  // Get available professionals (not already participants)
+  const getAvailableProfessionals = (tender: Tender, typeFilter: TenderType | 'all'): Professional[] => {
+    const participants = participantsMap[tender.id] || [];
+    const participantProfIds = participants.map((p) => p.professional_id);
+    const filtered = getFilteredProfessionals(typeFilter);
+    return filtered.filter((p) => !participantProfIds.includes(p.id));
+  };
+
+  // Check if deadline passed
+  const isDeadlinePassed = (tender: Tender): boolean => {
+    if (!tender.due_date) return false;
+    return new Date(tender.due_date) < new Date();
+  };
+
+  // Handle add tender
+  const handleAddTender = () => {
+    if (!tenderForm.tender_name.trim()) return;
+
+    const newTender: Tender = {
+      id: `tender-${Date.now()}`,
       project_id: project.id,
-      professional_id: professionalId,
-      project_role: undefined, // Can be set later
-      source: 'Tender' as const,
-      related_tender_id: tenderId,
-      related_tender_name: tenders.find((t) => t.id === tenderId)?.tender_name,
-      is_active: true,
-      notes: undefined,
+      tender_name: tenderForm.tender_name.trim(),
+      tender_type: tenderForm.tender_type,
+      description: tenderForm.description.trim() || undefined,
+      status: 'Open',
+      publish_date: new Date().toISOString(),
+      due_date: tenderForm.due_date || undefined,
+      candidate_professional_ids: [],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
 
-    addProjectProfessional(newProjectProfessional);
-
-    // Reload tenders
+    addTender(newTender);
     loadTenders();
-    setIsSelectWinnerModalOpen(false);
-    setSelectedTender(null);
-  };
 
-  const getCandidateProfessionals = (tender: Tender): Professional[] => {
-    return allProfessionals.filter((p) => tender.candidate_professional_ids.includes(p.id));
-  };
-
-  const getAvailableProfessionals = (tender: Tender): Professional[] => {
-    // All active professionals that are not already candidates
-    return allProfessionals.filter(
-      (p) => !tender.candidate_professional_ids.includes(p.id)
-    );
-  };
-
-  const handleAddCandidate = (tenderId: string, professionalId: string) => {
-    const tender = tenders.find((t) => t.id === tenderId);
-    if (!tender) return;
-
-    const updatedCandidates = [...tender.candidate_professional_ids, professionalId];
-    updateTender(tenderId, {
-      candidate_professional_ids: updatedCandidates,
+    // Reset form and open professional picker
+    setTenderForm({
+      tender_name: '',
+      tender_type: 'contractor',
+      description: '',
+      due_date: '',
     });
+    setIsAddTenderModalOpen(false);
 
-    loadTenders();
+    // Open professional picker for the new tender
+    setSelectedTender(newTender);
+    setProfessionalPickerFilter(newTender.tender_type);
+    setSelectedProfessionalIds([]);
+    setIsProfessionalPickerOpen(true);
   };
 
-  const handleRemoveCandidate = (tenderId: string, professionalId: string) => {
-    const tender = tenders.find((t) => t.id === tenderId);
-    if (!tender) return;
+  // Handle add participants
+  const handleAddParticipants = () => {
+    if (!selectedTender || selectedProfessionalIds.length === 0) return;
+
+    addTenderParticipants(selectedTender.id, selectedProfessionalIds);
+
+    // Update tender's candidate_professional_ids for backwards compatibility
+    const updatedCandidates = [
+      ...selectedTender.candidate_professional_ids,
+      ...selectedProfessionalIds,
+    ];
+    updateTender(selectedTender.id, { candidate_professional_ids: updatedCandidates });
+
+    loadTenders();
+    setIsProfessionalPickerOpen(false);
+    setSelectedProfessionalIds([]);
+  };
+
+  // Handle remove participant
+  const handleRemoveParticipant = (tender: Tender, professionalId: string) => {
+    removeTenderParticipant(tender.id, professionalId);
 
     const updatedCandidates = tender.candidate_professional_ids.filter((id) => id !== professionalId);
-    updateTender(tenderId, {
+    updateTender(tender.id, {
       candidate_professional_ids: updatedCandidates,
-      // If removing the winner, clear winner
       ...(tender.winner_professional_id === professionalId && {
         winner_professional_id: undefined,
         winner_professional_name: undefined,
@@ -133,7 +246,96 @@ export default function TendersTab({ project }: TendersTabProps) {
       }),
     });
 
+    if (tender.winner_professional_id === professionalId) {
+      clearTenderWinner(tender.id);
+    }
+
     loadTenders();
+  };
+
+  // Handle select winner
+  const handleSelectWinner = (tender: Tender, participant: TenderParticipant) => {
+    const professional = allProfessionals.find((p) => p.id === participant.professional_id);
+    if (!professional) return;
+
+    if (!confirm(`האם אתה בטוח שברצונך לבחור את ${professional.professional_name} כזוכה במכרז?`)) {
+      return;
+    }
+
+    // Update participant as winner
+    setTenderWinner(tender.id, participant.id);
+
+    // Update tender
+    updateTender(tender.id, {
+      winner_professional_id: participant.professional_id,
+      winner_professional_name: professional.professional_name,
+      status: 'WinnerSelected',
+    });
+
+    // Create ProjectProfessional automatically
+const newProjectProfessional = {
+  id: `pp-${crypto.randomUUID()}`,
+  project_id: project.id,
+  professional_id: participant.professional_id,
+  project_role: undefined,
+  source: 'Tender' as const,
+  related_tender_id: tender.id,
+  related_tender_name: tender.tender_name,
+  is_active: true,
+};
+
+
+    addProjectProfessional(newProjectProfessional);
+
+    loadTenders();
+    setIsSelectWinnerModalOpen(false);
+    setSelectedTender(null);
+  };
+
+  // Handle update participant details
+  const handleUpdateParticipant = () => {
+    if (!selectedParticipant) return;
+
+    updateTenderParticipant(selectedParticipant.id, {
+      quote_file: participantForm.quote_file.trim() || undefined,
+      total_amount: participantForm.total_amount ? parseFloat(participantForm.total_amount) : undefined,
+      notes: participantForm.notes.trim() || undefined,
+    });
+
+    loadTenders();
+    setIsParticipantDetailsOpen(false);
+    setSelectedParticipant(null);
+    setParticipantForm({ quote_file: '', total_amount: '', notes: '' });
+  };
+
+  // Open participant details modal
+  const openParticipantDetails = (tender: Tender, participant: TenderParticipant) => {
+    setSelectedTender(tender);
+    setSelectedParticipant(participant);
+    setParticipantForm({
+      quote_file: participant.quote_file || '',
+      total_amount: participant.total_amount?.toString() || '',
+      notes: participant.notes || '',
+    });
+    setIsParticipantDetailsOpen(true);
+  };
+
+  // Handle delete tender
+  const handleDeleteTender = (tender: Tender) => {
+    if (!confirm(`האם אתה בטוח שברצונך למחוק את המכרז "${tender.tender_name}"?`)) {
+      return;
+    }
+    deleteTender(tender.id);
+    loadTenders();
+  };
+
+  // Get participant with professional data
+  const getParticipantsWithProfessionals = (tender: Tender) => {
+    const participants = participantsMap[tender.id] || [];
+    return participants.map((p) => ({
+      ...p,
+      professional: allProfessionals.find((prof) => prof.id === p.professional_id),
+    }));
   };
 
   return (
@@ -141,20 +343,29 @@ export default function TendersTab({ project }: TendersTabProps) {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h3 className="text-xl font-bold">מכרזים</h3>
+        <button
+          onClick={() => setIsAddTenderModalOpen(true)}
+          className="flex items-center justify-center h-10 px-5 rounded-lg bg-primary text-white hover:bg-primary-hover transition text-sm font-bold tracking-[0.015em] shadow-sm"
+          aria-label="הוסף מכרז חדש"
+        >
+          <span className="material-symbols-outlined me-2 text-[20px]" aria-hidden="true">add</span>
+          הוסף מכרז
+        </button>
       </div>
 
       {/* Tenders List */}
       {tenders.length === 0 ? (
         <div className="text-center py-12 text-text-secondary-light dark:text-text-secondary-dark">
-          אין מכרזים
+          <span className="material-symbols-outlined text-[48px] mb-4 opacity-50">gavel</span>
+          <p>אין מכרזים</p>
+          <p className="text-sm mt-2">לחץ על "הוסף מכרז" כדי להתחיל</p>
         </div>
       ) : (
         <div className="space-y-4">
           {tenders.map((tender) => {
-            const candidates = getCandidateProfessionals(tender);
-            const winner = tender.winner_professional_id
-              ? allProfessionals.find((p) => p.id === tender.winner_professional_id)
-              : null;
+            const participantsWithProf = getParticipantsWithProfessionals(tender);
+            const winner = participantsWithProf.find((p) => p.is_winner);
+            const deadlinePassed = isDeadlinePassed(tender);
 
             return (
               <div
@@ -164,24 +375,53 @@ export default function TendersTab({ project }: TendersTabProps) {
                 {/* Tender Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
                       <h4 className="text-lg font-bold">{tender.tender_name}</h4>
                       <span
                         className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${statusColors[tender.status]}`}
                       >
                         {statusLabels[tender.status]}
                       </span>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                        {tenderTypeLabels[tender.tender_type]}
+                      </span>
+                      {deadlinePassed && tender.status === 'Open' && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                          <span className="material-symbols-outlined text-[14px] me-1">warning</span>
+                          עבר הדדליין
+                        </span>
+                      )}
                     </div>
-                    {tender.category && (
-                      <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-1">
-                        קטגוריה: {tender.category}
-                      </p>
-                    )}
                     {tender.description && (
                       <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                         {tender.description}
                       </p>
                     )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {tender.status !== 'WinnerSelected' && tender.status !== 'Canceled' && (
+                      <button
+                        onClick={() => {
+                          setSelectedTender(tender);
+                          setProfessionalPickerFilter(tender.tender_type);
+                          setSelectedProfessionalIds([]);
+                          setIsProfessionalPickerOpen(true);
+                        }}
+                        className="p-2 rounded-lg hover:bg-background-light dark:hover:bg-background-dark text-text-secondary-light hover:text-primary transition-colors"
+                        title="הוסף משתתפים"
+                        aria-label={`הוסף משתתפים למכרז ${tender.tender_name}`}
+                      >
+                        <span className="material-symbols-outlined text-[20px]" aria-hidden="true">person_add</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDeleteTender(tender)}
+                      className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-text-secondary-light hover:text-red-600 transition-colors"
+                      title="מחק מכרז"
+                      aria-label={`מחק מכרז ${tender.tender_name}`}
+                    >
+                      <span className="material-symbols-outlined text-[20px]" aria-hidden="true">delete</span>
+                    </button>
                   </div>
                 </div>
 
@@ -197,9 +437,9 @@ export default function TendersTab({ project }: TendersTabProps) {
                       </div>
                     )}
                     {tender.due_date && (
-                      <div>
+                      <div className={deadlinePassed && tender.status === 'Open' ? 'text-red-600' : ''}>
                         <span className="text-text-secondary-light dark:text-text-secondary-dark">
-                          תאריך יעד:
+                          דדליין:
                         </span>{' '}
                         <span className="font-medium">{formatDateForDisplay(tender.due_date)}</span>
                       </div>
@@ -208,20 +448,26 @@ export default function TendersTab({ project }: TendersTabProps) {
                 )}
 
                 {/* Winner Section */}
-                {winner && (
+                {winner && winner.professional && (
                   <div className="mb-4 p-4 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-900/30">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap gap-3">
                       <div>
                         <p className="text-xs font-bold text-green-800 dark:text-green-200 mb-1">
+                          <span className="material-symbols-outlined text-[14px] me-1 align-middle">emoji_events</span>
                           זוכה במכרז
                         </p>
                         <p className="text-base font-bold text-green-900 dark:text-green-100">
-                          {winner.professional_name}
-                          {winner.company_name && ` - ${winner.company_name}`}
+                          {winner.professional.professional_name}
+                          {winner.professional.company_name && ` - ${winner.professional.company_name}`}
                         </p>
+                        {winner.total_amount && (
+                          <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                            הצעת מחיר: {formatCurrency(winner.total_amount)}
+                          </p>
+                        )}
                       </div>
                       <button
-                        onClick={() => navigate(`/professionals/${winner.id}`)}
+                        onClick={() => navigate(`/professionals/${winner.professional!.id}`)}
                         className="px-3 py-1.5 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors text-sm font-bold"
                       >
                         צפייה בפרופיל
@@ -230,13 +476,13 @@ export default function TendersTab({ project }: TendersTabProps) {
                   </div>
                 )}
 
-                {/* Candidates List */}
+                {/* Participants List */}
                 <div className="mb-4">
                   <div className="flex items-center justify-between mb-3">
                     <h5 className="text-sm font-bold text-text-secondary-light dark:text-text-secondary-dark">
-                      רשימת מועמדים ({candidates.length})
+                      משתתפים במכרז ({participantsWithProf.length})
                     </h5>
-                    {!winner && tender.status !== 'Canceled' && (
+                    {!winner && tender.status !== 'Canceled' && participantsWithProf.length > 0 && (
                       <button
                         onClick={() => {
                           setSelectedTender(tender);
@@ -247,94 +493,102 @@ export default function TendersTab({ project }: TendersTabProps) {
                         <span className="material-symbols-outlined text-[16px] me-1 align-middle">
                           check_circle
                         </span>
-                        סמן זוכה
+                        בחר זוכה
                       </button>
                     )}
                   </div>
 
-                  {candidates.length === 0 ? (
-                    <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark py-4 text-center">
-                      אין מועמדים במכרז
+                  {participantsWithProf.length === 0 ? (
+                    <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark py-4 text-center border-2 border-dashed border-border-light dark:border-border-dark rounded-lg">
+                      אין משתתפים במכרז
+                      {tender.status !== 'WinnerSelected' && tender.status !== 'Canceled' && (
+                        <button
+                          onClick={() => {
+                            setSelectedTender(tender);
+                            setProfessionalPickerFilter(tender.tender_type);
+                            setSelectedProfessionalIds([]);
+                            setIsProfessionalPickerOpen(true);
+                          }}
+                          className="block mx-auto mt-2 text-primary hover:underline font-bold"
+                        >
+                          הוסף משתתפים
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {candidates.map((candidate) => (
-                        <div
-                          key={candidate.id}
-                          className={`flex items-center justify-between p-3 rounded-lg border ${
-                            tender.winner_professional_id === candidate.id
-                              ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30'
-                              : 'bg-background-light dark:bg-background-dark border-border-light dark:border-border-dark'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3 flex-1">
-                            {tender.winner_professional_id === candidate.id && (
-                              <span className="material-symbols-outlined text-green-600 dark:text-green-400 text-[20px]">
-                                check_circle
-                              </span>
-                            )}
-                            <div className="flex-1">
-                              <p className="font-bold text-sm">{candidate.professional_name}</p>
-                              {candidate.company_name && (
-                                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                                  {candidate.company_name}
-                                </p>
+                      {participantsWithProf.map((participant) => {
+                        if (!participant.professional) return null;
+
+                        return (
+                          <div
+                            key={participant.id}
+                            className={`flex items-center justify-between p-3 rounded-lg border ${
+                              participant.is_winner
+                                ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30'
+                                : 'bg-background-light dark:bg-background-dark border-border-light dark:border-border-dark'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 flex-1">
+                              {participant.is_winner && (
+                                <span className="material-symbols-outlined text-green-600 dark:text-green-400 text-[20px]">
+                                  emoji_events
+                                </span>
                               )}
-                              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                                {candidate.field}
-                              </p>
+                              <div className="flex-1">
+                                <p className="font-bold text-sm">{participant.professional.professional_name}</p>
+                                {participant.professional.company_name && (
+                                  <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                                    {participant.professional.company_name}
+                                  </p>
+                                )}
+                                <div className="flex items-center gap-3 mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                                  <span>{participant.professional.field}</span>
+                                  {participant.total_amount && (
+                                    <span className="font-bold text-primary">
+                                      {formatCurrency(participant.total_amount)}
+                                    </span>
+                                  )}
+                                  {participant.quote_file && (
+                                    <span className="text-blue-600 dark:text-blue-400">
+                                      <span className="material-symbols-outlined text-[14px] align-middle">attach_file</span>
+                                      קובץ מצורף
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => openParticipantDetails(tender, participant)}
+                                className="p-1.5 rounded hover:bg-background-light dark:hover:bg-surface-dark transition-colors text-text-secondary-light hover:text-primary"
+                                title="פרטי הצעה"
+                              >
+                                <span className="material-symbols-outlined text-[18px]">edit</span>
+                              </button>
+                              <button
+                                onClick={() => navigate(`/professionals/${participant.professional!.id}`)}
+                                className="p-1.5 rounded hover:bg-background-light dark:hover:bg-surface-dark transition-colors text-text-secondary-light hover:text-primary"
+                                title="צפייה בפרופיל"
+                              >
+                                <span className="material-symbols-outlined text-[18px]">open_in_new</span>
+                              </button>
+                              {!winner && (
+                                <button
+                                  onClick={() => handleRemoveParticipant(tender, participant.professional_id)}
+                                  className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-text-secondary-light hover:text-red-600 transition-colors"
+                                  title="הסר משתתף"
+                                >
+                                  <span className="material-symbols-outlined text-[18px]">close</span>
+                                </button>
+                              )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => navigate(`/professionals/${candidate.id}`)}
-                              className="px-2 py-1 rounded hover:bg-background-light dark:hover:bg-background-dark transition-colors text-text-secondary-light hover:text-primary"
-                              title="צפייה בפרופיל"
-                            >
-                              <span className="material-symbols-outlined text-[18px]">open_in_new</span>
-                            </button>
-                            {!winner && (
-                              <button
-                                onClick={() => handleRemoveCandidate(tender.id, candidate.id)}
-                                className="px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-text-secondary-light hover:text-red-600 transition-colors"
-                                title="הסר מועמד"
-                              >
-                                <span className="material-symbols-outlined text-[18px]">close</span>
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
-
-                {/* Add Candidate Section */}
-                {!winner && tender.status !== 'Canceled' && (
-                  <div className="pt-4 border-t border-border-light dark:border-border-dark">
-                    <label className="block text-sm font-bold mb-2">
-                      הוסף מועמד למכרז
-                    </label>
-                    <select
-                      className="w-full md:w-auto min-w-[200px] h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
-                      value=""
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          handleAddCandidate(tender.id, e.target.value);
-                          e.target.value = '';
-                        }
-                      }}
-                    >
-                      <option value="">בחר איש מקצוע...</option>
-                      {getAvailableProfessionals(tender).map((prof) => (
-                        <option key={prof.id} value={prof.id}>
-                          {prof.professional_name}
-                          {prof.company_name && ` - ${prof.company_name}`}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
 
                 {/* Notes */}
                 {tender.notes && (
@@ -353,10 +607,225 @@ export default function TendersTab({ project }: TendersTabProps) {
         </div>
       )}
 
+      {/* Add Tender Modal */}
+      {isAddTenderModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4">
+          <div className="relative p-5 rounded-2xl bg-black/30">
+            <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl border border-border-light dark:border-border-dark w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-border-light dark:border-border-dark sticky top-0 bg-surface-light dark:bg-surface-dark">
+              <h3 className="text-lg font-bold">הוספת מכרז חדש</h3>
+              <button
+                onClick={() => setIsAddTenderModalOpen(false)}
+                className="size-8 flex items-center justify-center hover:bg-background-light dark:hover:bg-background-dark rounded transition-colors"
+              >
+                <span className="material-symbols-outlined text-[24px]">close</span>
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-bold mb-2">
+                  שם המכרז <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
+                  placeholder="לדוגמה: מכרז קבלן שלד"
+                  value={tenderForm.tender_name}
+                  onChange={(e) => setTenderForm({ ...tenderForm, tender_name: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-2">
+                  סוג מכרז <span className="text-red-500">*</span>
+                </label>
+                <select
+                  className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
+                  value={tenderForm.tender_type}
+                  onChange={(e) => setTenderForm({ ...tenderForm, tender_type: e.target.value as TenderType })}
+                >
+                  {Object.entries(tenderTypeLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-2">
+                  דדליין <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
+                  min={getTodayISO()}
+                  value={tenderForm.due_date}
+                  onChange={(e) => setTenderForm({ ...tenderForm, due_date: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-2">תיאור</label>
+                <textarea
+                  className="w-full p-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary resize-none h-20"
+                  placeholder="תיאור המכרז..."
+                  value={tenderForm.description}
+                  onChange={(e) => setTenderForm({ ...tenderForm, description: e.target.value })}
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  onClick={() => setIsAddTenderModalOpen(false)}
+                  className="px-4 py-2 rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold text-sm transition-colors"
+                >
+                  ביטול
+                </button>
+                <button
+                  onClick={handleAddTender}
+                  disabled={!tenderForm.tender_name.trim() || !tenderForm.due_date}
+                  className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  צור מכרז והוסף משתתפים
+                </button>
+              </div>
+            </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Professional Picker Modal */}
+      {isProfessionalPickerOpen && selectedTender && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4">
+          <div className="relative p-5 rounded-2xl bg-black/30">
+            <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark">
+              <div>
+                <h3 className="text-lg font-bold">בחירת אנשי מקצוע</h3>
+                <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                  {selectedTender.tender_name}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsProfessionalPickerOpen(false);
+                  setSelectedProfessionalIds([]);
+                }}
+                className="size-8 flex items-center justify-center hover:bg-background-light dark:hover:bg-background-dark rounded transition-colors"
+              >
+                <span className="material-symbols-outlined text-[24px]">close</span>
+              </button>
+            </div>
+
+            {/* Filter */}
+            <div className="p-4 border-b border-border-light dark:border-border-dark">
+              <label className="block text-sm font-bold mb-2">סנן לפי סוג</label>
+              <select
+                className="w-full md:w-auto min-w-[200px] h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
+                value={professionalPickerFilter}
+                onChange={(e) => setProfessionalPickerFilter(e.target.value as TenderType | 'all')}
+              >
+                <option value="all">הצג הכל</option>
+                {Object.entries(tenderTypeLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Professionals List */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {(() => {
+                const available = getAvailableProfessionals(selectedTender, professionalPickerFilter);
+                if (available.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-text-secondary-light dark:text-text-secondary-dark">
+                      אין אנשי מקצוע זמינים
+                    </div>
+                  );
+                }
+                return (
+                  <div className="space-y-2">
+                    {available.map((prof) => (
+                      <label
+                        key={prof.id}
+                        className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                          selectedProfessionalIds.includes(prof.id)
+                            ? 'bg-primary/10 border-primary'
+                            : 'bg-background-light dark:bg-background-dark border-border-light dark:border-border-dark hover:border-primary/50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedProfessionalIds.includes(prof.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedProfessionalIds([...selectedProfessionalIds, prof.id]);
+                            } else {
+                              setSelectedProfessionalIds(selectedProfessionalIds.filter((id) => id !== prof.id));
+                            }
+                          }}
+                          className="size-4 rounded border-border-light dark:border-border-dark text-primary focus:ring-primary"
+                        />
+                        <div className="flex-1">
+                          <p className="font-bold text-sm">{prof.professional_name}</p>
+                          {prof.company_name && (
+                            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                              {prof.company_name}
+                            </p>
+                          )}
+                          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                            {prof.field}
+                          </p>
+                        </div>
+                        {prof.rating && (
+                          <div className="flex items-center gap-1 text-yellow-500">
+                            <span className="material-symbols-outlined text-[16px]">star</span>
+                            <span className="text-sm font-bold">{prof.rating}</span>
+                          </div>
+                        )}
+                      </label>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                  נבחרו {selectedProfessionalIds.length} אנשי מקצוע
+                </span>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setIsProfessionalPickerOpen(false);
+                      setSelectedProfessionalIds([]);
+                    }}
+                    className="px-4 py-2 rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold text-sm transition-colors"
+                  >
+                    ביטול
+                  </button>
+                  <button
+                    onClick={handleAddParticipants}
+                    disabled={selectedProfessionalIds.length === 0}
+                    className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    הוסף נבחרים למכרז
+                  </button>
+                </div>
+              </div>
+            </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Select Winner Modal */}
       {isSelectWinnerModalOpen && selectedTender && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4">
+          <div className="relative p-5 rounded-2xl bg-black/30">
+            <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-border-light dark:border-border-dark sticky top-0 bg-surface-light dark:bg-surface-dark">
               <h3 className="text-lg font-bold">בחירת זוכה במכרז</h3>
               <button
@@ -374,36 +843,136 @@ export default function TendersTab({ project }: TendersTabProps) {
                 בחר את הזוכה במכרז: <strong>{selectedTender.tender_name}</strong>
               </p>
               <div className="space-y-2">
-                {getCandidateProfessionals(selectedTender).map((candidate) => (
-                  <button
-                    key={candidate.id}
-                    onClick={() => handleSelectWinner(selectedTender.id, candidate.id)}
-                    className="w-full p-4 rounded-lg border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark hover:bg-primary/10 hover:border-primary transition-colors text-right"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="font-bold text-sm">{candidate.professional_name}</p>
-                        {candidate.company_name && (
-                          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                            {candidate.company_name}
-                          </p>
-                        )}
-                        <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                          {candidate.field}
-                        </p>
+                {getParticipantsWithProfessionals(selectedTender).map((participant) => {
+                  if (!participant.professional) return null;
+
+                  return (
+                    <button
+                      key={participant.id}
+                      onClick={() => handleSelectWinner(selectedTender, participant)}
+                      className="w-full p-4 rounded-lg border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark hover:bg-primary/10 hover:border-primary transition-colors text-right"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="font-bold text-sm">{participant.professional.professional_name}</p>
+                          {participant.professional.company_name && (
+                            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                              {participant.professional.company_name}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                              {participant.professional.field}
+                            </span>
+                            {participant.total_amount && (
+                              <span className="text-xs font-bold text-primary">
+                                {formatCurrency(participant.total_amount)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <span className="material-symbols-outlined text-primary text-[24px]">
+                          check_circle
+                        </span>
                       </div>
-                      <span className="material-symbols-outlined text-primary text-[24px]">
-                        check_circle
-                      </span>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
-              {getCandidateProfessionals(selectedTender).length === 0 && (
+              {getParticipantsWithProfessionals(selectedTender).length === 0 && (
                 <div className="text-center py-8 text-text-secondary-light dark:text-text-secondary-dark">
-                  אין מועמדים במכרז
+                  אין משתתפים במכרז
                 </div>
               )}
+            </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Participant Details Modal */}
+      {isParticipantDetailsOpen && selectedParticipant && selectedTender && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4">
+          <div className="relative p-5 rounded-2xl bg-black/30">
+            <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-border-light dark:border-border-dark sticky top-0 bg-surface-light dark:bg-surface-dark">
+              <h3 className="text-lg font-bold">פרטי הצעה</h3>
+              <button
+                onClick={() => {
+                  setIsParticipantDetailsOpen(false);
+                  setSelectedParticipant(null);
+                }}
+                className="size-8 flex items-center justify-center hover:bg-background-light dark:hover:bg-background-dark rounded transition-colors"
+              >
+                <span className="material-symbols-outlined text-[24px]">close</span>
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              {(() => {
+                const prof = allProfessionals.find((p) => p.id === selectedParticipant.professional_id);
+                return (
+                  <div className="p-3 rounded-lg bg-background-light dark:bg-background-dark">
+                    <p className="font-bold">{prof?.professional_name}</p>
+                    <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                      {prof?.company_name && `${prof.company_name} • `}
+                      {prof?.field}
+                    </p>
+                  </div>
+                );
+              })()}
+
+              <div>
+                <label className="block text-sm font-bold mb-2">סכום הצעה (₪)</label>
+                <input
+                  type="number"
+                  className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
+                  placeholder="הזן סכום"
+                  value={participantForm.total_amount}
+                  onChange={(e) => setParticipantForm({ ...participantForm, total_amount: e.target.value })}
+                  disabled={selectedTender.status === 'WinnerSelected'}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold mb-2">קובץ הצעה (URL)</label>
+                <input
+                  type="text"
+                  className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
+                  placeholder="קישור לקובץ ההצעה"
+                  value={participantForm.quote_file}
+                  onChange={(e) => setParticipantForm({ ...participantForm, quote_file: e.target.value })}
+                  disabled={selectedTender.status === 'WinnerSelected'}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold mb-2">הערות</label>
+                <textarea
+                  className="w-full p-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary resize-none h-20"
+                  placeholder="הערות נוספות..."
+                  value={participantForm.notes}
+                  onChange={(e) => setParticipantForm({ ...participantForm, notes: e.target.value })}
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  onClick={() => {
+                    setIsParticipantDetailsOpen(false);
+                    setSelectedParticipant(null);
+                  }}
+                  className="px-4 py-2 rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold text-sm transition-colors"
+                >
+                  ביטול
+                </button>
+                <button
+                  onClick={handleUpdateParticipant}
+                  className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover font-bold text-sm transition-colors"
+                >
+                  שמור
+                </button>
+              </div>
+            </div>
             </div>
           </div>
         </div>

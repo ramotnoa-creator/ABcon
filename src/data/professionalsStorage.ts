@@ -1,8 +1,8 @@
 import type { Professional, ProjectProfessional } from '../types';
 import { seedProfessionals } from './professionalsData';
 
-const PROFESSIONALS_STORAGE_KEY = 'anproyektim:professionals';
-const PROJECT_PROFESSIONALS_STORAGE_KEY = 'anproyektim:project_professionals';
+const PROFESSIONALS_STORAGE_KEY = 'anprojects:professionals';
+const PROJECT_PROFESSIONALS_STORAGE_KEY = 'anprojects:project_professionals';
 
 // Professionals storage
 export function getProfessionals(): Professional[] {
