@@ -179,13 +179,13 @@ export default function ProjectDetailPage() {
           isHeaderVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
         }`}
       >
-        <div className="flex gap-6 min-w-max relative">
+        <div className="flex gap-1 min-w-max relative">
           {tabs.map((tab, index) => (
             <button
               key={tab.id}
               ref={(el) => { tabsRef.current[index] = el; }}
               onClick={() => handleTabChange(tab.id)}
-              className={`flex items-center gap-2 pb-3 px-3 pt-2 transition-all duration-200 relative group rounded-t-lg overflow-hidden ${
+              className={`flex items-center gap-1.5 pb-3 px-2 pt-2 transition-all duration-200 relative group rounded-t-lg overflow-hidden ${
                 activeTab === tab.id
                   ? 'text-primary'
                   : 'text-text-secondary-light dark:text-text-secondary-dark hover:text-text-main-light dark:hover:text-text-main-dark'
