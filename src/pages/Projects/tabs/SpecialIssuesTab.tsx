@@ -94,14 +94,13 @@ const getTodayISO = (): string => {
 const loadInitialIssues = (projectId: string): SpecialIssue[] => {
   let loaded = getSpecialIssues(projectId);
 
-  // Seed if empty
   if (loaded.length === 0) {
     const projectIssues = seedSpecialIssues.filter((si) => si.project_id === projectId);
     if (projectIssues.length > 0) {
       const all = getAllSpecialIssues();
       projectIssues.forEach((issue) => all.push(issue));
       saveSpecialIssues(all);
-      loaded = projectIssues.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      loaded = projectIssues;
     }
   }
 
@@ -202,12 +201,26 @@ function ImageGalleryModal({ images, initialIndex = 0, onClose }: ImageGalleryMo
 export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
   const { user } = useAuth();
   const [issues, setIssues] = useState<SpecialIssue[]>(() => loadInitialIssues(project.id));
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingIssue, setEditingIssue] = useState<SpecialIssue | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<SpecialIssueStatus | 'all'>('all');
   const [galleryImages, setGalleryImages] = useState<string[] | null>(null);
   const [galleryInitialIndex, setGalleryInitialIndex] = useState(0);
-  const [formData, setFormData] = useState({
+
+  // Form state for inline editing
+  const [editFormData, setEditFormData] = useState({
+    date: '',
+    description: '',
+    status: 'open' as SpecialIssueStatus,
+    priority: 'medium' as SpecialIssuePriority,
+    category: 'other' as SpecialIssueCategory,
+    responsible: '',
+    resolution: '',
+    image_urls: [] as string[],
+  });
+
+  // Form state for new issue modal
+  const [newFormData, setNewFormData] = useState({
     date: getTodayISO(),
     description: '',
     status: 'open' as SpecialIssueStatus,
@@ -218,7 +231,6 @@ export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
     image_urls: [] as string[],
   });
 
-  // Allow actions if user has permission OR if no user (dev mode)
   const canCreate = !user || canCreateSpecialIssue(user, project.id);
   const canEdit = !user || canEditSpecialIssue(user, project.id);
   const canDelete = !user || canDeleteSpecialIssue(user, project.id);
@@ -227,17 +239,84 @@ export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
     setIssues(loadInitialIssues(project.id));
   }, [project.id]);
 
-  const filteredIssues = useMemo(() => {
-    if (statusFilter === 'all') return issues;
-    return issues.filter((issue) => issue.status === statusFilter);
+  // Sort: non-resolved first (by date desc), then resolved at the bottom (by date desc)
+  const sortedAndFilteredIssues = useMemo(() => {
+    let filtered = statusFilter === 'all' ? issues : issues.filter((issue) => issue.status === statusFilter);
+
+    // Separate resolved and non-resolved
+    const nonResolved = filtered.filter(i => i.status !== 'resolved');
+    const resolved = filtered.filter(i => i.status === 'resolved');
+
+    // Sort each group by date descending
+    nonResolved.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    resolved.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    return [...nonResolved, ...resolved];
   }, [issues, statusFilter]);
 
   const openIssuesCount = useMemo(() => {
     return issues.filter((issue) => issue.status === 'open').length;
   }, [issues]);
 
-  const resetForm = () => {
-    setFormData({
+  const startEditing = (issue: SpecialIssue) => {
+    setEditingId(issue.id);
+    setEditFormData({
+      date: formatDateForInput(issue.date),
+      description: issue.description,
+      status: issue.status,
+      priority: issue.priority || 'medium',
+      category: issue.category || 'other',
+      responsible: issue.responsible || '',
+      resolution: issue.resolution || '',
+      image_urls: issue.image_urls || [],
+    });
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+  };
+
+  const saveEditing = () => {
+    if (!editingId || !editFormData.description.trim() || !editFormData.date) return;
+
+    updateSpecialIssue(editingId, {
+      date: new Date(editFormData.date).toISOString(),
+      description: editFormData.description.trim(),
+      status: editFormData.status,
+      priority: editFormData.priority,
+      category: editFormData.category,
+      responsible: editFormData.responsible.trim() || undefined,
+      resolution: editFormData.resolution.trim() || undefined,
+      image_urls: editFormData.image_urls.length > 0 ? editFormData.image_urls : undefined,
+    });
+
+    loadIssues();
+    setEditingId(null);
+  };
+
+  const handleAddNew = () => {
+    if (!newFormData.description.trim() || !newFormData.date) return;
+
+    const newIssue: SpecialIssue = {
+      id: `si-${Date.now()}`,
+      project_id: project.id,
+      date: new Date(newFormData.date).toISOString(),
+      description: newFormData.description.trim(),
+      status: newFormData.status,
+      priority: newFormData.priority,
+      category: newFormData.category,
+      responsible: newFormData.responsible.trim() || undefined,
+      resolution: newFormData.resolution.trim() || undefined,
+      image_urls: newFormData.image_urls.length > 0 ? newFormData.image_urls : undefined,
+      created_by: user?.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    addSpecialIssue(newIssue);
+
+    loadIssues();
+    setIsAddModalOpen(false);
+    setNewFormData({
       date: getTodayISO(),
       description: '',
       status: 'open',
@@ -247,68 +326,6 @@ export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
       resolution: '',
       image_urls: [],
     });
-    setEditingIssue(null);
-  };
-
-  const handleOpenModal = (issue?: SpecialIssue) => {
-    if (issue) {
-      setEditingIssue(issue);
-      setFormData({
-        date: formatDateForInput(issue.date),
-        description: issue.description,
-        status: issue.status,
-        priority: issue.priority || 'medium',
-        category: issue.category || 'other',
-        responsible: issue.responsible || '',
-        resolution: issue.resolution || '',
-        image_urls: issue.image_urls || [],
-      });
-    } else {
-      resetForm();
-    }
-    setIsModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    resetForm();
-  };
-
-  const handleSubmit = () => {
-    if (!formData.description.trim() || !formData.date) return;
-
-    if (editingIssue) {
-      updateSpecialIssue(editingIssue.id, {
-        date: new Date(formData.date).toISOString(),
-        description: formData.description.trim(),
-        status: formData.status,
-        priority: formData.priority,
-        category: formData.category,
-        responsible: formData.responsible.trim() || undefined,
-        resolution: formData.resolution.trim() || undefined,
-        image_urls: formData.image_urls.length > 0 ? formData.image_urls : undefined,
-      });
-    } else {
-      const newIssue: SpecialIssue = {
-        id: `si-${Date.now()}`,
-        project_id: project.id,
-        date: new Date(formData.date).toISOString(),
-        description: formData.description.trim(),
-        status: formData.status,
-        priority: formData.priority,
-        category: formData.category,
-        responsible: formData.responsible.trim() || undefined,
-        resolution: formData.resolution.trim() || undefined,
-        image_urls: formData.image_urls.length > 0 ? formData.image_urls : undefined,
-        created_by: user?.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      addSpecialIssue(newIssue);
-    }
-
-    loadIssues();
-    handleCloseModal();
   };
 
   const handleDelete = (id: string) => {
@@ -317,18 +334,29 @@ export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
     loadIssues();
   };
 
-  const handleAddImageUrl = () => {
+  const handleAddImageUrl = (isEdit: boolean) => {
     const url = prompt('הכנס קישור לתמונה:');
     if (url && url.trim()) {
-      setFormData({ ...formData, image_urls: [...formData.image_urls, url.trim()] });
+      if (isEdit) {
+        setEditFormData({ ...editFormData, image_urls: [...editFormData.image_urls, url.trim()] });
+      } else {
+        setNewFormData({ ...newFormData, image_urls: [...newFormData.image_urls, url.trim()] });
+      }
     }
   };
 
-  const handleRemoveImage = (index: number) => {
-    setFormData({
-      ...formData,
-      image_urls: formData.image_urls.filter((_, i) => i !== index),
-    });
+  const handleRemoveImage = (index: number, isEdit: boolean) => {
+    if (isEdit) {
+      setEditFormData({
+        ...editFormData,
+        image_urls: editFormData.image_urls.filter((_, i) => i !== index),
+      });
+    } else {
+      setNewFormData({
+        ...newFormData,
+        image_urls: newFormData.image_urls.filter((_, i) => i !== index),
+      });
+    }
   };
 
   const openGallery = (images: string[], index: number = 0) => {
@@ -349,12 +377,10 @@ export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
           )}
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
-          {/* Status Filter */}
           <select
             className="h-10 px-3 rounded-lg bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as SpecialIssueStatus | 'all')}
-            aria-label="סינון לפי סטטוס"
           >
             <option value="all">כל הסטטוסים</option>
             <option value="open">פתוח</option>
@@ -363,300 +389,278 @@ export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
           </select>
           {canCreate && (
             <button
-              onClick={() => handleOpenModal()}
-              className="flex items-center justify-center h-10 px-5 rounded-lg bg-primary text-white hover:bg-primary-hover transition text-sm font-bold tracking-[0.015em] shadow-sm"
-              aria-label="הוסף בעיה מיוחדת חדשה"
+              onClick={() => setIsAddModalOpen(true)}
+              className="flex items-center justify-center h-10 px-5 rounded-lg bg-primary text-white hover:bg-primary-hover transition text-sm font-bold"
             >
-              <span className="material-symbols-outlined me-2 text-[20px]" aria-hidden="true">add</span>
+              <span className="material-symbols-outlined me-2 text-[20px]">add</span>
               הוסף בעיה
             </button>
           )}
         </div>
       </div>
 
-      {/* Issues Table - Desktop */}
-      <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark overflow-hidden">
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-right text-sm">
-            <thead className="bg-background-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark">
-              <tr>
-                <th className="px-4 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  תאריך
-                </th>
-                <th className="px-4 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  תיאור הבעיה
-                </th>
-                <th className="px-4 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  קטגוריה
-                </th>
-                <th className="px-4 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  עדיפות
-                </th>
-                <th className="px-4 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  אחראי
-                </th>
-                <th className="px-4 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  סטטוס
-                </th>
-                <th className="px-4 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  תמונות
-                </th>
-                <th className="px-4 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  פתרון
-                </th>
-                {(canEdit || canDelete) && (
-                  <th className="px-4 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                    פעולות
-                  </th>
-                )}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-light dark:divide-border-dark">
-              {filteredIssues.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={canEdit || canDelete ? 9 : 8}
-                    className="px-6 py-12 text-center text-text-secondary-light dark:text-text-secondary-dark"
-                  >
-                    אין בעיות מיוחדות
-                  </td>
-                </tr>
-              ) : (
-                filteredIssues.map((issue) => (
-                  <tr
-                    key={issue.id}
-                    className="group hover:bg-background-light dark:hover:bg-background-dark/50 transition-colors"
-                  >
-                    <td className="px-4 py-4 align-middle font-medium whitespace-nowrap">
-                      {formatDateForDisplay(issue.date)}
-                    </td>
-                    <td className="px-4 py-4 align-middle max-w-[200px]">
-                      <p className="line-clamp-2">{issue.description}</p>
-                    </td>
-                    <td className="px-4 py-4 align-middle">
-                      {issue.category && (
-                        <div className="flex items-center gap-1.5">
-                          <span className="material-symbols-outlined text-[16px] text-text-secondary-light dark:text-text-secondary-dark">
-                            {categoryIcons[issue.category]}
+      {/* Issues List */}
+      <div className="space-y-3">
+        {sortedAndFilteredIssues.length === 0 ? (
+          <div className="bg-surface-light dark:bg-surface-dark rounded-xl p-12 text-center text-text-secondary-light dark:text-text-secondary-dark border border-border-light dark:border-border-dark">
+            אין בעיות מיוחדות
+          </div>
+        ) : (
+          sortedAndFilteredIssues.map((issue) => {
+            const isEditing = editingId === issue.id;
+            const isResolved = issue.status === 'resolved';
+
+            return (
+              <div
+                key={issue.id}
+                className={`rounded-xl border overflow-hidden transition-all ${
+                  isResolved
+                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                    : 'bg-surface-light dark:bg-surface-dark border-border-light dark:border-border-dark'
+                }`}
+              >
+                {/* Display Row */}
+                {!isEditing && (
+                  <div className="p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      {/* Left side - main info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-2">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${statusColors[issue.status]}`}>
+                            {statusLabels[issue.status]}
                           </span>
-                          <span className="text-sm">{categoryLabels[issue.category]}</span>
+                          {issue.priority && (
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${priorityColors[issue.priority]}`}>
+                              {priorityLabels[issue.priority]}
+                            </span>
+                          )}
+                          {issue.category && (
+                            <span className="inline-flex items-center gap-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                              <span className="material-symbols-outlined text-[14px]">{categoryIcons[issue.category]}</span>
+                              {categoryLabels[issue.category]}
+                            </span>
+                          )}
+                          <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                            {formatDateForDisplay(issue.date)}
+                          </span>
                         </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 align-middle">
-                      {issue.priority && (
-                        <span
-                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${priorityColors[issue.priority]}`}
-                        >
-                          {priorityLabels[issue.priority]}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 align-middle">
-                      {issue.responsible ? (
-                        <span className="text-sm font-medium">{issue.responsible}</span>
-                      ) : (
-                        <span className="text-text-secondary-light/50">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 align-middle">
-                      <span
-                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${statusColors[issue.status]}`}
-                      >
-                        {statusLabels[issue.status]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 align-middle">
-                      {issue.image_urls && issue.image_urls.length > 0 ? (
-                        <button
-                          onClick={() => openGallery(issue.image_urls!, 0)}
-                          className="flex items-center gap-1.5 text-primary hover:text-primary-hover transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-[18px]">photo_library</span>
-                          <span className="text-sm font-medium">{issue.image_urls.length}</span>
-                        </button>
-                      ) : (
-                        <span className="text-text-secondary-light/50">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 align-middle text-text-secondary-light dark:text-text-secondary-dark max-w-[150px]">
-                      {issue.resolution ? (
-                        <p className="line-clamp-2">{issue.resolution}</p>
-                      ) : (
-                        <span className="text-text-secondary-light/50">-</span>
-                      )}
-                    </td>
-                    {(canEdit || canDelete) && (
-                      <td className="px-4 py-4 align-middle">
-                        <div className="flex items-center gap-2 opacity-100 group-hover:opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+
+                        <p className="font-medium mb-2">{issue.description}</p>
+
+                        <div className="flex flex-wrap items-center gap-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                          {issue.responsible && (
+                            <span>אחראי: <span className="font-medium text-text-main-light dark:text-text-main-dark">{issue.responsible}</span></span>
+                          )}
+                          {issue.image_urls && issue.image_urls.length > 0 && (
+                            <button
+                              onClick={() => openGallery(issue.image_urls!, 0)}
+                              className="flex items-center gap-1 text-primary hover:text-primary-hover"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">photo_library</span>
+                              {issue.image_urls.length} תמונות
+                            </button>
+                          )}
+                        </div>
+
+                        {issue.resolution && (
+                          <div className="mt-3 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800">
+                            <p className="text-xs font-bold text-green-800 dark:text-green-200 mb-1">פתרון:</p>
+                            <p className="text-sm text-green-900 dark:text-green-100">{issue.resolution}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Right side - actions */}
+                      {(canEdit || canDelete) && (
+                        <div className="flex items-center gap-2">
                           {canEdit && (
                             <button
-                              onClick={() => handleOpenModal(issue)}
-                              className="p-1.5 rounded-lg text-text-secondary-light hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                              onClick={() => startEditing(issue)}
+                              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-text-secondary-light hover:text-primary transition-colors"
                               title="עריכה"
-                              aria-label="ערוך בעיה"
                             >
-                              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">edit</span>
+                              <span className="material-symbols-outlined text-[20px]">edit</span>
                             </button>
                           )}
                           {canDelete && (
                             <button
                               onClick={() => handleDelete(issue.id)}
-                              className="p-1.5 rounded-lg text-text-secondary-light hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                              className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-text-secondary-light hover:text-red-600 transition-colors"
                               title="מחיקה"
-                              aria-label="מחק בעיה"
                             >
-                              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">delete</span>
+                              <span className="material-symbols-outlined text-[20px]">delete</span>
                             </button>
                           )}
                         </div>
-                      </td>
-                    )}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Mobile Cards */}
-        <div className="block md:hidden divide-y divide-border-light dark:divide-border-dark">
-          {filteredIssues.length === 0 ? (
-            <div className="p-4 text-center text-text-secondary-light dark:text-text-secondary-dark">
-              אין בעיות מיוחדות
-            </div>
-          ) : (
-            filteredIssues.map((issue) => (
-              <div key={issue.id} className="p-4 flex flex-col gap-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${statusColors[issue.status]}`}
-                    >
-                      {statusLabels[issue.status]}
-                    </span>
-                    {issue.priority && (
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${priorityColors[issue.priority]}`}
-                      >
-                        {priorityLabels[issue.priority]}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-xs text-text-secondary-light font-medium">
-                    {formatDateForDisplay(issue.date)}
-                  </span>
-                </div>
-
-                {issue.category && (
-                  <div className="flex items-center gap-1.5 text-text-secondary-light dark:text-text-secondary-dark">
-                    <span className="material-symbols-outlined text-[16px]">
-                      {categoryIcons[issue.category]}
-                    </span>
-                    <span className="text-xs">{categoryLabels[issue.category]}</span>
+                      )}
+                    </div>
                   </div>
                 )}
 
-                <p className="text-sm font-medium">{issue.description}</p>
+                {/* Inline Edit Form */}
+                {isEditing && (
+                  <div className="p-4 space-y-4 bg-blue-50 dark:bg-blue-900/20">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold mb-1">תאריך</label>
+                        <input
+                          type="date"
+                          className="w-full h-9 px-2 rounded-lg bg-white dark:bg-gray-900 border border-border-light dark:border-border-dark text-sm"
+                          value={editFormData.date}
+                          onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold mb-1">קטגוריה</label>
+                        <select
+                          className="w-full h-9 px-2 rounded-lg bg-white dark:bg-gray-900 border border-border-light dark:border-border-dark text-sm"
+                          value={editFormData.category}
+                          onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value as SpecialIssueCategory })}
+                        >
+                          {Object.entries(categoryLabels).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold mb-1">עדיפות</label>
+                        <select
+                          className="w-full h-9 px-2 rounded-lg bg-white dark:bg-gray-900 border border-border-light dark:border-border-dark text-sm"
+                          value={editFormData.priority}
+                          onChange={(e) => setEditFormData({ ...editFormData, priority: e.target.value as SpecialIssuePriority })}
+                        >
+                          {Object.entries(priorityLabels).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold mb-1">סטטוס</label>
+                        <select
+                          className="w-full h-9 px-2 rounded-lg bg-white dark:bg-gray-900 border border-border-light dark:border-border-dark text-sm"
+                          value={editFormData.status}
+                          onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value as SpecialIssueStatus })}
+                        >
+                          <option value="open">פתוח</option>
+                          <option value="in_progress">בטיפול</option>
+                          <option value="resolved">נפתר</option>
+                        </select>
+                      </div>
+                    </div>
 
-                {issue.responsible && (
-                  <div className="text-sm">
-                    <span className="text-text-secondary-light dark:text-text-secondary-dark">
-                      אחראי:{' '}
-                    </span>
-                    <span className="font-medium">{issue.responsible}</span>
-                  </div>
-                )}
+                    <div>
+                      <label className="block text-xs font-bold mb-1">תיאור הבעיה</label>
+                      <textarea
+                        className="w-full p-2 rounded-lg bg-white dark:bg-gray-900 border border-border-light dark:border-border-dark text-sm resize-none h-20"
+                        value={editFormData.description}
+                        onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                      />
+                    </div>
 
-                {issue.image_urls && issue.image_urls.length > 0 && (
-                  <div className="flex gap-2 overflow-x-auto pb-1">
-                    {issue.image_urls.map((img, idx) => (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold mb-1">אחראי</label>
+                        <input
+                          type="text"
+                          className="w-full h-9 px-2 rounded-lg bg-white dark:bg-gray-900 border border-border-light dark:border-border-dark text-sm"
+                          placeholder="שם האחראי..."
+                          value={editFormData.responsible}
+                          onChange={(e) => setEditFormData({ ...editFormData, responsible: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold mb-1">תמונות</label>
+                        <div className="flex items-center gap-2">
+                          {editFormData.image_urls.length > 0 && (
+                            <div className="flex gap-1">
+                              {editFormData.image_urls.map((img, idx) => (
+                                <div key={idx} className="relative group">
+                                  <img src={img} alt="" className="size-9 rounded object-cover" />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveImage(idx, true)}
+                                    className="absolute -top-1 -right-1 size-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 text-[10px]"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleAddImageUrl(true)}
+                            className="h-9 px-2 rounded-lg border border-dashed border-border-light dark:border-border-dark text-text-secondary-light hover:border-primary hover:text-primary text-xs"
+                          >
+                            + תמונה
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold mb-1">פתרון</label>
+                      <textarea
+                        className="w-full p-2 rounded-lg bg-white dark:bg-gray-900 border border-border-light dark:border-border-dark text-sm resize-none h-20"
+                        placeholder="תאר את הפתרון..."
+                        value={editFormData.resolution}
+                        onChange={(e) => setEditFormData({ ...editFormData, resolution: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2">
                       <button
-                        key={idx}
-                        onClick={() => openGallery(issue.image_urls!, idx)}
-                        className="size-16 rounded-lg overflow-hidden flex-shrink-0 border border-border-light dark:border-border-dark hover:opacity-80 transition-opacity"
+                        onClick={cancelEditing}
+                        className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-bold text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                       >
-                        <img src={img} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover" />
+                        ביטול
                       </button>
-                    ))}
-                  </div>
-                )}
-
-                {issue.resolution && (
-                  <div className="text-sm">
-                    <span className="text-text-secondary-light dark:text-text-secondary-dark">
-                      פתרון:{' '}
-                    </span>
-                    <span className="font-medium">{issue.resolution}</span>
-                  </div>
-                )}
-
-                {(canEdit || canDelete) && (
-                  <div className="flex items-center gap-2 pt-2 border-t border-border-light dark:border-border-dark">
-                    {canEdit && (
                       <button
-                        onClick={() => handleOpenModal(issue)}
-                        className="flex items-center justify-center size-8 rounded-full bg-background-light dark:bg-surface-dark border border-border-light text-primary hover:bg-primary hover:text-white transition-colors"
-                        title="עריכה"
-                        aria-label="ערוך בעיה"
+                        onClick={saveEditing}
+                        disabled={!editFormData.description.trim() || !editFormData.date}
+                        className="px-4 py-2 rounded-lg bg-primary text-white font-bold text-sm hover:bg-primary-hover transition-colors disabled:opacity-50"
                       >
-                        <span className="material-symbols-outlined text-[16px]" aria-hidden="true">edit</span>
+                        שמור
                       </button>
-                    )}
-                    {canDelete && (
-                      <button
-                        onClick={() => handleDelete(issue.id)}
-                        className="flex items-center justify-center size-8 rounded-full bg-background-light dark:bg-surface-dark border border-border-light text-red-600 hover:bg-red-600 hover:text-white transition-colors"
-                        title="מחיקה"
-                        aria-label="מחק בעיה"
-                      >
-                        <span className="material-symbols-outlined text-[16px]" aria-hidden="true">delete</span>
-                      </button>
-                    )}
+                    </div>
                   </div>
                 )}
               </div>
-            ))
-          )}
-        </div>
+            );
+          })
+        )}
       </div>
 
-      {/* Add/Edit Modal */}
-      {isModalOpen && (
+      {/* Add New Issue Modal */}
+      {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-border-light dark:border-border-dark sticky top-0 bg-surface-light dark:bg-surface-dark">
-              <h3 className="text-lg font-bold">
-                {editingIssue ? 'עריכת בעיה' : 'הוספת בעיה חדשה'}
-              </h3>
+            <div className="flex items-center justify-between p-4 border-b border-border-light dark:border-border-dark">
+              <h3 className="text-lg font-bold">הוספת בעיה חדשה</h3>
               <button
-                onClick={handleCloseModal}
-                className="size-8 flex items-center justify-center hover:bg-background-light dark:hover:bg-background-dark rounded transition-colors"
+                onClick={() => setIsAddModalOpen(false)}
+                className="size-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
               >
                 <span className="material-symbols-outlined text-[24px]">close</span>
               </button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-bold mb-2">
-                    תאריך <span className="text-red-500">*</span>
-                  </label>
+                  <label className="block text-sm font-bold mb-1">תאריך *</label>
                   <input
                     type="date"
-                    className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
-                    value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm"
+                    value={newFormData.date}
+                    onChange={(e) => setNewFormData({ ...newFormData, date: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold mb-2">קטגוריה</label>
+                  <label className="block text-sm font-bold mb-1">קטגוריה</label>
                   <select
-                    className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
-                    value={formData.category}
-                    onChange={(e) =>
-                      setFormData({ ...formData, category: e.target.value as SpecialIssueCategory })
-                    }
+                    className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm"
+                    value={newFormData.category}
+                    onChange={(e) => setNewFormData({ ...newFormData, category: e.target.value as SpecialIssueCategory })}
                   >
                     {Object.entries(categoryLabels).map(([value, label]) => (
                       <option key={value} value={value}>{label}</option>
@@ -666,26 +670,22 @@ export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
               </div>
 
               <div>
-                <label className="block text-sm font-bold mb-2">
-                  תיאור הבעיה <span className="text-red-500">*</span>
-                </label>
+                <label className="block text-sm font-bold mb-1">תיאור הבעיה *</label>
                 <textarea
-                  className="w-full p-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary resize-none h-24"
+                  className="w-full p-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm resize-none h-24"
                   placeholder="תאר את הבעיה..."
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  value={newFormData.description}
+                  onChange={(e) => setNewFormData({ ...newFormData, description: e.target.value })}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-bold mb-2">עדיפות</label>
+                  <label className="block text-sm font-bold mb-1">עדיפות</label>
                   <select
-                    className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
-                    value={formData.priority}
-                    onChange={(e) =>
-                      setFormData({ ...formData, priority: e.target.value as SpecialIssuePriority })
-                    }
+                    className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm"
+                    value={newFormData.priority}
+                    onChange={(e) => setNewFormData({ ...newFormData, priority: e.target.value as SpecialIssuePriority })}
                   >
                     {Object.entries(priorityLabels).map(([value, label]) => (
                       <option key={value} value={value}>{label}</option>
@@ -693,50 +693,30 @@ export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-bold mb-2">סטטוס</label>
-                  <select
-                    className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
-                    value={formData.status}
-                    onChange={(e) =>
-                      setFormData({ ...formData, status: e.target.value as SpecialIssueStatus })
-                    }
-                  >
-                    <option value="open">פתוח</option>
-                    <option value="in_progress">בטיפול</option>
-                    <option value="resolved">נפתר</option>
-                  </select>
+                  <label className="block text-sm font-bold mb-1">אחראי</label>
+                  <input
+                    type="text"
+                    className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm"
+                    placeholder="שם האחראי..."
+                    value={newFormData.responsible}
+                    onChange={(e) => setNewFormData({ ...newFormData, responsible: e.target.value })}
+                  />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-bold mb-2">אחראי</label>
-                <input
-                  type="text"
-                  className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
-                  placeholder="שם האחראי לטיפול..."
-                  value={formData.responsible}
-                  onChange={(e) => setFormData({ ...formData, responsible: e.target.value })}
-                />
-              </div>
-
-              {/* Images section */}
-              <div>
-                <label className="block text-sm font-bold mb-2">תמונות</label>
-                {formData.image_urls.length > 0 && (
-                  <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
-                    {formData.image_urls.map((img, idx) => (
+                <label className="block text-sm font-bold mb-1">תמונות</label>
+                {newFormData.image_urls.length > 0 && (
+                  <div className="flex gap-2 mb-2 overflow-x-auto pb-2">
+                    {newFormData.image_urls.map((img, idx) => (
                       <div key={idx} className="relative group flex-shrink-0">
-                        <img
-                          src={img}
-                          alt={`תמונה ${idx + 1}`}
-                          className="size-20 rounded-lg object-cover border border-border-light dark:border-border-dark"
-                        />
+                        <img src={img} alt="" className="size-16 rounded-lg object-cover border" />
                         <button
                           type="button"
-                          onClick={() => handleRemoveImage(idx)}
-                          className="absolute -top-2 -right-2 size-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleRemoveImage(idx, false)}
+                          className="absolute -top-2 -right-2 size-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 text-xs"
                         >
-                          <span className="material-symbols-outlined text-[14px]">close</span>
+                          ×
                         </button>
                       </div>
                     ))}
@@ -744,39 +724,27 @@ export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
                 )}
                 <button
                   type="button"
-                  onClick={handleAddImageUrl}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border-light dark:border-border-dark text-text-secondary-light dark:text-text-secondary-dark hover:border-primary hover:text-primary transition-colors text-sm"
+                  onClick={() => handleAddImageUrl(false)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border-light dark:border-border-dark text-text-secondary-light hover:border-primary hover:text-primary text-sm"
                 >
                   <span className="material-symbols-outlined text-[18px]">add_photo_alternate</span>
-                  הוסף תמונה (קישור)
+                  הוסף תמונה
                 </button>
               </div>
 
-              {formData.status === 'resolved' && (
-                <div>
-                  <label className="block text-sm font-bold mb-2">פתרון</label>
-                  <textarea
-                    className="w-full p-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary resize-none h-24"
-                    placeholder="תאר את הפתרון..."
-                    value={formData.resolution}
-                    onChange={(e) => setFormData({ ...formData, resolution: e.target.value })}
-                  />
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3 pt-4">
+              <div className="flex justify-end gap-3 pt-2">
                 <button
-                  onClick={handleCloseModal}
-                  className="px-4 py-2 rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold text-sm transition-colors"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-bold text-sm hover:bg-gray-300 transition-colors"
                 >
                   ביטול
                 </button>
                 <button
-                  onClick={handleSubmit}
-                  disabled={!formData.description.trim() || !formData.date}
-                  className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleAddNew}
+                  disabled={!newFormData.description.trim() || !newFormData.date}
+                  className="px-4 py-2 rounded-lg bg-primary text-white font-bold text-sm hover:bg-primary-hover transition-colors disabled:opacity-50"
                 >
-                  {editingIssue ? 'שמור שינויים' : 'הוסף בעיה'}
+                  הוסף בעיה
                 </button>
               </div>
             </div>
@@ -793,12 +761,12 @@ export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
         />
       )}
 
-      {/* Mobile Footer - Add Button */}
+      {/* Mobile Footer */}
       {canCreate && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-surface-light dark:bg-surface-dark border-t border-border-light dark:border-border-dark md:hidden z-50 flex gap-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-surface-light dark:bg-surface-dark border-t border-border-light dark:border-border-dark md:hidden z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
           <button
-            onClick={() => handleOpenModal()}
-            className="flex-1 flex items-center justify-center h-12 px-4 rounded-lg bg-primary text-white font-bold text-sm shadow-md hover:bg-primary-hover transition-colors"
+            onClick={() => setIsAddModalOpen(true)}
+            className="w-full flex items-center justify-center h-12 px-4 rounded-lg bg-primary text-white font-bold text-sm shadow-md hover:bg-primary-hover transition-colors"
           >
             <span className="material-symbols-outlined me-2 text-[20px]">add</span>
             הוסף בעיה
