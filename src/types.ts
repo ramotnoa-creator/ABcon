@@ -199,6 +199,8 @@ export interface PlanningChange {
 
 // Special Issues
 export type SpecialIssueStatus = 'open' | 'in_progress' | 'resolved';
+export type SpecialIssuePriority = 'low' | 'medium' | 'high' | 'critical';
+export type SpecialIssueCategory = 'safety' | 'quality' | 'schedule' | 'budget' | 'design' | 'permits' | 'other';
 
 export interface SpecialIssue {
   id: string;
@@ -206,6 +208,10 @@ export interface SpecialIssue {
   date: string; // ISO date string - תאריך הבעיה (required)
   description: string; // תיאור הבעיה (required)
   status: SpecialIssueStatus; // סטטוס
+  priority?: SpecialIssuePriority; // עדיפות
+  category?: SpecialIssueCategory; // קטגוריה
+  responsible?: string; // אחראי
+  image_urls?: string[]; // תמונות
   resolution?: string; // פתרון (optional)
   created_by?: string; // Reference to User
   created_at: string; // ISO date string

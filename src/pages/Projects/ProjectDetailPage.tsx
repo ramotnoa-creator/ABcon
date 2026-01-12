@@ -10,6 +10,7 @@ import BudgetTab from './tabs/BudgetTab';
 import TasksMilestonesTab from './tabs/TasksMilestonesTab';
 import PlanningChangesTab from './tabs/PlanningChangesTab';
 import SpecialIssuesTab from './tabs/SpecialIssuesTab';
+import DeveloperApprovalTab from './tabs/DeveloperApprovalTab';
 
 const tabs = [
   { id: 'overview', label: 'סקירה', icon: 'visibility', path: '' },
@@ -20,6 +21,7 @@ const tabs = [
   { id: 'tenders', label: 'מכרזים', icon: 'gavel', path: '/tenders' },
   { id: 'professionals', label: 'בעלי מקצוע', icon: 'people', path: '/professionals' },
   { id: 'files', label: 'קבצים', icon: 'folder', path: '/files' },
+  { id: 'developer-approval', label: 'אישור יזם', icon: 'verified_user', path: '/developer-approval' },
 ];
 
 export default function ProjectDetailPage() {
@@ -119,6 +121,8 @@ export default function ProjectDetailPage() {
           return <FilesTab project={project} />;
         case 'budget':
           return <BudgetTab project={project} />;
+        case 'developer-approval':
+          return <DeveloperApprovalTab project={project} />;
         default:
           return null;
       }
