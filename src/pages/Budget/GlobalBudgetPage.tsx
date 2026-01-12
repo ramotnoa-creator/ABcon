@@ -4,6 +4,8 @@ import { getAllBudgets, saveBudgets } from '../../data/budgetStorage';
 import { getProjects } from '../../data/storage';
 import { getProjectBudgetSummary } from '../../data/budgetItemsStorage';
 import { seedBudgets } from '../../data/budgetData';
+import { getLastMonthPaidAmount, getNextMonthPlannedPayments } from '../../data/budgetPaymentsQueries';
+import AddBudgetItemForm from '../../components/Budget/AddBudgetItemForm';
 import * as XLSX from 'xlsx';
 import type { Budget, Project } from '../../types';
 
@@ -129,13 +131,27 @@ function KPICard({ icon, label, value, subValue, color, progress }: KPICardProps
 
 export default function GlobalBudgetPage() {
   const navigate = useNavigate();
+  const [refreshKey, setRefreshKey] = useState(0);
   const [data] = useState(() => loadInitialData());
   const { budgets, projects } = data;
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [varianceFilter, setVarianceFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [showAddItemModal, setShowAddItemModal] = useState(false);
   const itemsPerPage = 10;
+
+  // Payment summary data - refreshKey triggers re-fetch after adding items
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const lastMonthPaid = useMemo(() => getLastMonthPaidAmount(), [refreshKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const nextMonthPlanned = useMemo(() => getNextMonthPlannedPayments(), [refreshKey]);
+
+  // Handle item added
+  const handleItemAdded = useCallback(() => {
+    setShowAddItemModal(false);
+    setRefreshKey((k) => k + 1);
+  }, []);
 
 
   const projectsWithBudget = useMemo(() => {
@@ -243,14 +259,23 @@ export default function GlobalBudgetPage() {
         <h1 className="text-3xl md:text-4xl font-black leading-tight tracking-[-0.033em]">
           תקציב פרויקטים - סקירה גלובלית
         </h1>
-        <button
-          onClick={handleExport}
-          aria-label="ייצוא לאקסל"
-          className="flex items-center justify-center h-10 px-4 rounded-lg bg-primary text-white hover:bg-primary-hover transition text-sm font-bold"
-        >
-          <span className="material-symbols-outlined me-2 text-[18px]">download</span>
-          ייצוא לאקסל
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowAddItemModal(true)}
+            className="flex items-center justify-center h-10 px-4 rounded-lg bg-green-600 text-white hover:bg-green-700 transition text-sm font-bold"
+          >
+            <span className="material-symbols-outlined me-2 text-[18px]">add</span>
+            הוסף פריט תקציב
+          </button>
+          <button
+            onClick={handleExport}
+            aria-label="ייצוא לאקסל"
+            className="flex items-center justify-center h-10 px-4 rounded-lg bg-primary text-white hover:bg-primary-hover transition text-sm font-bold"
+          >
+            <span className="material-symbols-outlined me-2 text-[18px]">download</span>
+            ייצוא לאקסל
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -283,6 +308,24 @@ export default function GlobalBudgetPage() {
           value={kpiData.overBudgetCount.toString()}
           subValue={`מתוך ${budgets.length} פרויקטים`}
           color={kpiData.overBudgetCount > 0 ? 'red' : 'green'}
+        />
+      </div>
+
+      {/* Payment Timeline KPI Cards */}
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <KPICard
+          icon="history"
+          label="שולם בחודש האחרון"
+          value={formatCurrency(lastMonthPaid.totalAmount)}
+          subValue={`${lastMonthPaid.paymentCount} תשלומים`}
+          color="green"
+        />
+        <KPICard
+          icon="schedule"
+          label="מתוכנן לחודש הבא"
+          value={formatCurrency(nextMonthPlanned.totalAmount)}
+          subValue={`${nextMonthPlanned.paymentCount} תשלומים`}
+          color="orange"
         />
       </div>
 
@@ -581,6 +624,29 @@ export default function GlobalBudgetPage() {
             >
               הבא
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Add Budget Item Modal */}
+      {showAddItemModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-border-light dark:border-border-dark flex items-center justify-between">
+              <h2 className="text-xl font-black">הוסף פריט תקציב חדש</h2>
+              <button
+                onClick={() => setShowAddItemModal(false)}
+                className="size-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center transition-colors"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+            <div className="p-6">
+              <AddBudgetItemForm
+                onSuccess={handleItemAdded}
+                onCancel={() => setShowAddItemModal(false)}
+              />
+            </div>
           </div>
         </div>
       )}

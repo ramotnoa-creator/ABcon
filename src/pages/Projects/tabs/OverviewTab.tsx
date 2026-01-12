@@ -4,6 +4,7 @@ import { formatDateForDisplay, formatDateHebrew } from '../../../utils/dateUtils
 import { getProjectProfessionals } from '../../../data/professionalsStorage';
 import { getTasks } from '../../../data/tasksStorage';
 import { getFiles } from '../../../data/filesStorage';
+import ProjectKPICards from '../../../components/Projects/ProjectKPICards';
 
 interface OverviewTabProps {
   project: Project;
@@ -51,7 +52,11 @@ export default function OverviewTab({ project, statusColors, onTabChange }: Over
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="space-y-6">
+      {/* Project KPI Cards - Milestones & Budget */}
+      <ProjectKPICards projectId={project.id} onTabChange={onTabChange} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Left Column - Main Content */}
       <div className="lg:col-span-2 flex flex-col gap-6">
         {/* Project Details Card */}
@@ -415,6 +420,7 @@ export default function OverviewTab({ project, statusColors, onTabChange }: Over
             </button>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

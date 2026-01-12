@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { getBudgetCategories, getAllBudgetCategories, saveBudgetCategories } from '../../../data/budgetCategoriesStorage';
 import { getBudgetChapters, getAllBudgetChapters, saveBudgetChapters } from '../../../data/budgetChaptersStorage';
 import { getBudgetItems, getAllBudgetItems, saveBudgetItems } from '../../../data/budgetItemsStorage';
 import { getAllBudgetPayments, saveBudgetPayments } from '../../../data/budgetPaymentsStorage';
 import { seedBudgetCategories, seedBudgetChapters, seedBudgetItems, seedBudgetPayments } from '../../../data/budgetData';
+import AddBudgetItemForm from '../../../components/Budget/AddBudgetItemForm';
 import type { Project, BudgetCategory, BudgetChapter, BudgetItem, BudgetPayment, BudgetItemStatus } from '../../../types';
 
 interface BudgetTabProps {
@@ -611,9 +612,16 @@ const loadInitialBudgetData = (projectId: string): BudgetData => {
 // ============================================================
 export default function BudgetTab({ project }: BudgetTabProps) {
   const [view, setView] = useState<ViewMode>('tree');
-  const [budgetData] = useState<BudgetData>(() => loadInitialBudgetData(project.id));
+  const [budgetData, setBudgetData] = useState<BudgetData>(() => loadInitialBudgetData(project.id));
+  const [showAddItemModal, setShowAddItemModal] = useState(false);
 
   const { categories, chapters, items, payments } = budgetData;
+
+  // Reload budget data after adding an item
+  const handleItemAdded = useCallback(() => {
+    setBudgetData(loadInitialBudgetData(project.id));
+    setShowAddItemModal(false);
+  }, [project.id]);
 
   return (
     <div className="space-y-6">
@@ -625,6 +633,7 @@ export default function BudgetTab({ project }: BudgetTabProps) {
             <p className="text-sm text-gray-500 dark:text-gray-400">{project.project_name}</p>
           </div>
           <button
+            onClick={() => setShowAddItemModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover text-sm shadow-sm"
             aria-label="הוסף פריט תקציב חדש"
           >
@@ -672,6 +681,35 @@ export default function BudgetTab({ project }: BudgetTabProps) {
       )}
       {view === 'cashflow' && (
         <CashFlowView payments={payments} items={items} />
+      )}
+
+      {/* Add Budget Item Modal */}
+      {showAddItemModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowAddItemModal(false);
+          }}
+        >
+          <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl max-w-xl w-full max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-border-light dark:border-border-dark">
+              <h3 className="text-lg font-bold">הוספת פריט תקציב</h3>
+              <button
+                onClick={() => setShowAddItemModal(false)}
+                className="size-8 flex items-center justify-center hover:bg-background-light dark:hover:bg-background-dark rounded transition-colors"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto max-h-[calc(90vh-60px)]">
+              <AddBudgetItemForm
+                projectId={project.id}
+                onSuccess={handleItemAdded}
+                onCancel={() => setShowAddItemModal(false)}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

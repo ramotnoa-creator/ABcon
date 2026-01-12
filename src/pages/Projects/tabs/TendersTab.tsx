@@ -19,7 +19,13 @@ import {
 import { getProfessionals } from '../../../data/professionalsStorage';
 import { addProjectProfessional } from '../../../data/professionalsStorage';
 import { seedTenders } from '../../../data/tendersData';
-import type { Project, Tender, TenderStatus, TenderType, TenderParticipant, Professional } from '../../../types';
+import { getMilestones } from '../../../data/milestonesStorage';
+import { getBudgetCategories } from '../../../data/budgetCategoriesStorage';
+import { getBudgetChapters } from '../../../data/budgetChaptersStorage';
+import { addBudgetItem, getNextBudgetItemOrder, calculateBudgetItemTotals } from '../../../data/budgetItemsStorage';
+import { uploadTenderQuote, getFileNameFromUrl } from '../../../lib/supabaseStorage';
+import { findChapterForTender } from '../../../utils/tenderChapterMapping';
+import type { Project, Tender, TenderStatus, TenderType, TenderParticipant, Professional, BudgetItem } from '../../../types';
 import { formatDateForDisplay } from '../../../utils/dateUtils';
 
 interface TendersTabProps {
@@ -110,6 +116,7 @@ export default function TendersTab({ project }: TendersTabProps) {
   const [tenders, setTenders] = useState<Tender[]>(() => loadInitialTenders(project.id));
   const [allProfessionals, setAllProfessionals] = useState<Professional[]>(() => loadInitialProfessionals());
   const [participantsMap, setParticipantsMap] = useState<Record<string, TenderParticipant[]>>(() => loadParticipantsMap(loadInitialTenders(project.id)));
+  const [milestones] = useState(() => getMilestones(project.id));
 
   // Modal states
   const [isAddTenderModalOpen, setIsAddTenderModalOpen] = useState(false);
@@ -120,12 +127,16 @@ export default function TendersTab({ project }: TendersTabProps) {
   const [selectedTender, setSelectedTender] = useState<Tender | null>(null);
   const [selectedParticipant, setSelectedParticipant] = useState<TenderParticipant | null>(null);
 
+  // File upload state
+  const [uploadingFile, setUploadingFile] = useState(false);
+
   // Form states
   const [tenderForm, setTenderForm] = useState({
     tender_name: '',
     tender_type: 'contractor' as TenderType,
     description: '',
     due_date: '',
+    milestone_id: '',
   });
 
   const [professionalPickerFilter, setProfessionalPickerFilter] = useState<TenderType | 'all'>('all');
@@ -191,6 +202,7 @@ export default function TendersTab({ project }: TendersTabProps) {
       publish_date: new Date().toISOString(),
       due_date: tenderForm.due_date || undefined,
       candidate_professional_ids: [],
+      milestone_id: tenderForm.milestone_id || undefined,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -204,6 +216,7 @@ export default function TendersTab({ project }: TendersTabProps) {
       tender_type: 'contractor',
       description: '',
       due_date: '',
+      milestone_id: '',
     });
     setIsAddTenderModalOpen(false);
 
@@ -212,6 +225,25 @@ export default function TendersTab({ project }: TendersTabProps) {
     setProfessionalPickerFilter(newTender.tender_type);
     setSelectedProfessionalIds([]);
     setIsProfessionalPickerOpen(true);
+  };
+
+  // Handle file upload for participant quote
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedTender || !selectedParticipant) return;
+
+    setUploadingFile(true);
+    try {
+      const url = await uploadTenderQuote(selectedTender.id, selectedParticipant.id, file);
+      if (url) {
+        setParticipantForm((prev) => ({ ...prev, quote_file: url }));
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('שגיאה בהעלאת הקובץ');
+    } finally {
+      setUploadingFile(false);
+    }
   };
 
   // Handle add participants
@@ -273,19 +305,62 @@ export default function TendersTab({ project }: TendersTabProps) {
     });
 
     // Create ProjectProfessional automatically
-const newProjectProfessional = {
-  id: `pp-${crypto.randomUUID()}`,
-  project_id: project.id,
-  professional_id: participant.professional_id,
-  project_role: undefined,
-  source: 'Tender' as const,
-  related_tender_id: tender.id,
-  related_tender_name: tender.tender_name,
-  is_active: true,
-};
-
+    const newProjectProfessional = {
+      id: `pp-${crypto.randomUUID()}`,
+      project_id: project.id,
+      professional_id: participant.professional_id,
+      project_role: undefined,
+      source: 'Tender' as const,
+      related_tender_id: tender.id,
+      related_tender_name: tender.tender_name,
+      is_active: true,
+    };
 
     addProjectProfessional(newProjectProfessional);
+
+    // Auto-create budget item if participant has amount
+    if (participant.total_amount && participant.total_amount > 0) {
+      const chapters = getBudgetChapters(project.id);
+      const categories = getBudgetCategories(project.id);
+
+      if (chapters.length > 0) {
+        const chapterId = findChapterForTender(tender.tender_type, chapters, categories);
+
+        if (chapterId) {
+          const vatRate = 0.17;
+          const totals = calculateBudgetItemTotals({
+            quantity: 1,
+            unit_price: participant.total_amount,
+            vat_rate: vatRate,
+          });
+
+          const newBudgetItem: BudgetItem = {
+            id: `bi-${crypto.randomUUID()}`,
+            project_id: project.id,
+            chapter_id: chapterId,
+            code: undefined,
+            description: `${tender.tender_name} - ${professional.professional_name}`,
+            unit: 'קומפלט',
+            quantity: 1,
+            unit_price: participant.total_amount,
+            total_price: totals.total_price,
+            vat_rate: vatRate,
+            vat_amount: totals.vat_amount,
+            total_with_vat: totals.total_with_vat,
+            status: 'contracted',
+            supplier_id: professional.id,
+            supplier_name: professional.professional_name,
+            tender_id: tender.id,
+            paid_amount: 0,
+            order: getNextBudgetItemOrder(project.id, chapterId),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+
+          addBudgetItem(newBudgetItem);
+        }
+      }
+    }
 
     loadTenders();
     setIsSelectWinnerModalOpen(false);
@@ -671,6 +746,21 @@ const newProjectProfessional = {
                   onChange={(e) => setTenderForm({ ...tenderForm, description: e.target.value })}
                 />
               </div>
+              <div>
+                <label className="block text-sm font-bold mb-2">קישור לאבן דרך (אופציונלי)</label>
+                <select
+                  className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
+                  value={tenderForm.milestone_id}
+                  onChange={(e) => setTenderForm({ ...tenderForm, milestone_id: e.target.value })}
+                >
+                  <option value="">ללא קישור</option>
+                  {milestones.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} ({formatDateForDisplay(m.date)})
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="flex justify-end gap-3 pt-4">
                 <button
                   onClick={() => setIsAddTenderModalOpen(false)}
@@ -934,15 +1024,46 @@ const newProjectProfessional = {
               </div>
 
               <div>
-                <label className="block text-sm font-bold mb-2">קובץ הצעה (URL)</label>
-                <input
-                  type="text"
-                  className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
-                  placeholder="קישור לקובץ ההצעה"
-                  value={participantForm.quote_file}
-                  onChange={(e) => setParticipantForm({ ...participantForm, quote_file: e.target.value })}
-                  disabled={selectedTender.status === 'WinnerSelected'}
-                />
+                <label className="block text-sm font-bold mb-2">קובץ הצעה (PDF)</label>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      id="quote-file-input"
+                      disabled={selectedTender.status === 'WinnerSelected' || uploadingFile}
+                    />
+                    <label
+                      htmlFor="quote-file-input"
+                      className={`flex-1 h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm flex items-center justify-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${
+                        selectedTender.status === 'WinnerSelected' ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[18px] me-2">upload_file</span>
+                      {uploadingFile ? 'מעלה...' : participantForm.quote_file ? 'החלף קובץ' : 'בחר קובץ'}
+                    </label>
+                  </div>
+                  {participantForm.quote_file && (
+                    <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                      <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 text-[18px]">
+                        attach_file
+                      </span>
+                      <span className="text-sm text-blue-700 dark:text-blue-300 flex-1 truncate">
+                        {getFileNameFromUrl(participantForm.quote_file)}
+                      </span>
+                      <a
+                        href={participantForm.quote_file}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline font-bold"
+                      >
+                        צפייה
+                      </a>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>

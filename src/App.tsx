@@ -7,6 +7,7 @@ import Breadcrumbs from './components/Layout/Breadcrumbs';
 import DashboardPage from './pages/Dashboard/DashboardPage';
 import ProjectsPage from './pages/Projects/ProjectsPage';
 import CreateProjectPage from './pages/Projects/CreateProjectPage';
+import EditProjectPage from './pages/Projects/EditProjectPage';
 import ProjectDetailPage from './pages/Projects/ProjectDetailPage';
 import ProfessionalsListPage from './pages/Professionals/ProfessionalsListPage';
 import ProfessionalDetailPage from './pages/Professionals/ProfessionalDetailPage';
@@ -71,6 +72,15 @@ function App() {
                   <>
                     <Breadcrumbs items={[{ label: 'פרויקטים', href: '/projects' }, { label: 'פרטי פרויקט' }]} />
                     <ProjectDetailPage />
+                  </>
+                }
+              />
+              <Route
+                path="/projects/:id/edit"
+                element={
+                  <>
+                    <Breadcrumbs items={[{ label: 'פרויקטים', href: '/projects' }, { label: 'עריכת פרויקט' }]} />
+                    <EditProjectPage />
                   </>
                 }
               />

@@ -129,6 +129,7 @@ export interface Tender {
   candidate_professional_ids: string[]; // Array of professional IDs
   winner_professional_id?: string; // Reference to Professional
   winner_professional_name?: string; // Display name (lookup)
+  milestone_id?: string; // Optional link to project milestone
   notes?: string;
   created_at: string; // ISO date string
   updated_at: string; // ISO date string
@@ -190,6 +191,7 @@ export interface PlanningChange {
   schedule_impact?: string; // השפעה על לו"ז (optional)
   budget_impact?: number; // השפעה על תקציב in ILS (optional)
   decision: PlanningChangeDecision; // החלטה
+  image_urls?: string[]; // Array of image URLs - תמונות
   created_by?: string; // Reference to User
   created_at: string; // ISO date string
   updated_at: string; // ISO date string
@@ -340,6 +342,7 @@ export interface BudgetItem {
   supplier_name?: string;
   tender_id?: string;
   paid_amount: number;
+  expected_payment_date?: string; // ISO date string - תאריך משוער לתשלום
   order: number;
   notes?: string;
   created_at: string;

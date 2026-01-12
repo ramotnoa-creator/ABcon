@@ -44,12 +44,20 @@ export default function ProfessionalDetailPage() {
   const [relatedProjects, setRelatedProjects] = useState<RelatedProject[]>(() =>
     id ? loadRelatedProjectsData(id) : []
   );
-  const [, setIsEditMode] = useState(false);
-  const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [, setIsAddToProjectOpen] = useState(false);
   const [formData, setFormData] = useState({
     project_id: '',
     project_role: '',
     start_date: '',
+    notes: '',
+  });
+  const [editFormData, setEditFormData] = useState({
+    professional_name: '',
+    company_name: '',
+    field: '',
+    phone: '',
+    email: '',
     notes: '',
   });
 
@@ -64,18 +72,59 @@ export default function ProfessionalDetailPage() {
     setRelatedProjects(loadRelatedProjectsData(professionalId));
   }, []);
 
-  // Compute available projects when modal is open
+  // Compute available projects (always computed, not just when modal is open)
   const availableProjects = useMemo(() => {
-    if (!isAddToProjectOpen) return [];
     const allProjects = getProjects();
     const assignedProjectIds = new Set(
       relatedProjects.map((rp) => rp.projectProfessional.project_id)
     );
     return allProjects.filter((p) => !assignedProjectIds.has(p.id));
-  }, [isAddToProjectOpen, relatedProjects]);
+  }, [relatedProjects]);
 
   const handleEdit = () => {
-    setIsEditMode(true);
+    if (!professional) return;
+    setEditFormData({
+      professional_name: professional.professional_name,
+      company_name: professional.company_name || '',
+      field: professional.field,
+      phone: professional.phone || '',
+      email: professional.email || '',
+      notes: professional.notes || '',
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!professional) return;
+
+    const allProfessionals = getProfessionals();
+    const updated = allProfessionals.map((p) =>
+      p.id === professional.id
+        ? {
+            ...p,
+            professional_name: editFormData.professional_name.trim(),
+            company_name: editFormData.company_name.trim() || undefined,
+            field: editFormData.field.trim(),
+            phone: editFormData.phone.trim() || undefined,
+            email: editFormData.email.trim() || undefined,
+            notes: editFormData.notes.trim() || undefined,
+          }
+        : p
+    );
+    saveProfessionals(updated);
+
+    // Update local state
+    setProfessional({
+      ...professional,
+      professional_name: editFormData.professional_name.trim(),
+      company_name: editFormData.company_name.trim() || undefined,
+      field: editFormData.field.trim(),
+      phone: editFormData.phone.trim() || undefined,
+      email: editFormData.email.trim() || undefined,
+      notes: editFormData.notes.trim() || undefined,
+    });
+
+    setIsEditModalOpen(false);
   };
 
   const handleDeactivate = () => {
@@ -528,6 +577,105 @@ export default function ProfessionalDetailPage() {
           הוסף לפרויקט
         </button>
       </div>
+
+      {/* Edit Professional Modal */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-border-light dark:border-border-dark flex items-center justify-between">
+              <h2 className="text-xl font-black">עריכת פרטי איש מקצוע</h2>
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="size-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center transition-colors"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-bold mb-2">
+                  שם מלא <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
+                  value={editFormData.professional_name}
+                  onChange={(e) => setEditFormData({ ...editFormData, professional_name: e.target.value })}
+                  placeholder="שם איש המקצוע"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-2">שם חברה</label>
+                <input
+                  type="text"
+                  className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
+                  value={editFormData.company_name}
+                  onChange={(e) => setEditFormData({ ...editFormData, company_name: e.target.value })}
+                  placeholder="שם החברה (אופציונלי)"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-2">
+                  תחום התמחות <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
+                  value={editFormData.field}
+                  onChange={(e) => setEditFormData({ ...editFormData, field: e.target.value })}
+                  placeholder="לדוג': אדריכלות, הנדסה, חשמל"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold mb-2">טלפון</label>
+                  <input
+                    type="tel"
+                    className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
+                    value={editFormData.phone}
+                    onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                    placeholder="050-0000000"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold mb-2">אימייל</label>
+                  <input
+                    type="email"
+                    className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
+                    value={editFormData.email}
+                    onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                    placeholder="email@example.com"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-2">הערות</label>
+                <textarea
+                  className="w-full p-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary resize-none h-20"
+                  value={editFormData.notes}
+                  onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
+                  placeholder="הערות נוספות..."
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t border-border-light dark:border-border-dark">
+                <button
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="px-4 py-2 rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold text-sm transition-colors"
+                >
+                  ביטול
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={!editFormData.professional_name.trim() || !editFormData.field.trim()}
+                  className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  שמור שינויים
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

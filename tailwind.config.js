@@ -86,6 +86,61 @@ export default {
           "25%": { transform: "rotate(-3deg)" },
           "75%": { transform: "rotate(3deg)" },
         },
+        // Modal animations
+        "modal-enter": {
+          "0%": { opacity: "0", transform: "scale(0.95) translateY(10px)" },
+          "100%": { opacity: "1", transform: "scale(1) translateY(0)" },
+        },
+        "modal-exit": {
+          "0%": { opacity: "1", transform: "scale(1) translateY(0)" },
+          "100%": { opacity: "0", transform: "scale(0.95) translateY(10px)" },
+        },
+        "overlay-enter": {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        // Slide up for bottom sheets/modals
+        "slide-up": {
+          "0%": { transform: "translateY(100%)", opacity: "0" },
+          "100%": { transform: "translateY(0)", opacity: "1" },
+        },
+        "slide-down": {
+          "0%": { transform: "translateY(0)", opacity: "1" },
+          "100%": { transform: "translateY(100%)", opacity: "0" },
+        },
+        // Stagger fade for list items
+        "stagger-fade-in": {
+          "0%": { opacity: "0", transform: "translateY(10px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        // Success checkmark
+        "checkmark": {
+          "0%": { transform: "scale(0) rotate(-45deg)", opacity: "0" },
+          "50%": { transform: "scale(1.2) rotate(-45deg)", opacity: "1" },
+          "100%": { transform: "scale(1) rotate(-45deg)", opacity: "1" },
+        },
+        // Error shake
+        "shake": {
+          "0%, 100%": { transform: "translateX(0)" },
+          "10%, 30%, 50%, 70%, 90%": { transform: "translateX(-4px)" },
+          "20%, 40%, 60%, 80%": { transform: "translateX(4px)" },
+        },
+        // Ripple effect
+        "ripple": {
+          "0%": { transform: "scale(0)", opacity: "0.5" },
+          "100%": { transform: "scale(4)", opacity: "0" },
+        },
+        // Count up number animation
+        "count-up": {
+          "0%": { opacity: "0", transform: "translateY(10px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        // Skeleton loading pulse
+        "skeleton": {
+          "0%": { opacity: "0.6" },
+          "50%": { opacity: "0.8" },
+          "100%": { opacity: "0.6" },
+        },
       },
       animation: {
         "fade-in": "fade-in 0.3s ease-out",
@@ -101,6 +156,18 @@ export default {
         "progress-fill": "progress-fill 1s ease-out forwards",
         "shimmer": "shimmer 2s linear infinite",
         "wiggle": "wiggle 0.3s ease-in-out",
+        // New animations
+        "modal-enter": "modal-enter 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+        "modal-exit": "modal-exit 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+        "overlay-enter": "overlay-enter 0.2s ease-out",
+        "slide-up": "slide-up 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+        "slide-down": "slide-down 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+        "stagger-fade-in": "stagger-fade-in 0.3s ease-out forwards",
+        "checkmark": "checkmark 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55)",
+        "shake": "shake 0.5s ease-in-out",
+        "ripple": "ripple 0.6s linear",
+        "count-up": "count-up 0.4s ease-out",
+        "skeleton": "skeleton 1.5s ease-in-out infinite",
       },
       transitionTimingFunction: {
         "bounce-in": "cubic-bezier(0.68, -0.55, 0.265, 1.55)",

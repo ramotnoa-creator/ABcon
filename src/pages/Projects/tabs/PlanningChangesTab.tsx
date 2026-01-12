@@ -17,6 +17,104 @@ import {
 import type { Project, PlanningChange, PlanningChangeDecision } from '../../../types';
 import { formatDateForDisplay } from '../../../utils/dateUtils';
 
+// Image Gallery Modal Component
+interface ImageGalleryModalProps {
+  images: string[];
+  initialIndex?: number;
+  onClose: () => void;
+}
+
+function ImageGalleryModal({ images, initialIndex = 0, onClose }: ImageGalleryModalProps) {
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+
+  const goToPrevious = () => {
+    setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+  };
+
+  const goToNext = () => {
+    setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowLeft') goToNext(); // RTL - left arrow goes next
+    if (e.key === 'ArrowRight') goToPrevious(); // RTL - right arrow goes previous
+    if (e.key === 'Escape') onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 modal-overlay"
+      onClick={onClose}
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+    >
+      <div
+        className="relative max-w-4xl w-full mx-4 modal-content"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute -top-12 left-0 size-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+        >
+          <span className="material-symbols-outlined text-[24px]">close</span>
+        </button>
+
+        {/* Image counter */}
+        <div className="absolute -top-12 right-0 text-white text-sm">
+          {currentIndex + 1} / {images.length}
+        </div>
+
+        {/* Main image */}
+        <div className="relative bg-black rounded-xl overflow-hidden">
+          <img
+            src={images[currentIndex]}
+            alt={`תמונה ${currentIndex + 1}`}
+            className="w-full max-h-[70vh] object-contain"
+          />
+
+          {/* Navigation arrows */}
+          {images.length > 1 && (
+            <>
+              <button
+                onClick={goToNext}
+                className="absolute left-4 top-1/2 -translate-y-1/2 size-12 flex items-center justify-center bg-black/50 hover:bg-black/70 rounded-full text-white transition-colors"
+              >
+                <span className="material-symbols-outlined text-[28px]">chevron_left</span>
+              </button>
+              <button
+                onClick={goToPrevious}
+                className="absolute right-4 top-1/2 -translate-y-1/2 size-12 flex items-center justify-center bg-black/50 hover:bg-black/70 rounded-full text-white transition-colors"
+              >
+                <span className="material-symbols-outlined text-[28px]">chevron_right</span>
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Thumbnail strip */}
+        {images.length > 1 && (
+          <div className="flex justify-center gap-2 mt-4 overflow-x-auto pb-2">
+            {images.map((img, idx) => (
+              <button
+                key={idx}
+                onClick={() => setCurrentIndex(idx)}
+                className={`flex-shrink-0 size-16 rounded-lg overflow-hidden border-2 transition-all ${
+                  idx === currentIndex
+                    ? 'border-primary ring-2 ring-primary/30'
+                    : 'border-transparent opacity-60 hover:opacity-100'
+                }`}
+              >
+                <img src={img} alt="" className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 interface PlanningChangesTabProps {
   project: Project;
 }
@@ -70,7 +168,12 @@ export default function PlanningChangesTab({ project }: PlanningChangesTabProps)
     schedule_impact: '',
     budget_impact: '',
     decision: 'pending' as PlanningChangeDecision,
+    image_urls: '' as string, // Comma-separated URLs for input
   });
+
+  // Image gallery state
+  const [galleryImages, setGalleryImages] = useState<string[]>([]);
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
 
   // Allow actions if user has permission OR if no user (dev mode)
   const canCreate = !user || canCreatePlanningChange(user, project.id);
@@ -87,6 +190,7 @@ export default function PlanningChangesTab({ project }: PlanningChangesTabProps)
       schedule_impact: '',
       budget_impact: '',
       decision: 'pending',
+      image_urls: '',
     });
     setEditingChange(null);
   };
@@ -99,11 +203,17 @@ export default function PlanningChangesTab({ project }: PlanningChangesTabProps)
         schedule_impact: change.schedule_impact || '',
         budget_impact: change.budget_impact?.toString() || '',
         decision: change.decision,
+        image_urls: change.image_urls?.join(', ') || '',
       });
     } else {
       resetForm();
     }
     setIsModalOpen(true);
+  };
+
+  const handleOpenGallery = (images: string[]) => {
+    setGalleryImages(images);
+    setIsGalleryOpen(true);
   };
 
   const handleCloseModal = () => {
@@ -118,12 +228,19 @@ export default function PlanningChangesTab({ project }: PlanningChangesTabProps)
       ? parseFloat(formData.budget_impact)
       : undefined;
 
+    // Parse image URLs from comma-separated string
+    const imageUrls = formData.image_urls
+      .split(',')
+      .map((url) => url.trim())
+      .filter((url) => url.length > 0);
+
     if (editingChange) {
       updatePlanningChange(editingChange.id, {
         description: formData.description.trim(),
         schedule_impact: formData.schedule_impact.trim() || undefined,
         budget_impact: isNaN(budgetImpact as number) ? undefined : budgetImpact,
         decision: formData.decision,
+        image_urls: imageUrls.length > 0 ? imageUrls : undefined,
       });
     } else {
       addPlanningChange({
@@ -133,6 +250,7 @@ export default function PlanningChangesTab({ project }: PlanningChangesTabProps)
         schedule_impact: formData.schedule_impact.trim() || undefined,
         budget_impact: isNaN(budgetImpact as number) ? undefined : budgetImpact,
         decision: formData.decision,
+        image_urls: imageUrls.length > 0 ? imageUrls : undefined,
         created_by: user?.id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -188,6 +306,9 @@ export default function PlanningChangesTab({ project }: PlanningChangesTabProps)
                   החלטה
                 </th>
                 <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                  תמונות
+                </th>
+                <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
                   תאריך יצירה
                 </th>
                 {(canEdit || canDelete) && (
@@ -201,7 +322,7 @@ export default function PlanningChangesTab({ project }: PlanningChangesTabProps)
               {changes.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={canEdit || canDelete ? 7 : 6}
+                    colSpan={canEdit || canDelete ? 8 : 7}
                     className="px-6 py-12 text-center text-text-secondary-light dark:text-text-secondary-dark"
                   >
                     אין שינויים בתכנון
@@ -231,6 +352,19 @@ export default function PlanningChangesTab({ project }: PlanningChangesTabProps)
                       >
                         {decisionLabels[change.decision]}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 align-middle">
+                      {change.image_urls && change.image_urls.length > 0 ? (
+                        <button
+                          onClick={() => handleOpenGallery(change.image_urls!)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors text-xs font-medium"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">photo_library</span>
+                          {change.image_urls.length} תמונות
+                        </button>
+                      ) : (
+                        <span className="text-text-secondary-light dark:text-text-secondary-dark">-</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 align-middle text-text-secondary-light dark:text-text-secondary-dark">
                       {formatDateForDisplay(change.created_at)}
@@ -312,6 +446,15 @@ export default function PlanningChangesTab({ project }: PlanningChangesTabProps)
                       <span className="font-medium">{formatCurrency(change.budget_impact)}</span>
                     </div>
                   )}
+                  {change.image_urls && change.image_urls.length > 0 && (
+                    <button
+                      onClick={() => handleOpenGallery(change.image_urls!)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors text-xs font-medium"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">photo_library</span>
+                      {change.image_urls.length} תמונות
+                    </button>
+                  )}
                 </div>
 
                 {(canEdit || canDelete) && (
@@ -344,8 +487,8 @@ export default function PlanningChangesTab({ project }: PlanningChangesTabProps)
 
       {/* Add/Edit Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 modal-overlay">
+          <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark w-full max-w-md max-h-[90vh] overflow-y-auto modal-content">
             <div className="flex items-center justify-between p-6 border-b border-border-light dark:border-border-dark sticky top-0 bg-surface-light dark:bg-surface-dark">
               <h3 className="text-lg font-bold">
                 {editingChange ? 'עריכת שינוי' : 'הוספת שינוי חדש'}
@@ -402,6 +545,19 @@ export default function PlanningChangesTab({ project }: PlanningChangesTabProps)
                   <option value="rejected">נדחה</option>
                 </select>
               </div>
+              <div>
+                <label className="block text-sm font-bold mb-2">קישורים לתמונות</label>
+                <textarea
+                  className="w-full p-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary resize-none h-20"
+                  placeholder="הכנס קישורים לתמונות, מופרדים בפסיקים..."
+                  value={formData.image_urls}
+                  onChange={(e) => setFormData({ ...formData, image_urls: e.target.value })}
+                  dir="ltr"
+                />
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
+                  ניתן להוסיף מספר קישורים מופרדים בפסיקים
+                </p>
+              </div>
               <div className="flex justify-end gap-3 pt-4">
                 <button
                   onClick={handleCloseModal}
@@ -433,6 +589,14 @@ export default function PlanningChangesTab({ project }: PlanningChangesTabProps)
             הוסף שינוי
           </button>
         </div>
+      )}
+
+      {/* Image Gallery Modal */}
+      {isGalleryOpen && galleryImages.length > 0 && (
+        <ImageGalleryModal
+          images={galleryImages}
+          onClose={() => setIsGalleryOpen(false)}
+        />
       )}
     </div>
   );

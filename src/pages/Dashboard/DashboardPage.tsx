@@ -1,18 +1,27 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import KPICards from '../../components/Dashboard/KPICards';
 import AlertsSection from '../../components/Dashboard/AlertsSection';
 import StatusChart from '../../components/Dashboard/StatusChart';
 import ProjectsTable from '../../components/Dashboard/ProjectsTable';
+import MilestonesKPICard from '../../components/Dashboard/MilestonesKPICard';
 import {
   dashboardKPIs,
   dashboardAlerts,
   statusDistribution,
   projectsRequiringAttention,
 } from '../../data/dashboardData';
+import {
+  getLastMonthCompletedMilestones,
+  getNextMonthPendingMilestones,
+} from '../../data/milestonesQueries';
 
 export default function DashboardPage() {
   const [isVisible, setIsVisible] = useState(false);
+
+  // Milestone data for KPI cards
+  const lastMonthMilestones = useMemo(() => getLastMonthCompletedMilestones(), []);
+  const nextMonthMilestones = useMemo(() => getNextMonthPendingMilestones(), []);
 
   useEffect(() => {
     // Trigger entrance animation after mount
@@ -51,6 +60,24 @@ export default function DashboardPage() {
 
       {/* KPI Cards */}
       <KPICards kpis={dashboardKPIs} />
+
+      {/* Milestones KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <MilestonesKPICard
+          title="אבני דרך שהושלמו (30 יום אחרונים)"
+          icon="check_circle"
+          color="green"
+          milestones={lastMonthMilestones}
+          emptyMessage="אין אבני דרך שהושלמו בחודש האחרון"
+        />
+        <MilestonesKPICard
+          title="אבני דרך קרובות (30 יום הבאים)"
+          icon="schedule"
+          color="orange"
+          milestones={nextMonthMilestones}
+          emptyMessage="אין אבני דרך מתוכננות ל-30 הימים הקרובים"
+        />
+      </div>
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
