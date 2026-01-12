@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAllTenders } from '../../data/tendersStorage';
 import { getTenderParticipants } from '../../data/tenderParticipantsStorage';
@@ -43,15 +43,20 @@ const formatCurrency = (amount?: number): string => {
   }).format(amount);
 };
 
+interface ParticipantWithProfessional extends TenderParticipant {
+  professional?: Professional;
+}
+
 interface TenderWithDetails extends Tender {
   project?: Project;
-  participants: TenderParticipant[];
+  participants: ParticipantWithProfessional[];
   winnerProfessional?: Professional;
   priceStats?: {
     min: number;
     max: number;
     avg: number;
     count: number;
+    lowestParticipantId?: string;
   };
 }
 
@@ -99,18 +104,34 @@ export default function GlobalTendersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<TenderStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<TenderType | 'all'>('all');
+  const [expandedTenderId, setExpandedTenderId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
   // Load all data
-  const tendersWithDetails = useMemo((): TenderWithDetails[] => {
+  const { tendersWithDetails, allProfessionals } = useMemo(() => {
     const tenders = getAllTenders();
     const projects = getProjects();
     const professionals = getProfessionals();
 
-    return tenders.map((tender) => {
+    const tendersData = tenders.map((tender) => {
       const project = projects.find((p) => p.id === tender.project_id);
-      const participants = getTenderParticipants(tender.id);
+      const rawParticipants = getTenderParticipants(tender.id);
+
+      // Attach professional data to participants
+      const participants: ParticipantWithProfessional[] = rawParticipants.map((p) => ({
+        ...p,
+        professional: professionals.find((prof) => prof.id === p.professional_id),
+      }));
+
+      // Sort participants by price (lowest first)
+      participants.sort((a, b) => {
+        if (a.total_amount && b.total_amount) return a.total_amount - b.total_amount;
+        if (a.total_amount && !b.total_amount) return -1;
+        if (!a.total_amount && b.total_amount) return 1;
+        return 0;
+      });
+
       const winnerProfessional = tender.winner_professional_id
         ? professionals.find((p) => p.id === tender.winner_professional_id)
         : undefined;
@@ -127,6 +148,7 @@ export default function GlobalTendersPage() {
               max: Math.max(...prices),
               avg: prices.reduce((sum, p) => sum + p, 0) / prices.length,
               count: prices.length,
+              lowestParticipantId: participants.find((p) => p.total_amount === Math.min(...prices))?.id,
             }
           : undefined;
 
@@ -138,6 +160,8 @@ export default function GlobalTendersPage() {
         priceStats,
       };
     });
+
+    return { tendersWithDetails: tendersData, allProfessionals: professionals };
   }, []);
 
   // Calculate KPIs
@@ -205,13 +229,10 @@ export default function GlobalTendersPage() {
 
   const totalPages = Math.ceil(filteredTenders.length / itemsPerPage);
 
-  // Navigate to project tender tab
-  const handleTenderClick = useCallback(
-    (tender: TenderWithDetails) => {
-      navigate(`/projects/${tender.project_id}?tab=tenders`);
-    },
-    [navigate]
-  );
+  // Toggle expand
+  const toggleExpand = (tenderId: string) => {
+    setExpandedTenderId(expandedTenderId === tenderId ? null : tenderId);
+  };
 
   return (
     <div className="flex-1 px-4 lg:px-10 py-6 max-w-[1400px] mx-auto w-full pb-20 lg:pb-6">
@@ -323,91 +344,257 @@ export default function GlobalTendersPage() {
             <p className="text-text-secondary-light dark:text-text-secondary-dark">אין מכרזים</p>
           </div>
         ) : (
-          paginatedTenders.map((tender) => (
-            <div
-              key={tender.id}
-              onClick={() => handleTenderClick(tender)}
-              className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark p-5 cursor-pointer hover:shadow-md hover:border-primary/30 transition-all"
-            >
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                {/* Left side - Tender info */}
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 flex-wrap mb-2">
-                    <h3 className="text-lg font-bold">{tender.tender_name}</h3>
-                    <span
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${statusColors[tender.status]}`}
-                    >
-                      {statusLabels[tender.status]}
-                    </span>
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                      {tenderTypeLabels[tender.tender_type]}
-                    </span>
-                  </div>
+          paginatedTenders.map((tender) => {
+            const isExpanded = expandedTenderId === tender.id;
 
-                  {/* Project name */}
-                  <div className="flex items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark mb-2">
-                    <span className="material-symbols-outlined text-[16px]">folder</span>
-                    <span>{tender.project?.project_name || 'פרויקט לא ידוע'}</span>
-                  </div>
-
-                  {/* Dates */}
-                  <div className="flex flex-wrap gap-4 text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                    {tender.publish_date && (
-                      <span>
-                        פרסום: {formatDateForDisplay(tender.publish_date)}
-                      </span>
-                    )}
-                    {tender.due_date && (
-                      <span className={new Date(tender.due_date) < new Date() && tender.status === 'Open' ? 'text-red-600' : ''}>
-                        דדליין: {formatDateForDisplay(tender.due_date)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Right side - Stats and winner */}
-                <div className="flex flex-col md:items-end gap-2">
-                  {/* Winner */}
-                  {tender.status === 'WinnerSelected' && tender.winner_professional_name && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                      <span className="material-symbols-outlined text-green-600 dark:text-green-400 text-[18px]">
-                        emoji_events
-                      </span>
-                      <span className="text-sm font-bold text-green-700 dark:text-green-300">
-                        {tender.winner_professional_name}
-                      </span>
-                      {tender.participants.find((p) => p.is_winner)?.total_amount && (
-                        <span className="text-sm text-green-600 dark:text-green-400">
-                          ({formatCurrency(tender.participants.find((p) => p.is_winner)?.total_amount)})
+            return (
+              <div
+                key={tender.id}
+                className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark overflow-hidden transition-all"
+              >
+                {/* Header - Clickable */}
+                <div
+                  onClick={() => toggleExpand(tender.id)}
+                  className="p-5 cursor-pointer hover:bg-background-light/50 dark:hover:bg-background-dark/50 transition-colors"
+                >
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    {/* Left side - Tender info */}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 flex-wrap mb-2">
+                        <span className={`material-symbols-outlined text-[20px] transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
+                          expand_more
                         </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Participants count */}
-                  <div className="flex items-center gap-4 text-sm">
-                    <div className="flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[16px] text-text-secondary-light">people</span>
-                      <span className="font-medium">{tender.participants.length} משתתפים</span>
-                    </div>
-
-                    {/* Price stats */}
-                    {tender.priceStats && tender.priceStats.count >= 2 && (
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="text-green-600 dark:text-green-400 font-bold">
-                          {formatCurrency(tender.priceStats.min)}
+                        <h3 className="text-lg font-bold">{tender.tender_name}</h3>
+                        <span
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${statusColors[tender.status]}`}
+                        >
+                          {statusLabels[tender.status]}
                         </span>
-                        <span className="text-text-secondary-light">-</span>
-                        <span className="text-red-500 dark:text-red-400 font-bold">
-                          {formatCurrency(tender.priceStats.max)}
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                          {tenderTypeLabels[tender.tender_type]}
                         </span>
                       </div>
-                    )}
+
+                      {/* Project name */}
+                      <div className="flex items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark mb-2 mr-8">
+                        <span className="material-symbols-outlined text-[16px]">folder</span>
+                        <span>{tender.project?.project_name || 'פרויקט לא ידוע'}</span>
+                      </div>
+
+                      {/* Dates */}
+                      <div className="flex flex-wrap gap-4 text-xs text-text-secondary-light dark:text-text-secondary-dark mr-8">
+                        {tender.publish_date && (
+                          <span>
+                            פרסום: {formatDateForDisplay(tender.publish_date)}
+                          </span>
+                        )}
+                        {tender.due_date && (
+                          <span className={new Date(tender.due_date) < new Date() && tender.status === 'Open' ? 'text-red-600' : ''}>
+                            דדליין: {formatDateForDisplay(tender.due_date)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right side - Stats and winner */}
+                    <div className="flex flex-col md:items-end gap-2">
+                      {/* Winner */}
+                      {tender.status === 'WinnerSelected' && tender.winner_professional_name && (
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                          <span className="material-symbols-outlined text-green-600 dark:text-green-400 text-[18px]">
+                            emoji_events
+                          </span>
+                          <span className="text-sm font-bold text-green-700 dark:text-green-300">
+                            {tender.winner_professional_name}
+                          </span>
+                          {tender.participants.find((p) => p.is_winner)?.total_amount && (
+                            <span className="text-sm text-green-600 dark:text-green-400">
+                              ({formatCurrency(tender.participants.find((p) => p.is_winner)?.total_amount)})
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Participants count */}
+                      <div className="flex items-center gap-4 text-sm">
+                        <div className="flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[16px] text-text-secondary-light">people</span>
+                          <span className="font-medium">{tender.participants.length} משתתפים</span>
+                        </div>
+
+                        {/* Price stats */}
+                        {tender.priceStats && tender.priceStats.count >= 2 && (
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-green-600 dark:text-green-400 font-bold">
+                              {formatCurrency(tender.priceStats.min)}
+                            </span>
+                            <span className="text-text-secondary-light">-</span>
+                            <span className="text-red-500 dark:text-red-400 font-bold">
+                              {formatCurrency(tender.priceStats.max)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
+
+                {/* Expanded Content */}
+                {isExpanded && (
+                  <div className="border-t border-border-light dark:border-border-dark">
+                    {/* Price Statistics */}
+                    {tender.priceStats && tender.priceStats.count >= 2 && (
+                      <div className="p-4 bg-blue-50 dark:bg-blue-900/10 border-b border-border-light dark:border-border-dark">
+                        <p className="text-xs font-bold text-blue-800 dark:text-blue-200 mb-3">
+                          <span className="material-symbols-outlined text-[14px] me-1 align-middle">analytics</span>
+                          סיכום הצעות מחיר ({tender.priceStats.count} הצעות)
+                        </p>
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                          <div>
+                            <p className="text-xs text-blue-600 dark:text-blue-300 mb-1">הנמוך ביותר</p>
+                            <p className="text-base font-bold text-green-600 dark:text-green-400">
+                              {formatCurrency(tender.priceStats.min)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-blue-600 dark:text-blue-300 mb-1">ממוצע</p>
+                            <p className="text-base font-bold text-blue-700 dark:text-blue-300">
+                              {formatCurrency(Math.round(tender.priceStats.avg))}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-blue-600 dark:text-blue-300 mb-1">הגבוה ביותר</p>
+                            <p className="text-base font-bold text-red-500 dark:text-red-400">
+                              {formatCurrency(tender.priceStats.max)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Participants List */}
+                    <div className="p-4">
+                      <h4 className="text-sm font-bold text-text-secondary-light dark:text-text-secondary-dark mb-3">
+                        משתתפים במכרז - ממוין לפי מחיר
+                      </h4>
+
+                      {tender.participants.length === 0 ? (
+                        <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark text-center py-4">
+                          אין משתתפים במכרז
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {tender.participants.map((participant) => {
+                            const isBestPrice = tender.priceStats?.lowestParticipantId === participant.id && !participant.is_winner;
+
+                            return (
+                              <div
+                                key={participant.id}
+                                className={`flex items-center justify-between p-3 rounded-lg border ${
+                                  participant.is_winner
+                                    ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30'
+                                    : isBestPrice
+                                    ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-300 dark:border-emerald-900/30'
+                                    : 'bg-background-light dark:bg-background-dark border-border-light dark:border-border-dark'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3 flex-1">
+                                  {participant.is_winner && (
+                                    <span className="material-symbols-outlined text-green-600 dark:text-green-400 text-[20px]">
+                                      emoji_events
+                                    </span>
+                                  )}
+                                  {isBestPrice && (
+                                    <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400 text-[20px]">
+                                      trending_down
+                                    </span>
+                                  )}
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <p className="font-bold text-sm">
+                                        {participant.professional?.professional_name || 'לא ידוע'}
+                                      </p>
+                                      {participant.is_winner && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                                          זוכה
+                                        </span>
+                                      )}
+                                      {isBestPrice && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                                          הצעה הזולה ביותר
+                                        </span>
+                                      )}
+                                    </div>
+                                    {participant.professional?.company_name && (
+                                      <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                                        {participant.professional.company_name}
+                                      </p>
+                                    )}
+                                    <div className="flex items-center gap-3 mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                                      <span>{participant.professional?.field}</span>
+                                      {participant.quote_file && (
+                                        <a
+                                          href={participant.quote_file}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="text-blue-600 dark:text-blue-400 hover:underline"
+                                        >
+                                          <span className="material-symbols-outlined text-[14px] align-middle">attach_file</span>
+                                          קובץ הצעה
+                                        </a>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  {participant.total_amount && (
+                                    <span className={`font-bold text-sm ${
+                                      participant.is_winner
+                                        ? 'text-green-600 dark:text-green-400'
+                                        : isBestPrice
+                                        ? 'text-emerald-600 dark:text-emerald-400'
+                                        : 'text-primary'
+                                    }`}>
+                                      {formatCurrency(participant.total_amount)}
+                                    </span>
+                                  )}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(`/professionals/${participant.professional_id}`);
+                                    }}
+                                    className="p-1.5 rounded hover:bg-white dark:hover:bg-surface-dark transition-colors text-text-secondary-light hover:text-primary"
+                                    title="צפייה בפרופיל"
+                                  >
+                                    <span className="material-symbols-outlined text-[18px]">open_in_new</span>
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* View in Project Button */}
+                      <div className="mt-4 pt-4 border-t border-border-light dark:border-border-dark flex justify-end">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/projects/${tender.project_id}?tab=tenders`);
+                          }}
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors text-sm font-bold"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">folder_open</span>
+                          צפה בפרויקט
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
