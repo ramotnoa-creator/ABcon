@@ -59,6 +59,7 @@ export default function ProfessionalDetailPage() {
     phone: '',
     email: '',
     notes: '',
+    rating: 0,
   });
 
   // Navigate away if professional not found on initial load
@@ -90,6 +91,7 @@ export default function ProfessionalDetailPage() {
       phone: professional.phone || '',
       email: professional.email || '',
       notes: professional.notes || '',
+      rating: professional.rating || 0,
     });
     setIsEditModalOpen(true);
   };
@@ -108,6 +110,7 @@ export default function ProfessionalDetailPage() {
             phone: editFormData.phone.trim() || undefined,
             email: editFormData.email.trim() || undefined,
             notes: editFormData.notes.trim() || undefined,
+            rating: editFormData.rating || undefined,
           }
         : p
     );
@@ -122,6 +125,7 @@ export default function ProfessionalDetailPage() {
       phone: editFormData.phone.trim() || undefined,
       email: editFormData.email.trim() || undefined,
       notes: editFormData.notes.trim() || undefined,
+      rating: editFormData.rating || undefined,
     });
 
     setIsEditModalOpen(false);
@@ -285,6 +289,30 @@ export default function ProfessionalDetailPage() {
                     {professional.field}
                   </div>
                 </div>
+                {professional.rating !== undefined && professional.rating > 0 && (
+                  <div>
+                    <label className="block text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wide mb-1">
+                      דירוג
+                    </label>
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <span
+                          key={star}
+                          className={`material-symbols-outlined text-[20px] ${
+                            star <= (professional.rating || 0)
+                              ? 'text-amber-400'
+                              : 'text-gray-300 dark:text-gray-600'
+                          }`}
+                        >
+                          star
+                        </span>
+                      ))}
+                      <span className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mr-1">
+                        ({professional.rating}/5)
+                      </span>
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   {professional.phone && (
                     <div>
@@ -646,6 +674,38 @@ export default function ProfessionalDetailPage() {
                     onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
                     placeholder="email@example.com"
                   />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-2">דירוג</label>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setEditFormData({ ...editFormData, rating: star })}
+                      className="p-1 hover:scale-110 transition-transform"
+                    >
+                      <span
+                        className={`material-symbols-outlined text-[28px] ${
+                          star <= editFormData.rating
+                            ? 'text-amber-400'
+                            : 'text-gray-300 dark:text-gray-600 hover:text-amber-200'
+                        }`}
+                      >
+                        star
+                      </span>
+                    </button>
+                  ))}
+                  {editFormData.rating > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setEditFormData({ ...editFormData, rating: 0 })}
+                      className="mr-2 text-xs text-text-secondary-light hover:text-red-500"
+                    >
+                      נקה
+                    </button>
+                  )}
                 </div>
               </div>
               <div>
