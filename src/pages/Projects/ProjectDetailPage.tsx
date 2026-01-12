@@ -179,7 +179,7 @@ export default function ProjectDetailPage() {
           isHeaderVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
         }`}
       >
-        <div className="flex gap-1 min-w-max relative">
+        <div className="flex gap-2 min-w-max relative">
           {tabs.map((tab, index) => (
             <button
               key={tab.id}
