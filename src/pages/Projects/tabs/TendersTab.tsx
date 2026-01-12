@@ -404,13 +404,40 @@ export default function TendersTab({ project }: TendersTabProps) {
     loadTenders();
   };
 
-  // Get participant with professional data
+  // Get participant with professional data - sorted by price (lowest first)
   const getParticipantsWithProfessionals = (tender: Tender) => {
     const participants = participantsMap[tender.id] || [];
-    return participants.map((p) => ({
+    const withProf = participants.map((p) => ({
       ...p,
       professional: allProfessionals.find((prof) => prof.id === p.professional_id),
     }));
+
+    // Sort: participants with prices first (lowest to highest), then those without prices
+    return withProf.sort((a, b) => {
+      if (a.total_amount && b.total_amount) {
+        return a.total_amount - b.total_amount;
+      }
+      if (a.total_amount && !b.total_amount) return -1;
+      if (!a.total_amount && b.total_amount) return 1;
+      return 0;
+    });
+  };
+
+  // Calculate price statistics for a tender
+  const getPriceStats = (tender: Tender) => {
+    const participants = participantsMap[tender.id] || [];
+    const prices = participants
+      .filter((p) => p.total_amount && p.total_amount > 0)
+      .map((p) => p.total_amount as number);
+
+    if (prices.length === 0) return null;
+
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const avg = prices.reduce((sum, p) => sum + p, 0) / prices.length;
+    const lowestParticipantId = participants.find((p) => p.total_amount === min)?.id;
+
+    return { min, max, avg, count: prices.length, lowestParticipantId };
   };
 
   return (
@@ -551,11 +578,50 @@ export default function TendersTab({ project }: TendersTabProps) {
                   </div>
                 )}
 
+                {/* Price Statistics */}
+                {(() => {
+                  const stats = getPriceStats(tender);
+                  if (!stats || stats.count < 2) return null;
+                  return (
+                    <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-900/30">
+                      <p className="text-xs font-bold text-blue-800 dark:text-blue-200 mb-3">
+                        <span className="material-symbols-outlined text-[14px] me-1 align-middle">analytics</span>
+                        סיכום הצעות מחיר ({stats.count} הצעות)
+                      </p>
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                          <p className="text-xs text-blue-600 dark:text-blue-300 mb-1">הנמוך ביותר</p>
+                          <p className="text-base font-bold text-green-600 dark:text-green-400">
+                            {formatCurrency(stats.min)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-blue-600 dark:text-blue-300 mb-1">ממוצע</p>
+                          <p className="text-base font-bold text-blue-700 dark:text-blue-300">
+                            {formatCurrency(Math.round(stats.avg))}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-blue-600 dark:text-blue-300 mb-1">הגבוה ביותר</p>
+                          <p className="text-base font-bold text-red-500 dark:text-red-400">
+                            {formatCurrency(stats.max)}
+                          </p>
+                        </div>
+                      </div>
+                      {stats.max - stats.min > 0 && (
+                        <p className="text-xs text-blue-600 dark:text-blue-300 text-center mt-3">
+                          פער: {formatCurrency(stats.max - stats.min)} ({Math.round(((stats.max - stats.min) / stats.min) * 100)}%)
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {/* Participants List */}
                 <div className="mb-4">
                   <div className="flex items-center justify-between mb-3">
                     <h5 className="text-sm font-bold text-text-secondary-light dark:text-text-secondary-dark">
-                      משתתפים במכרז ({participantsWithProf.length})
+                      משתתפים במכרז ({participantsWithProf.length}) - ממוין לפי מחיר
                     </h5>
                     {!winner && tender.status !== 'Canceled' && participantsWithProf.length > 0 && (
                       <button
@@ -592,47 +658,69 @@ export default function TendersTab({ project }: TendersTabProps) {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {participantsWithProf.map((participant) => {
-                        if (!participant.professional) return null;
+                      {(() => {
+                        const stats = getPriceStats(tender);
+                        return participantsWithProf.map((participant, index) => {
+                          if (!participant.professional) return null;
+                          const isBestPrice = stats && participant.id === stats.lowestParticipantId && !participant.is_winner;
 
-                        return (
-                          <div
-                            key={participant.id}
-                            className={`flex items-center justify-between p-3 rounded-lg border ${
-                              participant.is_winner
-                                ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30'
-                                : 'bg-background-light dark:bg-background-dark border-border-light dark:border-border-dark'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3 flex-1">
-                              {participant.is_winner && (
-                                <span className="material-symbols-outlined text-green-600 dark:text-green-400 text-[20px]">
-                                  emoji_events
-                                </span>
-                              )}
-                              <div className="flex-1">
-                                <p className="font-bold text-sm">{participant.professional.professional_name}</p>
-                                {participant.professional.company_name && (
-                                  <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                                    {participant.professional.company_name}
-                                  </p>
+                          return (
+                            <div
+                              key={participant.id}
+                              className={`flex items-center justify-between p-3 rounded-lg border ${
+                                participant.is_winner
+                                  ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30'
+                                  : isBestPrice
+                                  ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-300 dark:border-emerald-900/30'
+                                  : 'bg-background-light dark:bg-background-dark border-border-light dark:border-border-dark'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 flex-1">
+                                {participant.is_winner && (
+                                  <span className="material-symbols-outlined text-green-600 dark:text-green-400 text-[20px]">
+                                    emoji_events
+                                  </span>
                                 )}
-                                <div className="flex items-center gap-3 mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                                  <span>{participant.professional.field}</span>
-                                  {participant.total_amount && (
-                                    <span className="font-bold text-primary">
-                                      {formatCurrency(participant.total_amount)}
-                                    </span>
+                                {isBestPrice && (
+                                  <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400 text-[20px]">
+                                    trending_down
+                                  </span>
+                                )}
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-bold text-sm">{participant.professional.professional_name}</p>
+                                    {isBestPrice && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                                        הצעה הזולה ביותר
+                                      </span>
+                                    )}
+                                    {participant.total_amount && index === 0 && stats && stats.count > 1 && (
+                                      <span className="text-[10px] text-text-secondary-light dark:text-text-secondary-dark">
+                                        #{index + 1}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {participant.professional.company_name && (
+                                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                                      {participant.professional.company_name}
+                                    </p>
                                   )}
-                                  {participant.quote_file && (
-                                    <span className="text-blue-600 dark:text-blue-400">
-                                      <span className="material-symbols-outlined text-[14px] align-middle">attach_file</span>
-                                      קובץ מצורף
-                                    </span>
-                                  )}
+                                  <div className="flex items-center gap-3 mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                                    <span>{participant.professional.field}</span>
+                                    {participant.total_amount && (
+                                      <span className={`font-bold ${isBestPrice ? 'text-emerald-600 dark:text-emerald-400' : 'text-primary'}`}>
+                                        {formatCurrency(participant.total_amount)}
+                                      </span>
+                                    )}
+                                    {participant.quote_file && (
+                                      <span className="text-blue-600 dark:text-blue-400">
+                                        <span className="material-symbols-outlined text-[14px] align-middle">attach_file</span>
+                                        קובץ מצורף
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
                             <div className="flex items-center gap-1">
                               <button
                                 onClick={() => openParticipantDetails(tender, participant)}
@@ -660,7 +748,8 @@ export default function TendersTab({ project }: TendersTabProps) {
                             </div>
                           </div>
                         );
-                      })}
+                      });
+                    })()}
                     </div>
                   )}
                 </div>
