@@ -14,6 +14,7 @@ import ProfessionalDetailPage from './pages/Professionals/ProfessionalDetailPage
 import CreateProfessionalPage from './pages/Professionals/CreateProfessionalPage';
 import GlobalFilesPage from './pages/Files/GlobalFilesPage';
 import GlobalBudgetPage from './pages/Budget/GlobalBudgetPage';
+import GlobalTendersPage from './pages/Tenders/GlobalTendersPage';
 
 // Layout wrapper for authenticated pages
 function AppLayout() {
@@ -81,6 +82,15 @@ function App() {
                   <>
                     <Breadcrumbs items={[{ label: 'פרויקטים', href: '/projects' }, { label: 'עריכת פרויקט' }]} />
                     <EditProjectPage />
+                  </>
+                }
+              />
+              <Route
+                path="/tenders"
+                element={
+                  <>
+                    <Breadcrumbs items={[{ label: 'מכרזים' }]} />
+                    <GlobalTendersPage />
                   </>
                 }
               />

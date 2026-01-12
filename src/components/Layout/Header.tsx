@@ -7,6 +7,7 @@ import MobileMenu from './MobileMenu';
 const navItems = [
   { label: 'לוח בקרה', path: '/dashboard', icon: 'dashboard' },
   { label: 'פרויקטים', path: '/projects', icon: 'folder' },
+  { label: 'מכרזים', path: '/tenders', icon: 'gavel' },
   { label: 'אנשי מקצוע', path: '/professionals', icon: 'people' },
   { label: 'קבצים', path: '/files', icon: 'description' },
   { label: 'תקציב', path: '/budget', icon: 'payments' },
