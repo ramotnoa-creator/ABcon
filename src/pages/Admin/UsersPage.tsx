@@ -1,7 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { canManageUsers, getRoleDisplayName, getAvailableRoles } from '../../utils/permissions';
+import { getProjects } from '../../data/storage';
 import type { User, UserRole } from '../../types/auth';
+import type { Project } from '../../types';
 
 // Mock users data for development - will be replaced with Supabase
 const MOCK_USERS: User[] = [
@@ -66,6 +68,16 @@ const MOCK_USERS: User[] = [
 const USERS_STORAGE_KEY = 'abcon_users';
 const CREDENTIALS_STORAGE_KEY = 'abcon_credentials';
 
+// Generate a temporary password
+function generateTempPassword(): string {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let password = '';
+  for (let i = 0; i < 8; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
+}
+
 // Get users from localStorage or use mock data
 function getUsers(): User[] {
   const stored = localStorage.getItem(USERS_STORAGE_KEY);
@@ -123,6 +135,7 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [showAssignmentsModal, setShowAssignmentsModal] = useState(false);
   const [selectedUserForAssignment, setSelectedUserForAssignment] = useState<User | null>(null);
+  const [resetPasswordInfo, setResetPasswordInfo] = useState<{ user: User; tempPassword: string } | null>(null);
 
   // Check permission
   if (!canManageUsers(currentUser)) {
@@ -191,16 +204,22 @@ export default function UsersPage() {
     }
   };
 
-  const handleSaveUser = (userData: Partial<User> & { password?: string }) => {
+  const handleSaveUser = (userData: Partial<User> & { password?: string; assignedProjects?: string[] }) => {
     if (editingUser) {
       // Update existing user
+      const { password, assignedProjects, ...userDataWithoutPassword } = userData;
       const updatedUsers = users.map((u) =>
         u.id === editingUser.id
-          ? { ...u, ...userData, updated_at: new Date().toISOString() }
+          ? { ...u, ...userDataWithoutPassword, assignedProjects: assignedProjects || u.assignedProjects, updated_at: new Date().toISOString() }
           : u
       );
       setUsers(updatedUsers);
       saveUsers(updatedUsers);
+
+      // Save new password if provided
+      if (password && userData.email) {
+        saveCredential(userData.email, password);
+      }
     } else {
       // Create new user
       const newUser: User = {
@@ -211,7 +230,7 @@ export default function UsersPage() {
         role: userData.role || 'project_manager',
         is_active: true,
         created_at: new Date().toISOString(),
-        assignedProjects: [],
+        assignedProjects: userData.assignedProjects || [],
       };
       const updatedUsers = [...users, newUser];
       setUsers(updatedUsers);
@@ -229,6 +248,12 @@ export default function UsersPage() {
   const handleOpenAssignments = (user: User) => {
     setSelectedUserForAssignment(user);
     setShowAssignmentsModal(true);
+  };
+
+  const handleResetPassword = (user: User) => {
+    const tempPassword = generateTempPassword();
+    saveCredential(user.email, tempPassword);
+    setResetPasswordInfo({ user, tempPassword });
   };
 
   const formatDateTime = (dateString?: string) => {
@@ -443,7 +468,7 @@ export default function UsersPage() {
                       </button>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <button
                           onClick={() => {
                             setEditingUser(user);
@@ -453,6 +478,13 @@ export default function UsersPage() {
                           title="עריכה"
                         >
                           <span className="material-symbols-outlined text-[20px]">edit</span>
+                        </button>
+                        <button
+                          onClick={() => handleResetPassword(user)}
+                          className="p-2 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors text-text-secondary-light dark:text-text-secondary-dark hover:text-amber-600"
+                          title="איפוס סיסמה"
+                        >
+                          <span className="material-symbols-outlined text-[20px]">key</span>
                         </button>
                         <button
                           onClick={() => handleDeleteUser(user.id)}
@@ -586,6 +618,47 @@ export default function UsersPage() {
           }}
         />
       )}
+
+      {/* Reset Password Modal */}
+      {resetPasswordInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setResetPasswordInfo(null)} />
+          <div className="relative bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl w-full max-w-sm mx-4">
+            <div className="p-6 text-center">
+              <div className="size-16 rounded-full bg-green-100 dark:bg-green-900/30 mx-auto mb-4 flex items-center justify-center">
+                <span className="material-symbols-outlined text-green-600 text-3xl">check_circle</span>
+              </div>
+              <h2 className="text-xl font-bold mb-2">הסיסמה אופסה בהצלחה</h2>
+              <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
+                סיסמה זמנית עבור {resetPasswordInfo.user.full_name}
+              </p>
+              <div className="bg-background-light dark:bg-background-dark rounded-lg p-4 mb-4">
+                <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-1">סיסמה חדשה:</p>
+                <p className="text-2xl font-mono font-bold tracking-wider select-all">{resetPasswordInfo.tempPassword}</p>
+              </div>
+              <p className="text-xs text-amber-600 dark:text-amber-400 mb-4">
+                <span className="material-symbols-outlined text-[14px] align-middle me-1">warning</span>
+                העתק את הסיסמה ושלח למשתמש. היא לא תוצג שוב.
+              </p>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(resetPasswordInfo.tempPassword);
+                }}
+                className="w-full h-10 rounded-lg border border-border-light dark:border-border-dark hover:bg-background-light dark:hover:bg-background-dark transition-colors text-sm font-medium mb-2 flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-outlined text-[18px]">content_copy</span>
+                העתק סיסמה
+              </button>
+              <button
+                onClick={() => setResetPasswordInfo(null)}
+                className="w-full h-10 rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors text-sm font-bold"
+              >
+                סגור
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -597,7 +670,7 @@ function UserFormModal({
   onClose,
 }: {
   user: User | null;
-  onSave: (userData: Partial<User> & { password?: string }) => void;
+  onSave: (userData: Partial<User> & { password?: string; assignedProjects?: string[] }) => void;
   onClose: () => void;
 }) {
   const [formData, setFormData] = useState({
@@ -609,9 +682,16 @@ function UserFormModal({
     confirmPassword: '',
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [changePassword, setChangePassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [selectedProjects, setSelectedProjects] = useState<string[]>(user?.assignedProjects || []);
+
+  // Get projects for assignment
+  const projects: Project[] = useMemo(() => getProjects(), []);
 
   const isNewUser = !user;
+  const showPasswordFields = isNewUser || changePassword;
+  const showProjectAssignment = formData.role === 'project_manager' || formData.role === 'entrepreneur';
   const roles = getAvailableRoles();
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -627,8 +707,8 @@ function UserFormModal({
       newErrors.email = 'אימייל לא תקין';
     }
 
-    // Password validation for new users
-    if (isNewUser) {
+    // Password validation for new users or when changing password
+    if (showPasswordFields) {
       if (!formData.password) {
         newErrors.password = 'סיסמה היא שדה חובה';
       } else if (formData.password.length < 6) {
@@ -644,9 +724,23 @@ function UserFormModal({
       return;
     }
 
-    // Pass password only for new users
+    // Pass password for new users or when changing password
     const { confirmPassword, ...dataToSave } = formData;
-    onSave(isNewUser ? dataToSave : { full_name: dataToSave.full_name, email: dataToSave.email, phone: dataToSave.phone, role: dataToSave.role });
+    const dataWithProjects = {
+      ...dataToSave,
+      assignedProjects: showProjectAssignment ? selectedProjects : [],
+    };
+    if (isNewUser || changePassword) {
+      onSave(dataWithProjects);
+    } else {
+      onSave({
+        full_name: dataToSave.full_name,
+        email: dataToSave.email,
+        phone: dataToSave.phone,
+        role: dataToSave.role,
+        assignedProjects: showProjectAssignment ? selectedProjects : [],
+      });
+    }
   };
 
   return (
@@ -707,10 +801,32 @@ function UserFormModal({
               ))}
             </select>
           </div>
-          {isNewUser && (
+          {/* Password Section */}
+          {!isNewUser && (
+            <div className="border-t border-border-light dark:border-border-dark pt-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="rounded text-primary focus:ring-primary"
+                  checked={changePassword}
+                  onChange={(e) => {
+                    setChangePassword(e.target.checked);
+                    if (!e.target.checked) {
+                      setFormData({ ...formData, password: '', confirmPassword: '' });
+                      setErrors({});
+                    }
+                  }}
+                />
+                <span className="text-sm font-medium">שינוי סיסמה</span>
+              </label>
+            </div>
+          )}
+          {showPasswordFields && (
             <>
               <div>
-                <label className="block text-sm font-medium mb-1">סיסמה *</label>
+                <label className="block text-sm font-medium mb-1">
+                  {isNewUser ? 'סיסמה *' : 'סיסמה חדשה *'}
+                </label>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -744,6 +860,48 @@ function UserFormModal({
               </div>
             </>
           )}
+          {/* Project Assignment Section */}
+          {showProjectAssignment && (
+            <div className="border-t border-border-light dark:border-border-dark pt-4">
+              <label className="block text-sm font-medium mb-2">שיוך פרויקטים</label>
+              {projects.length === 0 ? (
+                <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">אין פרויקטים במערכת</p>
+              ) : (
+                <div className="max-h-48 overflow-y-auto space-y-2 border border-border-light dark:border-border-dark rounded-lg p-2">
+                  {projects.map((project) => (
+                    <label
+                      key={project.id}
+                      className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
+                        selectedProjects.includes(project.id)
+                          ? 'bg-primary/10'
+                          : 'hover:bg-background-light dark:hover:bg-background-dark'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="rounded text-primary focus:ring-primary"
+                        checked={selectedProjects.includes(project.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedProjects([...selectedProjects, project.id]);
+                          } else {
+                            setSelectedProjects(selectedProjects.filter(id => id !== project.id));
+                          }
+                        }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm truncate">{project.project_name}</div>
+                        <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark truncate">{project.client_name}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-2">
+                {selectedProjects.length} פרויקטים נבחרו
+              </p>
+            </div>
+          )}
           <div className="flex gap-3 pt-4">
             <button
               type="button"
@@ -775,14 +933,8 @@ function UserAssignmentsModal({
   onSave: (updatedUser: User) => void;
   onClose: () => void;
 }) {
-  // Get projects from localStorage
-  const [projects] = useState(() => {
-    const stored = localStorage.getItem('projects');
-    if (stored) {
-      return JSON.parse(stored);
-    }
-    return [];
-  });
+  // Get projects from storage module
+  const projects: Project[] = useMemo(() => getProjects(), []);
 
   const [selectedProjects, setSelectedProjects] = useState<string[]>(user.assignedProjects || []);
 
@@ -825,7 +977,7 @@ function UserAssignmentsModal({
             </div>
           ) : (
             <div className="space-y-2">
-              {projects.map((project: { id: string; project_name: string; client_name: string }) => (
+              {projects.map((project) => (
                 <label
                   key={project.id}
                   className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
