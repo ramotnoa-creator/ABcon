@@ -43,6 +43,70 @@ const formatCurrency = (amount?: number): string => {
   }).format(amount);
 };
 
+// Export to CSV function
+const exportToCSV = (tenders: TenderWithDetails[], filename: string) => {
+  // CSV Headers
+  const headers = [
+    'שם המכרז',
+    'פרויקט',
+    'סוג',
+    'סטטוס',
+    'תאריך דדליין',
+    'זוכה',
+    'תקציב משוער',
+    'סכום חוזה',
+    'חיסכון',
+    'מספר משתתפים',
+    'הצעה נמוכה',
+    'הצעה גבוהה',
+    'הערות ניהול',
+  ];
+
+  // Convert tenders to CSV rows
+  const rows = tenders.map((tender) => {
+    const winnerQuote = tender.participants.find((p) => p.is_winner)?.total_amount;
+    return [
+      tender.tender_name,
+      tender.project?.project_name || '',
+      tenderTypeLabels[tender.tender_type],
+      statusLabels[tender.status],
+      tender.due_date || '',
+      tender.winner_professional_name || '',
+      tender.estimated_budget?.toString() || '',
+      tender.contract_amount?.toString() || winnerQuote?.toString() || '',
+      tender.savings?.toString() || '',
+      tender.participants.length.toString(),
+      tender.priceStats?.min?.toString() || '',
+      tender.priceStats?.max?.toString() || '',
+      tender.management_remarks || '',
+    ];
+  });
+
+  // Build CSV content with BOM for Excel Hebrew support
+  const BOM = '\uFEFF';
+  const csvContent = BOM + [
+    headers.join(','),
+    ...rows.map((row) =>
+      row.map((cell) => {
+        // Escape quotes and wrap in quotes if contains comma or newline
+        const escaped = cell.replace(/"/g, '""');
+        return `"${escaped}"`;
+      }).join(',')
+    ),
+  ].join('\n');
+
+  // Create and download file
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', `${filename}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
 interface ParticipantWithProfessional extends TenderParticipant {
   professional?: Professional;
 }
@@ -59,6 +123,8 @@ type TenderWithDetails = Tender & {
     count: number;
     lowestParticipantId?: string;
   };
+  // Computed savings
+  savings?: number; // estimated_budget - contract_amount
 };
 
 interface KPICardProps {
@@ -153,12 +219,18 @@ export default function GlobalTendersPage() {
             }
           : undefined;
 
+      // Calculate savings
+      const savings = tender.estimated_budget && tender.contract_amount
+        ? tender.estimated_budget - tender.contract_amount
+        : undefined;
+
       return {
         ...tender,
         project,
         participants,
         winnerProfessional,
         priceStats,
+        savings,
       };
     });
 
@@ -172,14 +244,34 @@ export default function GlobalTendersPage() {
     const withWinner = tendersWithDetails.filter((t) => t.status === 'WinnerSelected').length;
     const totalParticipants = tendersWithDetails.reduce((sum, t) => sum + t.participants.length, 0);
 
-    // Calculate total contracted value (from winners)
+    // Calculate overdue tenders (open and past due date)
+    const today = new Date();
+    const overdue = tendersWithDetails.filter((t) =>
+      t.status === 'Open' && t.due_date && new Date(t.due_date) < today
+    ).length;
+
+    // Calculate total contracted value (from contract_amount or winner's quote)
     const totalContractedValue = tendersWithDetails.reduce((sum, t) => {
       if (t.status === 'WinnerSelected') {
+        if (t.contract_amount) {
+          return sum + t.contract_amount;
+        }
         const winner = t.participants.find((p) => p.is_winner);
         return sum + (winner?.total_amount || 0);
       }
       return sum;
     }, 0);
+
+    // Calculate total savings
+    const totalSavings = tendersWithDetails.reduce((sum, t) => {
+      if (t.savings !== undefined) {
+        return sum + t.savings;
+      }
+      return sum;
+    }, 0);
+
+    // Count tenders with savings data
+    const tendersWithSavings = tendersWithDetails.filter((t) => t.savings !== undefined).length;
 
     return {
       total,
@@ -188,6 +280,9 @@ export default function GlobalTendersPage() {
       totalParticipants,
       avgParticipants: total > 0 ? (totalParticipants / total).toFixed(1) : '0',
       totalContractedValue,
+      overdue,
+      totalSavings,
+      tendersWithSavings,
     };
   }, [tendersWithDetails]);
 
@@ -242,10 +337,17 @@ export default function GlobalTendersPage() {
         <h1 className="text-3xl md:text-4xl font-black leading-tight tracking-[-0.033em]">
           מכרזים - סקירה גלובלית
         </h1>
+        <button
+          onClick={() => exportToCSV(filteredTenders, `מכרזים_${new Date().toISOString().split('T')[0]}`)}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors text-sm font-bold"
+        >
+          <span className="material-symbols-outlined text-[18px]">download</span>
+          יצוא לאקסל
+        </button>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <KPICard
           icon="gavel"
           label="סה״כ מכרזים"
@@ -257,8 +359,8 @@ export default function GlobalTendersPage() {
           icon="schedule"
           label="מכרזים פתוחים"
           value={kpiData.open.toString()}
-          subValue="ממתינים להצעות"
-          color="orange"
+          subValue={kpiData.overdue > 0 ? `${kpiData.overdue} באיחור!` : "ממתינים להצעות"}
+          color={kpiData.overdue > 0 ? "red" : "orange"}
         />
         <KPICard
           icon="emoji_events"
@@ -274,12 +376,21 @@ export default function GlobalTendersPage() {
           subValue={`ממוצע ${kpiData.avgParticipants} למכרז`}
           color="purple"
         />
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-2 gap-4 mb-6">
         <KPICard
           icon="payments"
           label="סה״כ חוזים"
           value={formatCurrency(kpiData.totalContractedValue)}
-          subValue="מזוכי מכרזים"
-          color="green"
+          subValue="סכום כל החוזים"
+          color="blue"
+        />
+        <KPICard
+          icon="savings"
+          label="סה״כ חיסכון"
+          value={formatCurrency(kpiData.totalSavings)}
+          subValue={kpiData.tendersWithSavings > 0 ? `מ-${kpiData.tendersWithSavings} מכרזים עם תקציב` : "אין נתוני תקציב"}
+          color={kpiData.totalSavings >= 0 ? "green" : "red"}
         />
       </div>
 
@@ -443,6 +554,55 @@ export default function GlobalTendersPage() {
                 {/* Expanded Content */}
                 {isExpanded && (
                   <div className="border-t border-border-light dark:border-border-dark">
+                    {/* Management Details */}
+                    {(tender.estimated_budget || tender.contract_amount || tender.management_remarks) && (
+                      <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border-b border-border-light dark:border-border-dark">
+                        <p className="text-xs font-bold text-amber-800 dark:text-amber-200 mb-3">
+                          <span className="material-symbols-outlined text-[14px] me-1 align-middle">admin_panel_settings</span>
+                          נתוני ניהול
+                        </p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          {tender.estimated_budget && (
+                            <div>
+                              <p className="text-xs text-amber-600 dark:text-amber-300 mb-1">תקציב משוער</p>
+                              <p className="text-sm font-bold text-amber-800 dark:text-amber-200">
+                                {formatCurrency(tender.estimated_budget)}
+                              </p>
+                            </div>
+                          )}
+                          {tender.contract_amount && (
+                            <div>
+                              <p className="text-xs text-amber-600 dark:text-amber-300 mb-1">סכום חוזה</p>
+                              <p className="text-sm font-bold text-amber-800 dark:text-amber-200">
+                                {formatCurrency(tender.contract_amount)}
+                              </p>
+                            </div>
+                          )}
+                          {tender.savings !== undefined && (
+                            <div>
+                              <p className="text-xs text-amber-600 dark:text-amber-300 mb-1">חיסכון</p>
+                              <p className={`text-sm font-bold ${tender.savings >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                {formatCurrency(tender.savings)}
+                                {tender.estimated_budget && (
+                                  <span className="text-xs font-normal ms-1">
+                                    ({((tender.savings / tender.estimated_budget) * 100).toFixed(1)}%)
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          )}
+                          {tender.management_remarks && (
+                            <div className="col-span-2 md:col-span-1">
+                              <p className="text-xs text-amber-600 dark:text-amber-300 mb-1">הערות ניהול</p>
+                              <p className="text-sm text-amber-800 dark:text-amber-200">
+                                {tender.management_remarks}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Price Statistics */}
                     {tender.priceStats && tender.priceStats.count >= 2 && (
                       <div className="p-4 bg-blue-50 dark:bg-blue-900/10 border-b border-border-light dark:border-border-dark">

@@ -137,6 +137,7 @@ export default function TendersTab({ project }: TendersTabProps) {
     description: '',
     due_date: '',
     milestone_id: '',
+    estimated_budget: '',
   });
 
   const [professionalPickerFilter, setProfessionalPickerFilter] = useState<TenderType | 'all'>('all');
@@ -147,6 +148,13 @@ export default function TendersTab({ project }: TendersTabProps) {
     total_amount: '',
     notes: '',
   });
+
+  // Winner selection form - for contract_amount and management_remarks
+  const [winnerForm, setWinnerForm] = useState({
+    contract_amount: '',
+    management_remarks: '',
+  });
+  const [selectedWinnerParticipant, setSelectedWinnerParticipant] = useState<TenderParticipant | null>(null);
 
   const loadTenders = useCallback(() => {
     const loaded = loadInitialTenders(project.id);
@@ -203,6 +211,7 @@ export default function TendersTab({ project }: TendersTabProps) {
       due_date: tenderForm.due_date || undefined,
       candidate_professional_ids: [],
       milestone_id: tenderForm.milestone_id || undefined,
+      estimated_budget: tenderForm.estimated_budget ? parseFloat(tenderForm.estimated_budget) : undefined,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -217,6 +226,7 @@ export default function TendersTab({ project }: TendersTabProps) {
       description: '',
       due_date: '',
       milestone_id: '',
+      estimated_budget: '',
     });
     setIsAddTenderModalOpen(false);
 
@@ -285,24 +295,39 @@ export default function TendersTab({ project }: TendersTabProps) {
     loadTenders();
   };
 
-  // Handle select winner
-  const handleSelectWinner = (tender: Tender, participant: TenderParticipant) => {
+  // Handle select winner - Step 1: Select participant
+  const handleSelectWinnerStep1 = (participant: TenderParticipant) => {
+    setSelectedWinnerParticipant(participant);
+    // Pre-fill contract amount with quote amount
+    setWinnerForm({
+      contract_amount: participant.total_amount?.toString() || '',
+      management_remarks: '',
+    });
+  };
+
+  // Handle select winner - Step 2: Confirm and save
+  const handleSelectWinnerConfirm = () => {
+    if (!selectedTender || !selectedWinnerParticipant) return;
+
+    const participant = selectedWinnerParticipant;
     const professional = allProfessionals.find((p) => p.id === participant.professional_id);
     if (!professional) return;
 
-    if (!confirm(`האם אתה בטוח שברצונך לבחור את ${professional.professional_name} כזוכה במכרז?`)) {
-      return;
-    }
+    const contractAmount = winnerForm.contract_amount ? parseFloat(winnerForm.contract_amount) : participant.total_amount;
 
     // Update participant as winner
-    setTenderWinner(tender.id, participant.id);
+    setTenderWinner(selectedTender.id, participant.id);
 
-    // Update tender
-    updateTender(tender.id, {
+    // Update tender with contract_amount and management_remarks
+    updateTender(selectedTender.id, {
       winner_professional_id: participant.professional_id,
       winner_professional_name: professional.professional_name,
       status: 'WinnerSelected',
+      contract_amount: contractAmount,
+      management_remarks: winnerForm.management_remarks.trim() || undefined,
     });
+
+    const tender = selectedTender;
 
     // Create ProjectProfessional automatically
     const newProjectProfessional = {
@@ -318,8 +343,9 @@ export default function TendersTab({ project }: TendersTabProps) {
 
     addProjectProfessional(newProjectProfessional);
 
-    // Auto-create budget item if participant has amount
-    if (participant.total_amount && participant.total_amount > 0) {
+    // Auto-create budget item if we have a contract amount
+    const budgetAmount = contractAmount || participant.total_amount;
+    if (budgetAmount && budgetAmount > 0) {
       const chapters = getBudgetChapters(project.id);
       const categories = getBudgetCategories(project.id);
 
@@ -330,7 +356,7 @@ export default function TendersTab({ project }: TendersTabProps) {
           const vatRate = 0.17;
           const totals = calculateBudgetItemTotals({
             quantity: 1,
-            unit_price: participant.total_amount,
+            unit_price: budgetAmount,
             vat_rate: vatRate,
           });
 
@@ -342,7 +368,7 @@ export default function TendersTab({ project }: TendersTabProps) {
             description: `${tender.tender_name} - ${professional.professional_name}`,
             unit: 'קומפלט',
             quantity: 1,
-            unit_price: participant.total_amount,
+            unit_price: budgetAmount,
             total_price: totals.total_price,
             vat_rate: vatRate,
             vat_amount: totals.vat_amount,
@@ -365,6 +391,8 @@ export default function TendersTab({ project }: TendersTabProps) {
     loadTenders();
     setIsSelectWinnerModalOpen(false);
     setSelectedTender(null);
+    setSelectedWinnerParticipant(null);
+    setWinnerForm({ contract_amount: '', management_remarks: '' });
   };
 
   // Handle update participant details
@@ -827,6 +855,19 @@ export default function TendersTab({ project }: TendersTabProps) {
                 />
               </div>
               <div>
+                <label className="block text-sm font-bold mb-2">תקציב משוער (₪)</label>
+                <input
+                  type="number"
+                  className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
+                  placeholder="לדוגמה: 500000"
+                  value={tenderForm.estimated_budget}
+                  onChange={(e) => setTenderForm({ ...tenderForm, estimated_budget: e.target.value })}
+                />
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
+                  הערכת עלות לפני קבלת הצעות
+                </p>
+              </div>
+              <div>
                 <label className="block text-sm font-bold mb-2">תיאור</label>
                 <textarea
                   className="w-full p-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary resize-none h-20"
@@ -1000,17 +1041,21 @@ export default function TendersTab({ project }: TendersTabProps) {
         </div>
       )}
 
-      {/* Select Winner Modal */}
+      {/* Select Winner Modal - Two Step */}
       {isSelectWinnerModalOpen && selectedTender && (
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4">
           <div className="relative p-5 rounded-2xl bg-black/30">
             <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-border-light dark:border-border-dark sticky top-0 bg-surface-light dark:bg-surface-dark">
-              <h3 className="text-lg font-bold">בחירת זוכה במכרז</h3>
+              <h3 className="text-lg font-bold">
+                {selectedWinnerParticipant ? 'אישור בחירת זוכה' : 'בחירת זוכה במכרז'}
+              </h3>
               <button
                 onClick={() => {
                   setIsSelectWinnerModalOpen(false);
                   setSelectedTender(null);
+                  setSelectedWinnerParticipant(null);
+                  setWinnerForm({ contract_amount: '', management_remarks: '' });
                 }}
                 className="size-8 flex items-center justify-center hover:bg-background-light dark:hover:bg-background-dark rounded transition-colors"
               >
@@ -1018,51 +1063,143 @@ export default function TendersTab({ project }: TendersTabProps) {
               </button>
             </div>
             <div className="p-6 space-y-4">
-              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-4">
-                בחר את הזוכה במכרז: <strong>{selectedTender.tender_name}</strong>
-              </p>
-              <div className="space-y-2">
-                {getParticipantsWithProfessionals(selectedTender).map((participant) => {
-                  if (!participant.professional) return null;
+              {/* Step 1: Select participant */}
+              {!selectedWinnerParticipant && (
+                <>
+                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-4">
+                    בחר את הזוכה במכרז: <strong>{selectedTender.tender_name}</strong>
+                  </p>
+                  {selectedTender.estimated_budget && (
+                    <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-sm">
+                      <span className="text-blue-700 dark:text-blue-300">תקציב משוער: </span>
+                      <span className="font-bold text-blue-800 dark:text-blue-200">{formatCurrency(selectedTender.estimated_budget)}</span>
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    {getParticipantsWithProfessionals(selectedTender).map((participant) => {
+                      if (!participant.professional) return null;
 
-                  return (
-                    <button
-                      key={participant.id}
-                      onClick={() => handleSelectWinner(selectedTender, participant)}
-                      className="w-full p-4 rounded-lg border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark hover:bg-primary/10 hover:border-primary transition-colors text-right"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <p className="font-bold text-sm">{participant.professional.professional_name}</p>
-                          {participant.professional.company_name && (
-                            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                              {participant.professional.company_name}
-                            </p>
-                          )}
-                          <div className="flex items-center gap-3 mt-1">
-                            <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                              {participant.professional.field}
+                      return (
+                        <button
+                          key={participant.id}
+                          onClick={() => handleSelectWinnerStep1(participant)}
+                          className="w-full p-4 rounded-lg border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark hover:bg-primary/10 hover:border-primary transition-colors text-right"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <p className="font-bold text-sm">{participant.professional.professional_name}</p>
+                              {participant.professional.company_name && (
+                                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                                  {participant.professional.company_name}
+                                </p>
+                              )}
+                              <div className="flex items-center gap-3 mt-1">
+                                <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                                  {participant.professional.field}
+                                </span>
+                                {participant.total_amount && (
+                                  <span className="text-xs font-bold text-primary">
+                                    {formatCurrency(participant.total_amount)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <span className="material-symbols-outlined text-primary text-[24px]">
+                              chevron_left
                             </span>
-                            {participant.total_amount && (
-                              <span className="text-xs font-bold text-primary">
-                                {formatCurrency(participant.total_amount)}
-                              </span>
-                            )}
                           </div>
-                        </div>
-                        <span className="material-symbols-outlined text-primary text-[24px]">
-                          check_circle
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-              {getParticipantsWithProfessionals(selectedTender).length === 0 && (
-                <div className="text-center py-8 text-text-secondary-light dark:text-text-secondary-dark">
-                  אין משתתפים במכרז
-                </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {getParticipantsWithProfessionals(selectedTender).length === 0 && (
+                    <div className="text-center py-8 text-text-secondary-light dark:text-text-secondary-dark">
+                      אין משתתפים במכרז
+                    </div>
+                  )}
+                </>
               )}
+
+              {/* Step 2: Confirm with contract amount */}
+              {selectedWinnerParticipant && (() => {
+                const prof = allProfessionals.find(p => p.id === selectedWinnerParticipant.professional_id);
+                return (
+                  <>
+                    <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                      <div className="flex items-center gap-3">
+                        <span className="material-symbols-outlined text-green-600 text-[28px]">emoji_events</span>
+                        <div>
+                          <p className="font-bold text-green-800 dark:text-green-200">{prof?.professional_name}</p>
+                          <p className="text-sm text-green-700 dark:text-green-300">{prof?.company_name}</p>
+                        </div>
+                      </div>
+                      {selectedWinnerParticipant.total_amount && (
+                        <p className="mt-2 text-sm text-green-700 dark:text-green-300">
+                          הצעת מחיר: <strong>{formatCurrency(selectedWinnerParticipant.total_amount)}</strong>
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-bold mb-2">סכום חוזה סופי (₪)</label>
+                      <input
+                        type="number"
+                        className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
+                        placeholder="סכום לאחר משא ומתן"
+                        value={winnerForm.contract_amount}
+                        onChange={(e) => setWinnerForm({ ...winnerForm, contract_amount: e.target.value })}
+                      />
+                      <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
+                        ברירת מחדל: הצעת המחיר המקורית
+                      </p>
+                    </div>
+
+                    {selectedTender.estimated_budget && winnerForm.contract_amount && (
+                      <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-sm">
+                        <div className="flex justify-between items-center">
+                          <span className="text-amber-700 dark:text-amber-300">חיסכון מול תקציב משוער:</span>
+                          <span className={`font-bold ${
+                            selectedTender.estimated_budget - parseFloat(winnerForm.contract_amount) >= 0
+                              ? 'text-green-600'
+                              : 'text-red-600'
+                          }`}>
+                            {formatCurrency(selectedTender.estimated_budget - parseFloat(winnerForm.contract_amount))}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-bold mb-2">הערות ניהול (פנימי)</label>
+                      <textarea
+                        className="w-full p-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary resize-none h-20"
+                        placeholder="הערות לשימוש פנימי..."
+                        value={winnerForm.management_remarks}
+                        onChange={(e) => setWinnerForm({ ...winnerForm, management_remarks: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                      <button
+                        onClick={() => {
+                          setSelectedWinnerParticipant(null);
+                          setWinnerForm({ contract_amount: '', management_remarks: '' });
+                        }}
+                        className="flex-1 px-4 py-2 rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold text-sm transition-colors"
+                      >
+                        חזרה
+                      </button>
+                      <button
+                        onClick={handleSelectWinnerConfirm}
+                        className="flex-1 px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 font-bold text-sm transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[18px] align-middle me-1">check</span>
+                        אשר זוכה
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
             </div>
           </div>

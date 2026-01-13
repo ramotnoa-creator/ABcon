@@ -131,6 +131,10 @@ export interface Tender {
   winner_professional_name?: string; // Display name (lookup)
   milestone_id?: string; // Optional link to project milestone
   notes?: string;
+  // Management fields
+  estimated_budget?: number; // Expected cost before quotes (תקציב משוער)
+  contract_amount?: number; // Final negotiated price (סכום חוזה)
+  management_remarks?: string; // Admin-only notes (הערות ניהול)
   created_at: string; // ISO date string
   updated_at: string; // ISO date string
 }
