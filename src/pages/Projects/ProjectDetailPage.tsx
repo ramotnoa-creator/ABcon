@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getProjectById } from '../../data/storage';
 import { getOpenIssuesCount } from '../../data/specialIssuesStorage';
+import { useAuth } from '../../contexts/AuthContext';
+import { canEditProject, canCreateTask, canAccessProject } from '../../utils/permissions';
 import OverviewTab from './tabs/OverviewTab';
 import ProfessionalsTab from './tabs/ProfessionalsTab';
 import TendersTab from './tabs/TendersTab';
@@ -27,9 +29,15 @@ const tabs = [
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // Use useMemo for project lookup - it's derived from id
   const project = useMemo(() => getProjectById(id || ''), [id]);
+
+  // Permission checks
+  const canEdit = canEditProject(user, id || '');
+  const canAddTask = canCreateTask(user, id || '');
+  const hasAccess = canAccessProject(user, id || '');
 
   const [activeTab, setActiveTab] = useState('overview');
   const [tabTransition, setTabTransition] = useState(false);
@@ -46,14 +54,14 @@ export default function ProjectDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, activeTab]);
 
-  // Navigate away if project not found
+  // Navigate away if project not found or user doesn't have access
   useEffect(() => {
-    if (id && !project) {
+    if (id && (!project || !hasAccess)) {
       navigate('/projects');
     }
     // Animate header on mount
     setTimeout(() => setIsHeaderVisible(true), 50);
-  }, [id, navigate, project]);
+  }, [id, navigate, project, hasAccess]);
 
   // Update tab indicator position
   useEffect(() => {
@@ -156,20 +164,24 @@ export default function ProjectDetailPage() {
           </p>
         </div>
         <div className="hidden md:flex gap-3">
-          <button
-            onClick={handleEdit}
-            className="flex items-center justify-center h-10 px-4 rounded-lg bg-white border border-border-light dark:bg-surface-dark dark:border-border-dark hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 text-sm font-bold tracking-[0.015em] text-text-main-light dark:text-text-main-dark btn-press hover:shadow-md"
-          >
-            <span className="material-symbols-outlined me-2 text-[18px] transition-transform duration-200 group-hover:rotate-12">edit</span>
-            עריכת פרויקט
-          </button>
-          <button
-            onClick={handleNewTask}
-            className="flex items-center justify-center h-10 px-4 rounded-lg bg-primary text-white hover:bg-primary-hover transition-all duration-200 text-sm font-bold tracking-[0.015em] btn-press hover:shadow-lg hover:shadow-primary/25"
-          >
-            <span className="material-symbols-outlined me-2 text-[18px]">add</span>
-            משימה חדשה
-          </button>
+          {canEdit && (
+            <button
+              onClick={handleEdit}
+              className="flex items-center justify-center h-10 px-4 rounded-lg bg-white border border-border-light dark:bg-surface-dark dark:border-border-dark hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 text-sm font-bold tracking-[0.015em] text-text-main-light dark:text-text-main-dark btn-press hover:shadow-md"
+            >
+              <span className="material-symbols-outlined me-2 text-[18px] transition-transform duration-200 group-hover:rotate-12">edit</span>
+              עריכת פרויקט
+            </button>
+          )}
+          {canAddTask && (
+            <button
+              onClick={handleNewTask}
+              className="flex items-center justify-center h-10 px-4 rounded-lg bg-primary text-white hover:bg-primary-hover transition-all duration-200 text-sm font-bold tracking-[0.015em] btn-press hover:shadow-lg hover:shadow-primary/25"
+            >
+              <span className="material-symbols-outlined me-2 text-[18px]">add</span>
+              משימה חדשה
+            </button>
+          )}
         </div>
       </div>
 
@@ -230,17 +242,26 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* Mobile Footer with slide up animation */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-surface-light dark:bg-surface-dark border-t border-border-light dark:border-border-dark md:hidden z-50 flex gap-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] animate-fade-in-up">
-        <button
-          onClick={handleEdit}
-          className="flex-1 flex items-center justify-center h-12 px-4 rounded-lg bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark text-text-main-light dark:text-text-main-dark font-bold text-sm btn-press transition-all duration-200 hover:shadow-md"
-        >
-          עריכת פרויקט
-        </button>
-        <button className="flex-[2] flex items-center justify-center h-12 px-4 rounded-lg bg-primary text-white font-bold text-sm shadow-md btn-press transition-all duration-200 hover:bg-primary-hover hover:shadow-lg">
-          סימון היתר כמאושר
-        </button>
-      </div>
+      {(canEdit || canAddTask) && (
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-surface-light dark:bg-surface-dark border-t border-border-light dark:border-border-dark md:hidden z-50 flex gap-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] animate-fade-in-up">
+          {canEdit && (
+            <button
+              onClick={handleEdit}
+              className="flex-1 flex items-center justify-center h-12 px-4 rounded-lg bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark text-text-main-light dark:text-text-main-dark font-bold text-sm btn-press transition-all duration-200 hover:shadow-md"
+            >
+              עריכת פרויקט
+            </button>
+          )}
+          {canAddTask && (
+            <button
+              onClick={handleNewTask}
+              className="flex-[2] flex items-center justify-center h-12 px-4 rounded-lg bg-primary text-white font-bold text-sm shadow-md btn-press transition-all duration-200 hover:bg-primary-hover hover:shadow-lg"
+            >
+              משימה חדשה
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

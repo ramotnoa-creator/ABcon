@@ -45,10 +45,10 @@ const DEMO_USER: User = {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({
-    user: isDemoMode ? DEMO_USER : null,
+    user: null,
     session: null,
-    isAuthenticated: isDemoMode,
-    isLoading: !isDemoMode,
+    isAuthenticated: false,
+    isLoading: !isDemoMode, // In demo mode, no need to check session
   });
   const [error, setError] = useState<AuthError | null>(null);
 
@@ -214,10 +214,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Login with email and password
   const login = async (credentials: LoginCredentials) => {
-    // In demo mode, just set the demo user
+    // In demo mode, validate against stored credentials
     if (isDemoMode) {
+      setError(null);
+      setAuthState((prev: AuthState) => ({ ...prev, isLoading: true }));
+
+      // Validate credentials from localStorage
+      const storedCredentials = localStorage.getItem('abcon_credentials');
+      const storedUsers = localStorage.getItem('abcon_users');
+
+      if (!storedCredentials || !storedUsers) {
+        // Initialize with default data if not present
+        setAuthState({
+          user: DEMO_USER,
+          session: null,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+        return;
+      }
+
+      const creds = JSON.parse(storedCredentials);
+      const users = JSON.parse(storedUsers);
+
+      // Check credentials
+      if (creds[credentials.email] !== credentials.password) {
+        setError({ message: 'אימייל או סיסמה שגויים' });
+        setAuthState((prev: AuthState) => ({ ...prev, isLoading: false }));
+        throw new Error('אימייל או סיסמה שגויים');
+      }
+
+      // Find user
+      const user = users.find((u: User) => u.email === credentials.email);
+      if (!user) {
+        setError({ message: 'משתמש לא נמצא' });
+        setAuthState((prev: AuthState) => ({ ...prev, isLoading: false }));
+        throw new Error('משתמש לא נמצא');
+      }
+
+      // Check if active
+      if (!user.is_active) {
+        setError({ message: 'חשבון זה אינו פעיל. אנא פנה למנהל המערכת.' });
+        setAuthState((prev: AuthState) => ({ ...prev, isLoading: false }));
+        throw new Error('חשבון זה אינו פעיל. אנא פנה למנהל המערכת.');
+      }
+
+      // Update last login
+      const updatedUsers = users.map((u: User) =>
+        u.id === user.id ? { ...u, last_login: new Date().toISOString() } : u
+      );
+      localStorage.setItem('abcon_users', JSON.stringify(updatedUsers));
+
       setAuthState({
-        user: DEMO_USER,
+        user: { ...user, last_login: new Date().toISOString() },
         session: null,
         isAuthenticated: true,
         isLoading: false,
@@ -283,12 +332,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Logout
   const logout = async () => {
-    // In demo mode, just clear the state
+    // In demo mode, clear auth state
     if (isDemoMode) {
       setAuthState({
-        user: DEMO_USER,
+        user: null,
         session: null,
-        isAuthenticated: true,
+        isAuthenticated: false,
         isLoading: false,
       });
       return;

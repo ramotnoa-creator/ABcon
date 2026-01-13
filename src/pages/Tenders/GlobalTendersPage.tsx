@@ -47,7 +47,8 @@ interface ParticipantWithProfessional extends TenderParticipant {
   professional?: Professional;
 }
 
-interface TenderWithDetails extends Tender {
+// Extended tender type with project and participant details
+type TenderWithDetails = Tender & {
   project?: Project;
   participants: ParticipantWithProfessional[];
   winnerProfessional?: Professional;
@@ -58,7 +59,7 @@ interface TenderWithDetails extends Tender {
     count: number;
     lowestParticipantId?: string;
   };
-}
+};
 
 interface KPICardProps {
   icon: string;
@@ -109,7 +110,7 @@ export default function GlobalTendersPage() {
   const itemsPerPage = 10;
 
   // Load all data
-  const { tendersWithDetails, allProfessionals } = useMemo(() => {
+  const tendersWithDetails = useMemo((): TenderWithDetails[] => {
     const tenders = getAllTenders();
     const projects = getProjects();
     const professionals = getProfessionals();
@@ -161,7 +162,7 @@ export default function GlobalTendersPage() {
       };
     });
 
-    return { tendersWithDetails: tendersData, allProfessionals: professionals };
+    return tendersData;
   }, []);
 
   // Calculate KPIs

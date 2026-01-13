@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function LoginPage() {
@@ -114,11 +114,11 @@ export default function LoginPage() {
               </button>
             </div>
 
-            {/* Forgot Password Link - Placeholder for now */}
+            {/* Forgot Password Link */}
             <div className="text-center">
-              <a href="#" className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-500">
+              <Link to="/forgot-password" className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-500">
                 שכחת סיסמה?
-              </a>
+              </Link>
             </div>
           </form>
         </div>

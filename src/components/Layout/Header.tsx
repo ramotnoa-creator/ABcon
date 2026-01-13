@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { getRoleDisplayName } from '../../utils/permissions';
+import { getRoleDisplayName, canManageUsers } from '../../utils/permissions';
 import MobileMenu from './MobileMenu';
 
 const navItems = [
@@ -179,6 +179,16 @@ export default function Header() {
                       <span className="material-symbols-outlined text-[20px]">settings</span>
                       הגדרות
                     </button>
+                    {canManageUsers(displayUser) && (
+                      <Link
+                        to="/admin/users"
+                        onClick={() => setIsUserMenuOpen(false)}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-text-main-light dark:text-text-main-dark hover:bg-background-light dark:hover:bg-background-dark transition-colors text-right"
+                      >
+                        <span className="material-symbols-outlined text-[20px]">group</span>
+                        ניהול משתמשים
+                      </Link>
+                    )}
                   </div>
                   
                   {/* Logout */}

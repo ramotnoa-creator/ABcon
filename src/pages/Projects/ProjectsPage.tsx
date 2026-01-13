@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { Project, ProjectStatus } from '../../types';
 import { getProjects, saveProjects } from '../../data/storage';
 import { seedProjects } from '../../data/mockData';
+import { useAuth } from '../../contexts/AuthContext';
+import { canCreateProject, canAccessProject, canViewAllProjects } from '../../utils/permissions';
 
 const loadInitialProjects = (): Project[] => {
   let loaded = getProjects();
@@ -37,7 +39,8 @@ const statusColors: Record<ProjectStatus, string> = {
 
 export default function ProjectsPage() {
   const navigate = useNavigate();
-  const [projects] = useState<Project[]>(() => loadInitialProjects());
+  const { user } = useAuth();
+  const [allProjects] = useState<Project[]>(() => loadInitialProjects());
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | ProjectStatus>('all');
   const [isVisible, setIsVisible] = useState(false);
@@ -47,9 +50,17 @@ export default function ProjectsPage() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Filter projects by user access permissions
+  const accessibleProjects = useMemo(() => {
+    if (canViewAllProjects(user)) {
+      return allProjects;
+    }
+    // Filter to only projects user can access
+    return allProjects.filter((project) => canAccessProject(user, project.id));
+  }, [allProjects, user]);
 
   const filteredProjects = useMemo(() => {
-    let filtered = projects;
+    let filtered = accessibleProjects;
 
     // Filter by search query (project_name or client_name)
     if (searchQuery.trim()) {
@@ -67,7 +78,7 @@ export default function ProjectsPage() {
     }
 
     return filtered;
-  }, [projects, searchQuery, statusFilter]);
+  }, [accessibleProjects, searchQuery, statusFilter]);
 
   const handleProjectClick = (projectId: string) => {
     navigate(`/projects/${projectId}`);
@@ -75,13 +86,24 @@ export default function ProjectsPage() {
 
   return (
     <div className="flex-1 px-4 lg:px-10 py-6 max-w-[1400px] mx-auto w-full pb-20 lg:pb-6">
-      <h1 
-        className={`text-3xl md:text-4xl font-black leading-tight tracking-[-0.033em] mb-8 transition-all duration-500 ${
+      <div
+        className={`flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 transition-all duration-500 ${
           isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'
         }`}
       >
-        פרויקטים
-      </h1>
+        <h1 className="text-3xl md:text-4xl font-black leading-tight tracking-[-0.033em]">
+          פרויקטים
+        </h1>
+        {canCreateProject(user) && (
+          <Link
+            to="/projects/new"
+            className="flex items-center justify-center h-10 px-4 rounded-lg bg-primary text-white hover:bg-primary-hover transition text-sm font-bold"
+          >
+            <span className="material-symbols-outlined me-2 text-[18px]">add</span>
+            פרויקט חדש
+          </Link>
+        )}
+      </div>
 
       {/* Filters */}
       <div 

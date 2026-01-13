@@ -2,6 +2,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import LoginPage from './pages/Auth/LoginPage';
+import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage';
+import ResetPasswordPage from './pages/Auth/ResetPasswordPage';
 import Header from './components/Layout/Header';
 import Breadcrumbs from './components/Layout/Breadcrumbs';
 import DashboardPage from './pages/Dashboard/DashboardPage';
@@ -15,6 +17,7 @@ import CreateProfessionalPage from './pages/Professionals/CreateProfessionalPage
 import GlobalFilesPage from './pages/Files/GlobalFilesPage';
 import GlobalBudgetPage from './pages/Budget/GlobalBudgetPage';
 import GlobalTendersPage from './pages/Tenders/GlobalTendersPage';
+import UsersPage from './pages/Admin/UsersPage';
 
 // Layout wrapper for authenticated pages
 function AppLayout() {
@@ -35,6 +38,8 @@ function App() {
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           {/* Protected routes - require authentication */}
           <Route element={<ProtectedRoute />}>
@@ -136,6 +141,15 @@ function App() {
                   <>
                     <Breadcrumbs items={[{ label: 'תקציב' }]} />
                     <GlobalBudgetPage />
+                  </>
+                }
+              />
+              <Route
+                path="/admin/users"
+                element={
+                  <>
+                    <Breadcrumbs items={[{ label: 'ניהול' }, { label: 'משתמשים' }]} />
+                    <UsersPage />
                   </>
                 }
               />

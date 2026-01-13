@@ -2,9 +2,12 @@ import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getProfessionals } from '../../data/professionalsStorage';
 import type { Professional } from '../../types';
+import { useAuth } from '../../contexts/AuthContext';
+import { canManageProfessionals } from '../../utils/permissions';
 
 export default function ProfessionalsListPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [professionals] = useState<Professional[]>(() => getProfessionals());
   const [searchQuery, setSearchQuery] = useState('');
   const [fieldFilter, setFieldFilter] = useState<string>('all');
@@ -86,13 +89,15 @@ export default function ProfessionalsListPage() {
               ניהול קבלנים, ספקים ומומחים חיצוניים
             </p>
           </div>
-          <Link
-            to="/professionals/new"
-            className="flex items-center justify-center h-10 px-4 rounded-lg bg-primary text-white hover:bg-primary-hover transition text-sm font-bold"
-          >
-            <span className="material-symbols-outlined me-2 text-[18px]">add</span>
-            יצירת איש מקצוע חדש
-          </Link>
+          {canManageProfessionals(user) && (
+            <Link
+              to="/professionals/new"
+              className="flex items-center justify-center h-10 px-4 rounded-lg bg-primary text-white hover:bg-primary-hover transition text-sm font-bold"
+            >
+              <span className="material-symbols-outlined me-2 text-[18px]">add</span>
+              יצירת איש מקצוע חדש
+            </Link>
+          )}
         </div>
       </div>
 
