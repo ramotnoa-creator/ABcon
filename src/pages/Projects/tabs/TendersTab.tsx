@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   getTenders,
@@ -123,6 +124,22 @@ export default function TendersTab({ project }: TendersTabProps) {
   const [isProfessionalPickerOpen, setIsProfessionalPickerOpen] = useState(false);
   const [isSelectWinnerModalOpen, setIsSelectWinnerModalOpen] = useState(false);
   const [isParticipantDetailsOpen, setIsParticipantDetailsOpen] = useState(false);
+  const [modalPosition, setModalPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+
+  // Open modal near the clicked button
+  const openModalNearButton = (e: React.MouseEvent, openFn: (v: boolean) => void) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    // Use viewport-relative coordinates for fixed positioning
+    const top = rect.bottom + 8;
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - 460));
+    // Ensure modal doesn't go below viewport
+    const maxTop = window.innerHeight - 400;
+    setModalPosition({
+      top: Math.min(top, maxTop),
+      left: left,
+    });
+    openFn(true);
+  };
 
   const [selectedTender, setSelectedTender] = useState<Tender | null>(null);
   const [selectedParticipant, setSelectedParticipant] = useState<TenderParticipant | null>(null);
@@ -412,7 +429,7 @@ export default function TendersTab({ project }: TendersTabProps) {
   };
 
   // Open participant details modal
-  const openParticipantDetails = (tender: Tender, participant: TenderParticipant) => {
+  const openParticipantDetails = (e: React.MouseEvent, tender: Tender, participant: TenderParticipant) => {
     setSelectedTender(tender);
     setSelectedParticipant(participant);
     setParticipantForm({
@@ -420,7 +437,7 @@ export default function TendersTab({ project }: TendersTabProps) {
       total_amount: participant.total_amount?.toString() || '',
       notes: participant.notes || '',
     });
-    setIsParticipantDetailsOpen(true);
+    openModalNearButton(e, setIsParticipantDetailsOpen);
   };
 
   // Handle delete tender
@@ -474,7 +491,7 @@ export default function TendersTab({ project }: TendersTabProps) {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h3 className="text-xl font-bold">מכרזים</h3>
         <button
-          onClick={() => setIsAddTenderModalOpen(true)}
+          onClick={(e) => openModalNearButton(e, setIsAddTenderModalOpen)}
           className="flex items-center justify-center h-10 px-5 rounded-lg bg-primary text-white hover:bg-primary-hover transition text-sm font-bold tracking-[0.015em] shadow-sm"
           aria-label="הוסף מכרז חדש"
         >
@@ -531,11 +548,11 @@ export default function TendersTab({ project }: TendersTabProps) {
                   <div className="flex items-center gap-2">
                     {tender.status !== 'WinnerSelected' && tender.status !== 'Canceled' && (
                       <button
-                        onClick={() => {
+                        onClick={(e) => {
                           setSelectedTender(tender);
                           setProfessionalPickerFilter(tender.tender_type);
                           setSelectedProfessionalIds([]);
-                          setIsProfessionalPickerOpen(true);
+                          openModalNearButton(e, setIsProfessionalPickerOpen);
                         }}
                         className="p-2 rounded-lg hover:bg-background-light dark:hover:bg-background-dark text-text-secondary-light hover:text-primary transition-colors"
                         title="הוסף משתתפים"
@@ -653,9 +670,9 @@ export default function TendersTab({ project }: TendersTabProps) {
                     </h5>
                     {!winner && tender.status !== 'Canceled' && participantsWithProf.length > 0 && (
                       <button
-                        onClick={() => {
+                        onClick={(e) => {
                           setSelectedTender(tender);
-                          setIsSelectWinnerModalOpen(true);
+                          openModalNearButton(e, setIsSelectWinnerModalOpen);
                         }}
                         className="px-3 py-1.5 rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors text-sm font-bold"
                       >
@@ -672,11 +689,11 @@ export default function TendersTab({ project }: TendersTabProps) {
                       אין משתתפים במכרז
                       {tender.status !== 'WinnerSelected' && tender.status !== 'Canceled' && (
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
                             setSelectedTender(tender);
                             setProfessionalPickerFilter(tender.tender_type);
                             setSelectedProfessionalIds([]);
-                            setIsProfessionalPickerOpen(true);
+                            openModalNearButton(e, setIsProfessionalPickerOpen);
                           }}
                           className="block mx-auto mt-2 text-primary hover:underline font-bold"
                         >
@@ -751,7 +768,7 @@ export default function TendersTab({ project }: TendersTabProps) {
                               </div>
                             <div className="flex items-center gap-1">
                               <button
-                                onClick={() => openParticipantDetails(tender, participant)}
+                                onClick={(e) => openParticipantDetails(e, tender, participant)}
                                 className="p-1.5 rounded hover:bg-background-light dark:hover:bg-surface-dark transition-colors text-text-secondary-light hover:text-primary"
                                 title="פרטי הצעה"
                               >
@@ -800,10 +817,13 @@ export default function TendersTab({ project }: TendersTabProps) {
       )}
 
       {/* Add Tender Modal */}
-      {isAddTenderModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4">
-          <div className="relative p-5 rounded-2xl bg-black/30">
-            <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl border border-border-light dark:border-border-dark w-full max-w-md max-h-[90vh] overflow-y-auto">
+      {isAddTenderModalOpen && createPortal(
+        <>
+          <div className="fixed inset-0 z-50 bg-black/20" onClick={() => setIsAddTenderModalOpen(false)} />
+          <div
+            className="fixed z-50 bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl border border-border-light dark:border-border-dark w-[90vw] max-w-md max-h-[70vh] overflow-y-auto"
+            style={{ top: modalPosition.top, left: modalPosition.left }}
+          >
             <div className="flex items-center justify-between p-6 border-b border-border-light dark:border-border-dark sticky top-0 bg-surface-light dark:bg-surface-dark">
               <h3 className="text-lg font-bold">הוספת מכרז חדש</h3>
               <button
@@ -907,16 +927,19 @@ export default function TendersTab({ project }: TendersTabProps) {
                 </button>
               </div>
             </div>
-            </div>
           </div>
-        </div>
+        </>,
+        document.body
       )}
 
       {/* Professional Picker Modal */}
-      {isProfessionalPickerOpen && selectedTender && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4">
-          <div className="relative p-5 rounded-2xl bg-black/30">
-            <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      {isProfessionalPickerOpen && selectedTender && createPortal(
+        <>
+          <div className="fixed inset-0 z-50 bg-black/20" onClick={() => { setIsProfessionalPickerOpen(false); setSelectedProfessionalIds([]); }} />
+          <div
+            className="fixed z-50 bg-surface-light dark:bg-surface-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark w-[90vw] max-w-2xl max-h-[70vh] overflow-hidden flex flex-col"
+            style={{ top: modalPosition.top, left: modalPosition.left }}
+          >
             <div className="flex items-center justify-between p-6 border-b border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark">
               <div>
                 <h3 className="text-lg font-bold">בחירת אנשי מקצוע</h3>
@@ -1036,17 +1059,20 @@ export default function TendersTab({ project }: TendersTabProps) {
                 </div>
               </div>
             </div>
-            </div>
           </div>
-        </div>
+        </>,
+        document.body
       )}
 
       {/* Select Winner Modal - Two Step */}
-      {isSelectWinnerModalOpen && selectedTender && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4">
-          <div className="relative p-5 rounded-2xl bg-black/30">
-            <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-border-light dark:border-border-dark sticky top-0 bg-surface-light dark:bg-surface-dark">
+      {isSelectWinnerModalOpen && selectedTender && createPortal(
+        <>
+          <div className="fixed inset-0 z-50 bg-black/20" onClick={() => { setIsSelectWinnerModalOpen(false); setSelectedWinnerParticipant(null); }} />
+          <div
+            className="fixed z-50 bg-surface-light dark:bg-surface-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark w-[90vw] max-w-md max-h-[70vh] overflow-y-auto"
+            style={{ top: modalPosition.top, left: modalPosition.left }}
+          >
+            <div className="flex items-center justify-between p-6 border-b border-border-dark sticky top-0 bg-surface-light dark:bg-surface-dark">
               <h3 className="text-lg font-bold">
                 {selectedWinnerParticipant ? 'אישור בחירת זוכה' : 'בחירת זוכה במכרז'}
               </h3>
@@ -1201,16 +1227,19 @@ export default function TendersTab({ project }: TendersTabProps) {
                 );
               })()}
             </div>
-            </div>
           </div>
-        </div>
+        </>,
+        document.body
       )}
 
       {/* Participant Details Modal */}
-      {isParticipantDetailsOpen && selectedParticipant && selectedTender && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4">
-          <div className="relative p-5 rounded-2xl bg-black/30">
-            <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark w-full max-w-md max-h-[90vh] overflow-y-auto">
+      {isParticipantDetailsOpen && selectedParticipant && selectedTender && createPortal(
+        <>
+          <div className="fixed inset-0 z-50 bg-black/20" onClick={() => { setIsParticipantDetailsOpen(false); setSelectedParticipant(null); }} />
+          <div
+            className="fixed z-50 bg-surface-light dark:bg-surface-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark w-[90vw] max-w-md max-h-[70vh] overflow-y-auto"
+            style={{ top: modalPosition.top, left: modalPosition.left }}
+          >
             <div className="flex items-center justify-between p-6 border-b border-border-light dark:border-border-dark sticky top-0 bg-surface-light dark:bg-surface-dark">
               <h3 className="text-lg font-bold">פרטי הצעה</h3>
               <button
@@ -1320,9 +1349,9 @@ export default function TendersTab({ project }: TendersTabProps) {
                 </button>
               </div>
             </div>
-            </div>
           </div>
-        </div>
+        </>,
+        document.body
       )}
     </div>
   );
