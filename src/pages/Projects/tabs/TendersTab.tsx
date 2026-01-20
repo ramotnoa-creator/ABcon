@@ -101,7 +101,8 @@ const loadInitialTenders = (projectId: string): Tender[] => {
 
 const loadInitialProfessionals = (): Professional[] => {
   const professionals = getProfessionals();
-  return professionals.filter((p) => p.is_active);
+  // Return all professionals (including inactive) to show winners who may have been deactivated
+  return professionals;
 };
 
 const loadParticipantsMap = (tenders: Tender[]): Record<string, TenderParticipant[]> => {
@@ -603,10 +604,13 @@ export default function TendersTab({ project }: TendersTabProps) {
                           <span className="material-symbols-outlined text-[14px] me-1 align-middle">emoji_events</span>
                           זוכה במכרז
                         </p>
-                        <p className="text-base font-bold text-green-900 dark:text-green-100">
+                        <button
+                          onClick={() => navigate(`/professionals/${winner.professional!.id}`)}
+                          className="text-base font-bold text-green-900 dark:text-green-100 hover:underline hover:text-green-700 dark:hover:text-green-300 transition-colors text-right"
+                        >
                           {winner.professional.professional_name}
                           {winner.professional.company_name && ` - ${winner.professional.company_name}`}
-                        </p>
+                        </button>
                         {winner.total_amount && (
                           <p className="text-sm text-green-700 dark:text-green-300 mt-1">
                             הצעת מחיר: {formatCurrency(winner.total_amount)}
@@ -733,7 +737,12 @@ export default function TendersTab({ project }: TendersTabProps) {
                                 )}
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2">
-                                    <p className="font-bold text-sm">{participant.professional.professional_name}</p>
+                                    <button
+                                      onClick={() => navigate(`/professionals/${participant.professional!.id}`)}
+                                      className="font-bold text-sm text-primary hover:underline hover:text-primary-hover transition-colors text-right"
+                                    >
+                                      {participant.professional.professional_name}
+                                    </button>
                                     {isBestPrice && (
                                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
                                         הצעה הזולה ביותר
