@@ -11,6 +11,7 @@ import {
 } from '../../../data/tendersStorage';
 import {
   getTenderParticipants,
+  addTenderParticipant,
   addTenderParticipants,
   updateTenderParticipant,
   removeTenderParticipant,
@@ -90,7 +91,29 @@ const loadInitialTenders = (projectId: string): Tender[] => {
     const projectTenders = seedTenders.filter((t) => t.project_id === projectId);
     if (projectTenders.length > 0) {
       const all = getAllTenders();
-      projectTenders.forEach((tender) => all.push(tender));
+      projectTenders.forEach((tender) => {
+        all.push(tender);
+
+        // Migrate old tender format to TenderParticipant records
+        if (tender.candidate_professional_ids && tender.candidate_professional_ids.length > 0) {
+          tender.candidate_professional_ids.forEach((profId) => {
+            const existing = getTenderParticipants(tender.id);
+            const alreadyExists = existing.some(p => p.professional_id === profId);
+
+            if (!alreadyExists) {
+              const isWinner = tender.winner_professional_id === profId;
+              const participant: TenderParticipant = {
+                id: `tp-${tender.id}-${profId}`,
+                tender_id: tender.id,
+                professional_id: profId,
+                is_winner: isWinner,
+                created_at: tender.created_at || new Date().toISOString(),
+              };
+              addTenderParticipant(participant);
+            }
+          });
+        }
+      });
       saveTenders(all);
       loaded = projectTenders;
     }
