@@ -130,15 +130,38 @@ export default function TendersTab({ project }: TendersTabProps) {
   // Open modal near the clicked button
   const openModalNearButton = (e: React.MouseEvent, openFn: (v: boolean) => void) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    // Use viewport-relative coordinates for fixed positioning
-    const top = rect.bottom + 8;
-    const left = Math.max(8, Math.min(rect.left, window.innerWidth - 460));
-    // Ensure modal doesn't go below viewport
-    const maxTop = window.innerHeight - 400;
-    setModalPosition({
-      top: Math.min(top, maxTop),
-      left: left,
-    });
+    const modalEstimatedHeight = window.innerHeight * 0.7; // Assume modal is max 70vh
+    const viewportHeight = window.innerHeight;
+    const padding = 16; // Minimum padding from screen edges
+
+    // Try to position below the button first
+    let top = rect.bottom + 8;
+
+    // Check if modal would overflow below viewport
+    const spaceBelow = viewportHeight - rect.bottom;
+    const spaceAbove = rect.top;
+
+    if (spaceBelow < modalEstimatedHeight + padding) {
+      // Not enough space below, try to position above the button
+      if (spaceAbove > spaceBelow && spaceAbove > 300) {
+        // Position above the button
+        top = Math.max(padding, rect.top - modalEstimatedHeight - 8);
+      } else {
+        // Not enough space above either, center it in viewport with padding
+        top = Math.max(padding, Math.min(
+          rect.bottom + 8,
+          viewportHeight - modalEstimatedHeight - padding
+        ));
+      }
+    }
+
+    // Ensure modal doesn't go above viewport
+    top = Math.max(padding, top);
+
+    // Calculate horizontal position
+    const left = Math.max(padding, Math.min(rect.left, window.innerWidth - 460 - padding));
+
+    setModalPosition({ top, left });
     openFn(true);
   };
 
