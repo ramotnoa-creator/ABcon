@@ -23,6 +23,25 @@ import type {
   ProjectProfessional,
 } from '../types';
 
+// Import services for Neon seeding
+import { createProject } from '../services/projectsService';
+import { createProfessional } from '../services/professionalsService';
+import { createProjectProfessional } from '../services/projectProfessionalsService';
+import { createBudget } from '../services/budgetService';
+import { createBudgetCategory } from '../services/budgetCategoriesService';
+import { createBudgetChapter } from '../services/budgetChaptersService';
+import { createBudgetItem } from '../services/budgetItemsService';
+import { createBudgetPayment } from '../services/budgetPaymentsService';
+import { createProjectUnit } from '../services/unitsService';
+import { createProjectMilestone } from '../services/milestonesService';
+import { createGanttTask } from '../services/ganttTasksService';
+import { createTender } from '../services/tendersService';
+import { createTenderParticipant } from '../services/tenderParticipantsService';
+import { createTask } from '../services/tasksService';
+import { createFile } from '../services/filesService';
+import { createSpecialIssue } from '../services/specialIssuesService';
+import { createPlanningChange } from '../services/planningChangesService';
+
 // ============================================================
 // HELPER: Date generators
 // ============================================================
@@ -1359,11 +1378,153 @@ export async function seedDatabase(target: 'localStorage' | 'neon' = 'localStora
         seedSpecialIssues.length +
         seedPlanningChanges.length,
     };
+  } else if (target === 'neon') {
+    // Seed Neon database using services
+    console.log('🚀 Starting Neon database seeding...');
+
+    try {
+      // 1. Create Projects
+      console.log('📁 Creating projects...');
+      for (const project of seedProjects) {
+        await createProject(project);
+      }
+
+      // 2. Create Professionals
+      console.log('👥 Creating professionals...');
+      for (const professional of seedProfessionals) {
+        await createProfessional(professional);
+      }
+
+      // 3. Assign Professionals to Projects
+      console.log('🔗 Assigning professionals to projects...');
+      for (const assignment of seedProjectProfessionals) {
+        await createProjectProfessional(assignment);
+      }
+
+      // 4. Create Budgets
+      console.log('💰 Creating budgets...');
+      for (const budget of seedBudgets) {
+        await createBudget(budget);
+      }
+
+      // 5. Create Budget Categories
+      console.log('📊 Creating budget categories...');
+      for (const category of seedBudgetCategories) {
+        await createBudgetCategory(category);
+      }
+
+      // 6. Create Budget Chapters
+      console.log('📚 Creating budget chapters...');
+      for (const chapter of seedBudgetChapters) {
+        await createBudgetChapter(chapter);
+      }
+
+      // 7. Create Project Units
+      console.log('🏗️ Creating project units...');
+      for (const unit of seedProjectUnits) {
+        await createProjectUnit(unit);
+      }
+
+      // 8. Create Tenders (before budget items and milestones)
+      console.log('📋 Creating tenders...');
+      for (const tender of seedTenders) {
+        await createTender(tender);
+      }
+
+      // 9. Create Tender Participants
+      console.log('👤 Creating tender participants...');
+      for (const participant of seedTenderParticipants) {
+        await createTenderParticipant(participant);
+      }
+
+      // 10. Create Project Milestones
+      console.log('🎯 Creating project milestones...');
+      for (const milestone of seedProjectMilestones) {
+        await createProjectMilestone(milestone);
+      }
+
+      // 11. Create Budget Items
+      console.log('💵 Creating budget items...');
+      for (const item of seedBudgetItems) {
+        await createBudgetItem(item);
+      }
+
+      // 12. Create Budget Payments
+      console.log('💳 Creating budget payments...');
+      for (const payment of seedBudgetPayments) {
+        await createBudgetPayment(payment);
+      }
+
+      // 13. Create Gantt Tasks
+      console.log('📅 Creating gantt tasks...');
+      for (const task of seedGanttTasks) {
+        await createGanttTask(task);
+      }
+
+      // 14. Create Tasks
+      console.log('✅ Creating tasks...');
+      for (const task of seedTasks) {
+        await createTask(task);
+      }
+
+      // 15. Create Files
+      console.log('📁 Creating files...');
+      for (const file of seedFiles) {
+        await createFile(file);
+      }
+
+      // 16. Create Special Issues
+      console.log('⚠️ Creating special issues...');
+      for (const issue of seedSpecialIssues) {
+        await createSpecialIssue(issue);
+      }
+
+      // 17. Create Planning Changes
+      console.log('🔄 Creating planning changes...');
+      for (const change of seedPlanningChanges) {
+        await createPlanningChange(change);
+      }
+
+      console.log('✅ Neon database seeded successfully!');
+      console.log(`📊 Projects: ${seedProjects.length}`);
+      console.log(`👥 Professionals: ${seedProfessionals.length}`);
+      console.log(`💰 Budget Items: ${seedBudgetItems.length}`);
+      console.log(`💳 Payments: ${seedBudgetPayments.length}`);
+      console.log(`🎯 Milestones: ${seedProjectMilestones.length}`);
+      console.log(`📋 Tasks: ${seedTasks.length}`);
+      console.log(`📁 Files: ${seedFiles.length}`);
+      console.log(`⚠️ Issues: ${seedSpecialIssues.length}`);
+
+      return {
+        projects: seedProjects.length,
+        professionals: seedProfessionals.length,
+        budgetItems: seedBudgetItems.length,
+        payments: seedBudgetPayments.length,
+        totalRecords:
+          seedProjects.length +
+          seedProfessionals.length +
+          seedProjectProfessionals.length +
+          seedBudgets.length +
+          seedBudgetCategories.length +
+          seedBudgetChapters.length +
+          seedBudgetItems.length +
+          seedBudgetPayments.length +
+          seedProjectUnits.length +
+          seedProjectMilestones.length +
+          seedGanttTasks.length +
+          seedTenders.length +
+          seedTenderParticipants.length +
+          seedTasks.length +
+          seedFiles.length +
+          seedSpecialIssues.length +
+          seedPlanningChanges.length,
+      };
+    } catch (error) {
+      console.error('❌ Error seeding Neon database:', error);
+      throw error;
+    }
   } else {
-    // TODO: Use services to populate Neon DB
-    // Import services and create all records
-    console.log('✅ Seed data loaded to Neon DB');
-    return { totalRecords: 0 };
+    throw new Error(`Unknown target: ${target}`);
   }
 }
 
@@ -1373,10 +1534,47 @@ export async function clearDatabase(target: 'localStorage' | 'neon' = 'localStor
     keys.forEach(k => localStorage.removeItem(k));
     console.log(`🗑️ Cleared ${keys.length} localStorage keys`);
     return { clearedKeys: keys.length };
+  } else if (target === 'neon') {
+    // Clear Neon DB by truncating all tables with CASCADE
+    console.log('🗑️ Clearing Neon database...');
+
+    try {
+      const { executeQuery } = await import('../lib/neon');
+
+      // Truncate all tables in reverse dependency order
+      // CASCADE will handle foreign key constraints
+      await executeQuery(`
+        TRUNCATE TABLE
+          budget_payments,
+          budget_items,
+          budget_chapters,
+          budget_categories,
+          budgets,
+          gantt_tasks,
+          project_milestones,
+          project_units,
+          tender_participants,
+          tenders,
+          tasks,
+          project_professionals,
+          planning_changes,
+          special_issues,
+          files,
+          professionals,
+          project_assignments,
+          projects,
+          user_profiles
+        CASCADE
+      `);
+
+      console.log('✅ Neon database cleared successfully!');
+      return { clearedKeys: 19 }; // Number of tables cleared
+    } catch (error) {
+      console.error('❌ Error clearing Neon database:', error);
+      throw error;
+    }
   } else {
-    // TODO: Clear Neon DB (use DELETE statements)
-    console.log('🗑️ Cleared Neon DB');
-    return { clearedKeys: 0 };
+    throw new Error(`Unknown target: ${target}`);
   }
 }
 

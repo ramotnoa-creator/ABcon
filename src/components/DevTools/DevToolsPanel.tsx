@@ -6,6 +6,7 @@
 
 import { useState } from 'react';
 import { seedDatabase, clearDatabase, seedDataSummary } from '../../data/seedData';
+import { isDemoMode } from '../../lib/neon';
 
 export default function DevToolsPanel() {
   const [isOpen, setIsOpen] = useState(false);
@@ -18,7 +19,10 @@ export default function DevToolsPanel() {
   }
 
   const handleSeedData = async () => {
-    if (!confirm('Load comprehensive test data? This will replace existing localStorage data.')) {
+    const target = isDemoMode ? 'localStorage' : 'neon';
+    const targetName = isDemoMode ? 'localStorage' : 'Neon database';
+
+    if (!confirm(`Load comprehensive test data? This will replace existing ${targetName} data.`)) {
       return;
     }
 
@@ -26,8 +30,8 @@ export default function DevToolsPanel() {
     setLastAction(null);
 
     try {
-      const result = await seedDatabase('localStorage');
-      setLastAction(`✅ Seeded ${result.totalRecords} records successfully!`);
+      const result = await seedDatabase(target);
+      setLastAction(`✅ Seeded ${result.totalRecords} records to ${targetName}!`);
       console.log('Seed complete:', result);
 
       // Reload page to see new data
@@ -43,7 +47,10 @@ export default function DevToolsPanel() {
   };
 
   const handleClearData = async () => {
-    if (!confirm('⚠️ CLEAR ALL DATA? This cannot be undone!')) {
+    const target = isDemoMode ? 'localStorage' : 'neon';
+    const targetName = isDemoMode ? 'localStorage' : 'Neon database';
+
+    if (!confirm(`⚠️ CLEAR ALL DATA from ${targetName}? This cannot be undone!`)) {
       return;
     }
 
@@ -55,8 +62,8 @@ export default function DevToolsPanel() {
     setLastAction(null);
 
     try {
-      const result = await clearDatabase('localStorage');
-      setLastAction(`🗑️ Cleared ${result.clearedKeys} keys successfully!`);
+      const result = await clearDatabase(target);
+      setLastAction(`🗑️ Cleared ${result.clearedKeys} ${isDemoMode ? 'keys' : 'tables'} from ${targetName}!`);
 
       // Reload page
       setTimeout(() => {
@@ -113,6 +120,18 @@ export default function DevToolsPanel() {
 
           {/* Content */}
           <div className="p-4 space-y-3">
+            {/* Database Status */}
+            <div className="text-xs bg-blue-50 dark:bg-blue-900/20 p-2 rounded border border-blue-200 dark:border-blue-700">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[16px] text-blue-600 dark:text-blue-400">
+                  {isDemoMode ? 'storage' : 'cloud'}
+                </span>
+                <span className="font-bold text-blue-600 dark:text-blue-400">
+                  {isDemoMode ? 'localStorage (Demo Mode)' : 'Neon Database (Connected)'}
+                </span>
+              </div>
+            </div>
+
             {/* Seed Data Summary */}
             <div className="text-xs bg-gray-50 dark:bg-gray-900/50 p-3 rounded border border-gray-200 dark:border-gray-700">
               <div className="font-bold mb-2 text-purple-600 dark:text-purple-400">
@@ -178,9 +197,9 @@ export default function DevToolsPanel() {
                 <li>Budget overruns (15%+)</li>
                 <li>Zero quantity items</li>
                 <li>Past due payments</li>
-                <li>Very large amounts (>1M)</li>
+                <li>Very large amounts (&gt;1M)</li>
                 <li>Inactive professionals</li>
-                <li>Old open issues (>90 days)</li>
+                <li>Old open issues (&gt;90 days)</li>
                 <li>Orphaned files</li>
               </ul>
             </div>
