@@ -18,6 +18,7 @@ import GlobalFilesPage from './pages/Files/GlobalFilesPage';
 import GlobalBudgetPage from './pages/Budget/GlobalBudgetPage';
 import GlobalTendersPage from './pages/Tenders/GlobalTendersPage';
 import UsersPage from './pages/Admin/UsersPage';
+import DevToolsPanel from './components/DevTools/DevToolsPanel';
 
 // Layout wrapper for authenticated pages
 function AppLayout() {
@@ -27,6 +28,7 @@ function AppLayout() {
       <main className="flex-1">
         <Outlet />
       </main>
+      <DevToolsPanel />
     </div>
   );
 }
