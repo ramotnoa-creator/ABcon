@@ -32,8 +32,8 @@ import { createBudgetCategory } from '../services/budgetCategoriesService';
 import { createBudgetChapter } from '../services/budgetChaptersService';
 import { createBudgetItem } from '../services/budgetItemsService';
 import { createBudgetPayment } from '../services/budgetPaymentsService';
-import { createProjectUnit } from '../services/unitsService';
-import { createProjectMilestone } from '../services/milestonesService';
+import { createUnit } from '../services/unitsService';
+import { createMilestone } from '../services/milestonesService';
 import { createGanttTask } from '../services/ganttTasksService';
 import { createTender } from '../services/tendersService';
 import { createTenderParticipant } from '../services/tenderParticipantsService';
@@ -138,85 +138,61 @@ export const seedProfessionals: Professional[] = [
     professional_name: 'אדר׳ יעל שפירא',
     field: 'architect',
     company_name: 'שפירא אדריכלים',
-    contact_name: 'יעל שפירא',
     phone: '050-1234567',
     email: 'yael@shapira-arch.co.il',
-    address: 'תל אביב',
-    license_number: 'ARK-12345',
     is_active: true,
-    created_at: daysAgo(500),
-    updated_at: daysAgo(10),
   },
   {
     id: 'prof-2',
     professional_name: 'מהנדס אבי מזרחי',
     field: 'engineer',
     company_name: 'מזרחי הנדסה',
-    contact_name: 'אבי מזרחי',
     phone: '052-9876543',
     email: 'avi@mizrahi-eng.co.il',
-    license_number: 'ENG-54321',
     is_active: true,
-    created_at: daysAgo(480),
-    updated_at: daysAgo(5),
   },
   {
     id: 'prof-3',
     professional_name: 'קבלן משה דוד',
     field: 'contractor',
     company_name: 'דוד בניין ופיתוח בע"מ',
-    contact_name: 'משה דוד',
     phone: '054-1122334',
     email: 'moshe@david-building.co.il',
     is_active: true,
-    created_at: daysAgo(400),
-    updated_at: daysAgo(2),
   },
   {
     id: 'prof-4',
     professional_name: 'חשמלאי רוני זוהר',
     field: 'electrician',
     company_name: 'זוהר חשמל',
-    contact_name: 'רוני זוהר',
     phone: '053-5544332',
     email: 'roni@zohar-electric.co.il',
     is_active: true,
-    created_at: daysAgo(300),
-    updated_at: daysAgo(1),
   },
   {
     id: 'prof-5',
     professional_name: 'אינסטלטור דני כהן',
     field: 'plumber',
     company_name: 'כהן אינסטלציה',
-    contact_name: 'דני כהן',
     phone: '050-9988776',
     is_active: true,
-    created_at: daysAgo(250),
-    updated_at: daysAgo(30),
   },
   {
     id: 'prof-6',
     professional_name: 'מעצב פנים שי לביא [לא פעיל]',
     field: 'interior_designer',
     company_name: 'לביא עיצוב',
-    contact_name: 'שי לביא',
     phone: '052-1231231',
     is_active: false, // INACTIVE edge case
-    created_at: daysAgo(600),
-    updated_at: daysAgo(400),
   },
   {
     id: 'prof-7',
     professional_name: 'קבלן דן בנימין - ללא פרטי יצירה',
     field: 'contractor',
     company_name: 'בנימין קבלנות',
-    contact_name: 'דן בנימין',
     phone: '054-7778889',
     is_active: true,
-    // Missing email, address, license - edge case
-    created_at: daysAgo(100),
-    updated_at: daysAgo(100),
+    // Missing email - edge case
   },
 ];
 
@@ -231,24 +207,24 @@ export const seedProjectProfessionals: ProjectProfessional[] = [
     project_id: 'proj-1',
     professional_id: 'prof-1',
     project_role: 'אדריכל ראשי',
-    source: 'recommendation',
-    created_at: daysAgo(180),
+    source: 'Manual',
+    is_active: true,
   },
   {
     id: 'pp-2',
     project_id: 'proj-1',
     professional_id: 'prof-2',
     project_role: 'מהנדס ראשי',
-    source: 'tender',
-    created_at: daysAgo(170),
+    source: 'Tender',
+    is_active: true,
   },
   {
     id: 'pp-3',
     project_id: 'proj-1',
     professional_id: 'prof-3',
     project_role: 'קבלן ראשי',
-    source: 'tender',
-    created_at: daysAgo(150),
+    source: 'Tender',
+    is_active: true,
   },
   // Project 2 - Partial team
   {
@@ -256,8 +232,8 @@ export const seedProjectProfessionals: ProjectProfessional[] = [
     project_id: 'proj-2',
     professional_id: 'prof-1',
     project_role: 'אדריכל',
-    source: 'client_choice',
-    created_at: daysAgo(80),
+    source: 'Manual',
+    is_active: true,
   },
   // Project 3 - Single professional
   {
@@ -265,8 +241,8 @@ export const seedProjectProfessionals: ProjectProfessional[] = [
     project_id: 'proj-3',
     professional_id: 'prof-2',
     project_role: 'מהנדס',
-    source: 'recommendation',
-    created_at: daysAgo(50),
+    source: 'Manual',
+    is_active: true,
   },
   // Project 4 - Team including inactive professional (edge case)
   {
@@ -274,16 +250,16 @@ export const seedProjectProfessionals: ProjectProfessional[] = [
     project_id: 'proj-4',
     professional_id: 'prof-3',
     project_role: 'קבלן',
-    source: 'tender',
-    created_at: daysAgo(390),
+    source: 'Tender',
+    is_active: true,
   },
   {
     id: 'pp-7',
     project_id: 'proj-4',
     professional_id: 'prof-6',
     project_role: 'מעצב פנים',
-    source: 'client_choice',
-    created_at: daysAgo(350),
+    source: 'Manual',
+    is_active: true,
   },
   // Project 5 - No assignments (edge case)
 ];
@@ -1107,6 +1083,7 @@ export const seedTenders: Tender[] = [
     status: 'Open',
     publish_date: daysAgo(20),
     due_date: daysFromNow(10),
+    candidate_professional_ids: ['prof-5'],
     estimated_budget: 380000,
     notes: 'מכרז פתוח - ממתינים להצעות',
     created_at: daysAgo(20),
@@ -1120,6 +1097,7 @@ export const seedTenders: Tender[] = [
     status: 'WinnerSelected',
     publish_date: daysAgo(90),
     due_date: daysAgo(70),
+    candidate_professional_ids: ['prof-4'],
     estimated_budget: 450000,
     contract_amount: 440000,
     winner_professional_id: 'prof-4',
@@ -1227,6 +1205,7 @@ export const seedFiles: File[] = [
     related_entity_id: 'proj-1',
     related_entity_name: 'בניין מגורים רחוב הרצל 25',
     uploaded_at: daysAgo(170),
+    uploaded_by: 'architect@example.com',
     created_at: daysAgo(170),
     updated_at: daysAgo(170),
   },
@@ -1239,6 +1218,7 @@ export const seedFiles: File[] = [
     file_size_display: '512 KB',
     file_type: 'Image',
     uploaded_at: daysAgo(100),
+    uploaded_by: 'unknown',
     notes: 'קובץ ללא קישור לישות',
     created_at: daysAgo(100),
     updated_at: daysAgo(100),
@@ -1280,11 +1260,10 @@ export const seedSpecialIssues: SpecialIssue[] = [
     id: 'issue-3',
     project_id: 'proj-4',
     date: daysAgo(120),
-    description: 'בעיה פתוחה ארוכה - לא טופלה',
+    description: 'בעיה פתוחה ארוכה - לא טופלה - דחוף! פתוח כבר 4 חודשים',
     status: 'open',
     priority: 'critical',
     category: 'safety',
-    notes: 'דחוף! פתוח כבר 4 חודשים',
     created_at: daysAgo(120),
     updated_at: daysAgo(120),
   },
@@ -1310,10 +1289,9 @@ export const seedPlanningChanges: PlanningChange[] = [
     id: 'change-2',
     project_id: 'proj-1',
     change_number: 2,
-    description: 'החלפת חומר ריצוף לשיש',
+    description: 'החלפת חומר ריצוף לשיש - ממתינים לאישור לקוח',
     budget_impact: 85000,
     decision: 'pending',
-    notes: 'ממתינים לאישור לקוח',
     created_at: daysAgo(15),
     updated_at: daysAgo(10),
   },
@@ -1422,7 +1400,7 @@ export async function seedDatabase(target: 'localStorage' | 'neon' = 'localStora
       // 7. Create Project Units
       console.log('🏗️ Creating project units...');
       for (const unit of seedProjectUnits) {
-        await createProjectUnit(unit);
+        await createUnit(unit);
       }
 
       // 8. Create Tenders (before budget items and milestones)
@@ -1440,7 +1418,7 @@ export async function seedDatabase(target: 'localStorage' | 'neon' = 'localStora
       // 10. Create Project Milestones
       console.log('🎯 Creating project milestones...');
       for (const milestone of seedProjectMilestones) {
-        await createProjectMilestone(milestone);
+        await createMilestone(milestone);
       }
 
       // 11. Create Budget Items
