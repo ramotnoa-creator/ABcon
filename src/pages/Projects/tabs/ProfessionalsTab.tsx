@@ -6,6 +6,7 @@ import {
   createProjectProfessional,
   removeProjectProfessional,
 } from '../../../services/projectProfessionalsService';
+import { Toast } from '../../../components/Toast';
 import type { Project, Professional, ProjectProfessionalSource } from '../../../types';
 
 interface ProfessionalsTabProps {
@@ -42,6 +43,7 @@ export default function ProfessionalsTab({ project }: ProfessionalsTabProps) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [availableProfessionals, setAvailableProfessionals] = useState<Professional[]>([]);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string>('');
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const loadProjectProfessionals = useCallback(async () => {
     try {
@@ -86,8 +88,10 @@ export default function ProfessionalsTab({ project }: ProfessionalsTabProps) {
       await loadProjectProfessionals();
       setIsAddModalOpen(false);
       setSelectedProfessionalId('');
+      setToast({ message: 'איש מקצוע נוסף לפרויקט בהצלחה', type: 'success' });
     } catch (error) {
       console.error('Error adding professional to project:', error);
+      setToast({ message: 'שגיאה בהוספת איש מקצוע לפרויקט', type: 'error' });
     }
   };
 
@@ -96,8 +100,10 @@ export default function ProfessionalsTab({ project }: ProfessionalsTabProps) {
       try {
         await removeProjectProfessional(project.id, professionalId);
         await loadProjectProfessionals();
+        setToast({ message: 'איש מקצוע הוסר מהפרויקט', type: 'success' });
       } catch (error) {
         console.error('Error removing professional from project:', error);
+        setToast({ message: 'שגיאה בהסרת איש מקצוע מהפרויקט', type: 'error' });
       }
     }
   };
@@ -341,6 +347,15 @@ export default function ProfessionalsTab({ project }: ProfessionalsTabProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Toast notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );

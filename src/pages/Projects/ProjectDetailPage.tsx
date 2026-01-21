@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { getProjectById } from '../../data/storage';
 import { getOpenIssuesCount } from '../../services/specialIssuesService';
 import { useAuth } from '../../contexts/AuthContext';
@@ -29,6 +29,7 @@ const tabs = [
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
 
   // Use useMemo for project lookup - it's derived from id
@@ -39,7 +40,14 @@ export default function ProjectDetailPage() {
   const canAddTask = canCreateTask(user, id || '');
   const hasAccess = canAccessProject(user, id || '');
 
-  const [activeTab, setActiveTab] = useState('overview');
+  // Get valid tab IDs
+  const validTabIds = tabs.map(t => t.id);
+
+  // Read tab from URL query parameter, default to 'overview'
+  const tabFromUrl = searchParams.get('tab');
+  const initialTab = tabFromUrl && validTabIds.includes(tabFromUrl) ? tabFromUrl : 'overview';
+
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [tabTransition, setTabTransition] = useState(false);
   const [isHeaderVisible, setIsHeaderVisible] = useState(false);
   const [openIssuesCount, setOpenIssuesCount] = useState(0);
@@ -87,9 +95,24 @@ export default function ProjectDetailPage() {
     setTabTransition(true);
     setTimeout(() => {
       setActiveTab(tabId);
+      // Update URL with new tab (remove param if overview)
+      if (tabId === 'overview') {
+        setSearchParams({});
+      } else {
+        setSearchParams({ tab: tabId });
+      }
       setTabTransition(false);
     }, 150);
   };
+
+  // Sync tab from URL when it changes externally (e.g., browser back/forward)
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab');
+    const targetTab = tabFromUrl && validTabIds.includes(tabFromUrl) ? tabFromUrl : 'overview';
+    if (targetTab !== activeTab) {
+      setActiveTab(targetTab);
+    }
+  }, [searchParams, validTabIds, activeTab]);
 
   if (!project) {
     return (

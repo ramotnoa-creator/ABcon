@@ -5,12 +5,15 @@ import AlertsSection from '../../components/Dashboard/AlertsSection';
 import StatusChart from '../../components/Dashboard/StatusChart';
 import ProjectsTable from '../../components/Dashboard/ProjectsTable';
 import MilestonesKPICard from '../../components/Dashboard/MilestonesKPICard';
+import TendersKPICard from '../../components/Dashboard/TendersKPICard';
 import {
   dashboardKPIs,
   dashboardAlerts,
   statusDistribution,
   getProjectsRequiringAttention,
+  getTendersEndingSoon,
 } from '../../data/dashboardData';
+import type { TenderEndingSoon } from '../../data/dashboardData';
 import {
   getLastMonthCompletedMilestones,
   getNextMonthPendingMilestones,
@@ -23,19 +26,22 @@ export default function DashboardPage() {
   const [lastMonthMilestones, setLastMonthMilestones] = useState<MilestoneWithProject[]>([]);
   const [nextMonthMilestones, setNextMonthMilestones] = useState<MilestoneWithProject[]>([]);
   const [projectsRequiringAttention, setProjectsRequiringAttention] = useState<ProjectRequiringAttention[]>([]);
+  const [tendersEndingSoon, setTendersEndingSoon] = useState<TenderEndingSoon[]>([]);
 
   useEffect(() => {
     // Load all dashboard data
     const loadDashboardData = async () => {
       try {
-        const [lastMonth, nextMonth, projects] = await Promise.all([
+        const [lastMonth, nextMonth, projects, tenders] = await Promise.all([
           getLastMonthCompletedMilestones(),
           getNextMonthPendingMilestones(),
           getProjectsRequiringAttention(),
+          getTendersEndingSoon(),
         ]);
         setLastMonthMilestones(lastMonth);
         setNextMonthMilestones(nextMonth);
         setProjectsRequiringAttention(projects);
+        setTendersEndingSoon(tenders);
       } catch (error) {
         console.error('Error loading dashboard data:', error);
       }
@@ -79,8 +85,8 @@ export default function DashboardPage() {
       {/* KPI Cards */}
       <KPICards kpis={dashboardKPIs} />
 
-      {/* Milestones KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      {/* Milestones and Tenders KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <MilestonesKPICard
           title="אבני דרך שהושלמו (30 יום אחרונים)"
           icon="check_circle"
@@ -94,6 +100,10 @@ export default function DashboardPage() {
           color="orange"
           milestones={nextMonthMilestones}
           emptyMessage="אין אבני דרך מתוכננות ל-30 הימים הקרובים"
+        />
+        <TendersKPICard
+          tenders={tendersEndingSoon}
+          emptyMessage="אין מכרזים פתוחים שמסתיימים ב-30 הימים הקרובים"
         />
       </div>
 

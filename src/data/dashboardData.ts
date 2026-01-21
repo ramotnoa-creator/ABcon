@@ -1,5 +1,17 @@
 import type { Alert, KPI, ProjectRequiringAttention, StatusDistribution, Project } from '../types';
 import { getProjects } from '../services/projectsService';
+import { getAllTenders } from '../services/tendersService';
+
+// Type for tender summary in dashboard
+export interface TenderEndingSoon {
+  id: string;
+  tender_name: string;
+  project_id: string;
+  project_name: string;
+  due_date: string;
+  days_remaining: number;
+  status: string;
+}
 
 // Helper to calculate progress based on status
 function calculateProgress(status: string): number {
@@ -71,6 +83,46 @@ export async function getProjectsRequiringAttention(): Promise<ProjectRequiringA
   } catch (error) {
     console.error('Error fetching projects for dashboard:', error);
     return projectsRequiringAttention; // Fallback to static data
+  }
+}
+
+// Fetch tenders ending in the next 30 days
+export async function getTendersEndingSoon(): Promise<TenderEndingSoon[]> {
+  try {
+    const tenders = await getAllTenders();
+    const projects = await getProjects();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const thirtyDaysFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    // Filter open tenders with due dates in the next 30 days
+    const tendersEndingSoon = tenders
+      .filter(t => t.status === 'Open' && t.due_date)
+      .filter(t => {
+        const dueDate = new Date(t.due_date!);
+        return dueDate >= today && dueDate <= thirtyDaysFromNow;
+      })
+      .map(t => {
+        const project = projects.find(p => p.id === t.project_id);
+        const dueDate = new Date(t.due_date!);
+        const daysRemaining = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        return {
+          id: t.id,
+          tender_name: t.tender_name,
+          project_id: t.project_id,
+          project_name: project?.project_name || 'לא ידוע',
+          due_date: t.due_date!,
+          days_remaining: daysRemaining,
+          status: t.status,
+        };
+      })
+      .sort((a, b) => a.days_remaining - b.days_remaining)
+      .slice(0, 5);
+
+    return tendersEndingSoon;
+  } catch (error) {
+    console.error('Error fetching tenders ending soon:', error);
+    return [];
   }
 }
 

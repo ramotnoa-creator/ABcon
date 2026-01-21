@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getProfessionals, saveProfessionals } from '../../data/professionalsStorage';
+import { createProfessional } from '../../services/professionalsService';
+import { validateIsraeliPhone, validateEmail } from '../../utils/validation';
+import { Toast } from '../../components/Toast';
 import type { Professional } from '../../types';
 
 export default function CreateProfessionalPage() {
@@ -15,6 +17,7 @@ export default function CreateProfessionalPage() {
     notes: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -27,7 +30,17 @@ export default function CreateProfessionalPage() {
       newErrors.field = 'תחום הוא שדה חובה';
     }
 
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    // Phone is required and must be valid Israeli format
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'טלפון הוא שדה חובה';
+    } else if (!validateIsraeliPhone(formData.phone)) {
+      newErrors.phone = 'מספר טלפון לא תקין (לדוגמה: 052-123-4567)';
+    }
+
+    // Email is required and must be valid
+    if (!formData.email.trim()) {
+      newErrors.email = 'אימייל הוא שדה חובה';
+    } else if (!validateEmail(formData.email)) {
       newErrors.email = 'כתובת אימייל לא תקינה';
     }
 
@@ -35,14 +48,12 @@ export default function CreateProfessionalPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validate()) return;
 
-    const allProfessionals = getProfessionals();
-    const newProfessional: Professional = {
-      id: `prof-${Date.now()}`,
+    const professionalData: Omit<Professional, 'id'> = {
       professional_name: formData.professional_name.trim(),
       company_name: formData.company_name.trim() || undefined,
       field: formData.field.trim(),
@@ -53,10 +64,16 @@ export default function CreateProfessionalPage() {
       is_active: true,
     };
 
-    allProfessionals.push(newProfessional);
-    saveProfessionals(allProfessionals);
-
-    navigate(`/professionals/${newProfessional.id}`);
+    try {
+      const newProfessional = await createProfessional(professionalData);
+      setToast({ message: 'איש מקצוע נוצר בהצלחה', type: 'success' });
+      setTimeout(() => {
+        navigate(`/professionals/${newProfessional.id}`);
+      }, 1000);
+    } catch (error) {
+      console.error('Error creating professional:', error);
+      setToast({ message: 'שגיאה ביצירת איש מקצוע', type: 'error' });
+    }
   };
 
   const handleCancel = () => {
@@ -222,22 +239,32 @@ export default function CreateProfessionalPage() {
             {/* Phone */}
             <div className="flex flex-col gap-2">
               <label className="text-text-secondary-light dark:text-text-secondary-dark text-sm font-bold leading-normal" htmlFor="phone">
-                טלפון
+                טלפון <span className="text-red-500">*</span>
               </label>
               <input
-                className="w-full rounded-lg border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark px-4 py-3 text-text-main-light dark:text-text-main-dark focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-text-secondary-light dark:placeholder:text-text-secondary-dark text-base transition-shadow dir-ltr text-right"
+                className={`w-full rounded-lg border bg-surface-light dark:bg-surface-dark px-4 py-3 text-text-main-light dark:text-text-main-dark focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-text-secondary-light dark:placeholder:text-text-secondary-dark text-base transition-shadow dir-ltr text-right ${
+                  errors.phone
+                    ? 'border-red-500'
+                    : 'border-border-light dark:border-border-dark'
+                }`}
                 id="phone"
-                placeholder="050-1234567"
+                placeholder="052-123-4567"
                 type="tel"
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, phone: e.target.value });
+                  if (errors.phone) {
+                    setErrors({ ...errors, phone: '' });
+                  }
+                }}
               />
+              {errors.phone && <p className="text-xs text-red-500">{errors.phone}</p>}
             </div>
 
             {/* Email */}
             <div className="flex flex-col gap-2">
               <label className="text-text-secondary-light dark:text-text-secondary-dark text-sm font-bold leading-normal" htmlFor="email">
-                אימייל
+                אימייל <span className="text-red-500">*</span>
               </label>
               <input
                 className={`w-full rounded-lg border bg-surface-light dark:bg-surface-dark px-4 py-3 text-text-main-light dark:text-text-main-dark focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-text-secondary-light dark:placeholder:text-text-secondary-dark text-base transition-shadow dir-ltr text-right ${
@@ -296,6 +323,15 @@ export default function CreateProfessionalPage() {
           </div>
         </form>
       </div>
+
+      {/* Toast notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

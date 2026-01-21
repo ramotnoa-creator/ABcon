@@ -2,6 +2,8 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { getFiles, createFile, updateFile, getAllFiles, removeFileFromProject } from '../../../services/filesService';
 import { saveFiles } from '../../../data/filesStorage';
 import { seedFiles } from '../../../data/filesData';
+import { openGoogleDrivePicker, isGoogleDriveConfigured } from '../../../services/googleDriveService';
+import { Toast } from '../../../components/Toast';
 import type { Project } from '../../../types';
 import type { File } from '../../../types';
 import { formatDateForDisplay } from '../../../utils/dateUtils';
@@ -109,6 +111,31 @@ export default function FilesTab({ project }: FilesTabProps) {
     uploaded_by: 'ישראל ישראלי', // Default or from user context
     notes: '',
   });
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [isPickingFromDrive, setIsPickingFromDrive] = useState(false);
+
+  const handleGoogleDrivePick = async () => {
+    setIsPickingFromDrive(true);
+    try {
+      const result = await openGoogleDrivePicker();
+      if (result.success && result.file) {
+        setUploadForm({
+          ...uploadForm,
+          file_name: result.file.name,
+          file_url: result.file.webViewLink || result.file.url,
+          file_size_display: result.file.size || '',
+        });
+        setToast({ message: 'קובץ נבחר בהצלחה מ-Google Drive', type: 'success' });
+      } else if (result.error && result.error !== 'בחירה בוטלה') {
+        setToast({ message: result.error, type: 'error' });
+      }
+    } catch (error) {
+      console.error('Error picking from Google Drive:', error);
+      setToast({ message: 'שגיאה בחיבור ל-Google Drive', type: 'error' });
+    } finally {
+      setIsPickingFromDrive(false);
+    }
+  };
 
   const handleUpload = async () => {
     if (!uploadForm.file_name.trim() || !uploadForm.file_url.trim()) return;
@@ -459,6 +486,40 @@ export default function FilesTab({ project }: FilesTabProps) {
               </button>
             </div>
             <div className="p-6 space-y-4">
+              {/* Google Drive Picker Button */}
+              {isGoogleDriveConfigured() && (
+                <div className="pb-4 border-b border-border-light dark:border-border-dark">
+                  <button
+                    type="button"
+                    onClick={handleGoogleDrivePick}
+                    disabled={isPickingFromDrive}
+                    className="w-full flex items-center justify-center gap-3 h-12 px-4 rounded-lg border-2 border-dashed border-border-light dark:border-border-dark hover:border-primary hover:bg-primary/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isPickingFromDrive ? (
+                      <>
+                        <div className="size-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                        <span className="text-sm font-medium">מתחבר ל-Google Drive...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-6 h-6" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg">
+                          <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
+                          <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/>
+                          <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/>
+                          <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/>
+                          <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
+                          <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
+                        </svg>
+                        <span className="text-sm font-bold">בחר קובץ מ-Google Drive</span>
+                      </>
+                    )}
+                  </button>
+                  <p className="text-center text-xs text-text-secondary-light dark:text-text-secondary-dark mt-2">
+                    או הזן פרטים ידנית למטה
+                  </p>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-bold mb-2">
                   שם קובץ <span className="text-red-500">*</span>
@@ -615,6 +676,15 @@ export default function FilesTab({ project }: FilesTabProps) {
           העלאת קובץ חדש
         </button>
       </div>
+
+      {/* Toast notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }
