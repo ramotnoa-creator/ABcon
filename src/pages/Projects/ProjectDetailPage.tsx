@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getProjectById } from '../../data/storage';
-import { getOpenIssuesCount } from '../../data/specialIssuesStorage';
+import { getOpenIssuesCount } from '../../services/specialIssuesService';
 import { useAuth } from '../../contexts/AuthContext';
 import { canEditProject, canCreateTask, canAccessProject } from '../../utils/permissions';
 import OverviewTab from './tabs/OverviewTab';
@@ -42,16 +42,25 @@ export default function ProjectDetailPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [tabTransition, setTabTransition] = useState(false);
   const [isHeaderVisible, setIsHeaderVisible] = useState(false);
+  const [openIssuesCount, setOpenIssuesCount] = useState(0);
   const indicatorRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
 
-  // Compute open issues count - recalculates when activeTab changes to special-issues
-  const openIssuesCount = useMemo(() => {
-    if (!id) return 0;
-    // Include activeTab in deps so it recalculates when switching to special-issues tab
-    // This is intentional - we want fresh data when viewing the tab
-    return getOpenIssuesCount(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Load open issues count - recalculates when activeTab changes to special-issues
+  useEffect(() => {
+    const loadCount = async () => {
+      if (!id) {
+        setOpenIssuesCount(0);
+        return;
+      }
+      try {
+        const count = await getOpenIssuesCount(id);
+        setOpenIssuesCount(count);
+      } catch (error) {
+        console.error('Error loading open issues count:', error);
+      }
+    };
+    loadCount();
   }, [id, activeTab]);
 
   // Navigate away if project not found or user doesn't have access

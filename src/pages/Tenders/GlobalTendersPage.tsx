@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAllTenders } from '../../data/tendersStorage';
-import { getTenderParticipants } from '../../data/tenderParticipantsStorage';
-import { getProjects } from '../../data/storage';
-import { getProfessionals } from '../../data/professionalsStorage';
+import { getAllTenders } from '../../services/tendersService';
+import { getTenderParticipants } from '../../services/tenderParticipantsService';
+import { getProjects } from '../../services/projectsService';
+import { getProfessionals } from '../../services/professionalsService';
 import { formatDateForDisplay } from '../../utils/dateUtils';
 import type { Tender, TenderStatus, TenderType, TenderParticipant, Project, Professional } from '../../types';
 
@@ -173,68 +173,85 @@ export default function GlobalTendersPage() {
   const [typeFilter, setTypeFilter] = useState<TenderType | 'all'>('all');
   const [expandedTenderId, setExpandedTenderId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [tendersWithDetails, setTendersWithDetails] = useState<TenderWithDetails[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const itemsPerPage = 10;
 
   // Load all data
-  const tendersWithDetails = useMemo((): TenderWithDetails[] => {
-    const tenders = getAllTenders();
-    const projects = getProjects();
-    const professionals = getProfessionals();
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        const [tenders, projects, professionals] = await Promise.all([
+          getAllTenders(),
+          getProjects(),
+          getProfessionals(),
+        ]);
 
-    const tendersData = tenders.map((tender) => {
-      const project = projects.find((p) => p.id === tender.project_id);
-      const rawParticipants = getTenderParticipants(tender.id);
+        const tendersData = await Promise.all(
+          tenders.map(async (tender) => {
+            const project = projects.find((p) => p.id === tender.project_id);
+            const rawParticipants = await getTenderParticipants(tender.id);
 
-      // Attach professional data to participants
-      const participants: ParticipantWithProfessional[] = rawParticipants.map((p) => ({
-        ...p,
-        professional: professionals.find((prof) => prof.id === p.professional_id),
-      }));
+            // Attach professional data to participants
+            const participants: ParticipantWithProfessional[] = rawParticipants.map((p) => ({
+              ...p,
+              professional: professionals.find((prof) => prof.id === p.professional_id),
+            }));
 
-      // Sort participants by price (lowest first)
-      participants.sort((a, b) => {
-        if (a.total_amount && b.total_amount) return a.total_amount - b.total_amount;
-        if (a.total_amount && !b.total_amount) return -1;
-        if (!a.total_amount && b.total_amount) return 1;
-        return 0;
-      });
+            // Sort participants by price (lowest first)
+            participants.sort((a, b) => {
+              if (a.total_amount && b.total_amount) return a.total_amount - b.total_amount;
+              if (a.total_amount && !b.total_amount) return -1;
+              if (!a.total_amount && b.total_amount) return 1;
+              return 0;
+            });
 
-      const winnerProfessional = tender.winner_professional_id
-        ? professionals.find((p) => p.id === tender.winner_professional_id)
-        : undefined;
+            const winnerProfessional = tender.winner_professional_id
+              ? professionals.find((p) => p.id === tender.winner_professional_id)
+              : undefined;
 
-      // Calculate price stats
-      const prices = participants
-        .filter((p) => p.total_amount && p.total_amount > 0)
-        .map((p) => p.total_amount as number);
+            // Calculate price stats
+            const prices = participants
+              .filter((p) => p.total_amount && p.total_amount > 0)
+              .map((p) => p.total_amount as number);
 
-      const priceStats =
-        prices.length > 0
-          ? {
-              min: Math.min(...prices),
-              max: Math.max(...prices),
-              avg: prices.reduce((sum, p) => sum + p, 0) / prices.length,
-              count: prices.length,
-              lowestParticipantId: participants.find((p) => p.total_amount === Math.min(...prices))?.id,
-            }
-          : undefined;
+            const priceStats =
+              prices.length > 0
+                ? {
+                    min: Math.min(...prices),
+                    max: Math.max(...prices),
+                    avg: prices.reduce((sum, p) => sum + p, 0) / prices.length,
+                    count: prices.length,
+                    lowestParticipantId: participants.find((p) => p.total_amount === Math.min(...prices))?.id,
+                  }
+                : undefined;
 
-      // Calculate savings
-      const savings = tender.estimated_budget && tender.contract_amount
-        ? tender.estimated_budget - tender.contract_amount
-        : undefined;
+            // Calculate savings
+            const savings = tender.estimated_budget && tender.contract_amount
+              ? tender.estimated_budget - tender.contract_amount
+              : undefined;
 
-      return {
-        ...tender,
-        project,
-        participants,
-        winnerProfessional,
-        priceStats,
-        savings,
-      };
-    });
+            return {
+              ...tender,
+              project,
+              participants,
+              winnerProfessional,
+              priceStats,
+              savings,
+            };
+          })
+        );
 
-    return tendersData;
+        setTendersWithDetails(tendersData);
+      } catch (error) {
+        console.error('Error loading tenders data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
   }, []);
 
   // Calculate KPIs
@@ -329,6 +346,16 @@ export default function GlobalTendersPage() {
   const toggleExpand = (tenderId: string) => {
     setExpandedTenderId(expandedTenderId === tenderId ? null : tenderId);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 px-4 lg:px-10 py-6 max-w-[1400px] mx-auto w-full">
+        <div className="flex items-center justify-center py-12">
+          <div className="size-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 px-4 lg:px-10 py-6 max-w-[1400px] mx-auto w-full pb-20 lg:pb-6">

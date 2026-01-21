@@ -1,9 +1,10 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAllFiles, addFile, updateFile, saveFiles } from '../../data/filesStorage';
-import { getProjects } from '../../data/storage';
+import { getAllFiles, createFile, updateFile } from '../../services/filesService';
+import { saveFiles } from '../../data/filesStorage';
+import { getProjects } from '../../services/projectsService';
 import { seedFiles } from '../../data/filesData';
-import type { File, FileEntityType } from '../../types';
+import type { File, FileEntityType, Project } from '../../types';
 import { formatDateForDisplay } from '../../utils/dateUtils';
 
 const getFileIcon = (fileType?: string, fileName?: string): { icon: string; color: string } => {
@@ -35,8 +36,8 @@ const getInitials = (name: string): string => {
   return name.substring(0, 2).toUpperCase();
 };
 
-const loadInitialFiles = (): File[] => {
-  let loaded = getAllFiles();
+const loadInitialFiles = async (): Promise<File[]> => {
+  let loaded = await getAllFiles();
 
   // Seed if empty
   if (loaded.length === 0) {
@@ -49,8 +50,9 @@ const loadInitialFiles = (): File[] => {
 
 export default function GlobalFilesPage() {
   const navigate = useNavigate();
-  const [files, setFiles] = useState<File[]>(() => loadInitialFiles());
-  const [projects] = useState(getProjects);
+  const [files, setFiles] = useState<File[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [entityTypeFilter, setEntityTypeFilter] = useState<string>('all');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -58,8 +60,32 @@ export default function GlobalFilesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const loadFiles = useCallback(() => {
-    setFiles(loadInitialFiles());
+  const loadFiles = useCallback(async () => {
+    try {
+      const loaded = await loadInitialFiles();
+      setFiles(loaded);
+    } catch (error) {
+      console.error('Error loading files:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        const [loadedFiles, loadedProjects] = await Promise.all([
+          loadInitialFiles(),
+          getProjects(),
+        ]);
+        setFiles(loadedFiles);
+        setProjects(loadedProjects);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
   }, []);
 
   const filteredFiles = useMemo(() => {
@@ -103,11 +129,10 @@ export default function GlobalFilesPage() {
     notes: '',
   });
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!uploadForm.file_name.trim() || !uploadForm.file_url.trim()) return;
 
-    const newFile: File = {
-      id: `file-${Date.now()}`,
+    const fileData: Omit<File, 'id' | 'created_at' | 'updated_at'> = {
       file_name: uploadForm.file_name.trim(),
       file_url: uploadForm.file_url.trim(),
       file_size_display: uploadForm.file_size_display || undefined,
@@ -120,45 +145,51 @@ export default function GlobalFilesPage() {
       uploaded_at: new Date().toISOString(),
       uploaded_by: uploadForm.uploaded_by.trim(),
       notes: uploadForm.notes.trim() || undefined,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     };
 
-    addFile(newFile);
-    loadFiles();
-    setIsUploadModalOpen(false);
-    setUploadForm({
-      file_name: '',
-      file_url: '',
-      file_size_display: '',
-      description_short: '',
-      related_entity_type: '',
-      related_entity_id: '',
-      uploaded_by: 'ישראל ישראלי',
-      notes: '',
-    });
+    try {
+      await createFile(fileData);
+      await loadFiles();
+      setIsUploadModalOpen(false);
+      setUploadForm({
+        file_name: '',
+        file_url: '',
+        file_size_display: '',
+        description_short: '',
+        related_entity_type: '',
+        related_entity_id: '',
+        uploaded_by: 'ישראל ישראלי',
+        notes: '',
+      });
+    } catch (error) {
+      console.error('Error creating file:', error);
+    }
   };
 
   const handleEdit = (file: File) => {
     setEditingFile(file);
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingFile) return;
 
-    updateFile(editingFile.id, {
-      description_short: editingFile.description_short,
-      notes: editingFile.notes,
-      uploaded_by: editingFile.uploaded_by,
-      related_entity_type: editingFile.related_entity_type,
-      related_entity_id: editingFile.related_entity_id,
-      related_entity_name: editingFile.related_entity_id
-        ? projects.find((p) => p.id === editingFile.related_entity_id)?.project_name
-        : undefined,
-    });
+    try {
+      await updateFile(editingFile.id, {
+        description_short: editingFile.description_short,
+        notes: editingFile.notes,
+        uploaded_by: editingFile.uploaded_by,
+        related_entity_type: editingFile.related_entity_type,
+        related_entity_id: editingFile.related_entity_id,
+        related_entity_name: editingFile.related_entity_id
+          ? projects.find((p) => p.id === editingFile.related_entity_id)?.project_name
+          : undefined,
+      });
 
-    loadFiles();
-    setEditingFile(null);
+      await loadFiles();
+      setEditingFile(null);
+    } catch (error) {
+      console.error('Error updating file:', error);
+    }
   };
 
   const handleOpenFile = (url: string) => {
@@ -226,38 +257,44 @@ export default function GlobalFilesPage() {
 
       {/* Files Table - Desktop */}
       <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark overflow-hidden">
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-right text-sm">
-            <thead className="bg-background-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark">
-              <tr>
-                <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  שם קובץ
-                </th>
-                <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  תיאור קצר
-                </th>
-                <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  שייך ל-
-                </th>
-                <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  הועלה ע״י
-                </th>
-                <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  תאריך העלאה
-                </th>
-                <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  פעולות
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-light dark:divide-border-dark">
-              {paginatedFiles.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-text-secondary-light dark:text-text-secondary-dark">
-                    אין קבצים
-                  </td>
-                </tr>
-              ) : (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="size-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <>
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-right text-sm">
+                <thead className="bg-background-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark">
+                  <tr>
+                    <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                      שם קובץ
+                    </th>
+                    <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                      תיאור קצר
+                    </th>
+                    <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                      שייך ל-
+                    </th>
+                    <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                      הועלה ע״י
+                    </th>
+                    <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                      תאריך העלאה
+                    </th>
+                    <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                      פעולות
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-light dark:divide-border-dark">
+                  {paginatedFiles.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-text-secondary-light dark:text-text-secondary-dark">
+                        אין קבצים
+                      </td>
+                    </tr>
+                  ) : (
                 paginatedFiles.map((file) => {
                   const fileIcon = getFileIcon(file.file_type, file.file_name);
                   return (
@@ -401,6 +438,8 @@ export default function GlobalFilesPage() {
             })
           )}
         </div>
+      </>
+        )}
       </div>
 
       {/* Pagination */}

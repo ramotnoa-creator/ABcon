@@ -1,12 +1,11 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   getSpecialIssues,
-  getAllSpecialIssues,
-  saveSpecialIssues,
-  addSpecialIssue,
+  createSpecialIssue,
   updateSpecialIssue,
   deleteSpecialIssue,
-} from '../../../data/specialIssuesStorage';
+} from '../../../services/specialIssuesService';
+import { saveSpecialIssues } from '../../../data/specialIssuesStorage';
 import { seedSpecialIssues } from '../../../data/specialIssuesData';
 import { useAuth } from '../../../contexts/AuthContext';
 import {
@@ -91,15 +90,13 @@ const getTodayISO = (): string => {
   return new Date().toISOString().split('T')[0];
 };
 
-const loadInitialIssues = (projectId: string): SpecialIssue[] => {
-  let loaded = getSpecialIssues(projectId);
+const loadInitialIssues = async (projectId: string): Promise<SpecialIssue[]> => {
+  let loaded = await getSpecialIssues(projectId);
 
   if (loaded.length === 0) {
     const projectIssues = seedSpecialIssues.filter((si) => si.project_id === projectId);
     if (projectIssues.length > 0) {
-      const all = getAllSpecialIssues();
-      projectIssues.forEach((issue) => all.push(issue));
-      saveSpecialIssues(all);
+      saveSpecialIssues([...loaded, ...projectIssues]);
       loaded = projectIssues;
     }
   }
@@ -200,7 +197,8 @@ function ImageGalleryModal({ images, initialIndex = 0, onClose }: ImageGalleryMo
 
 export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
   const { user } = useAuth();
-  const [issues, setIssues] = useState<SpecialIssue[]>(() => loadInitialIssues(project.id));
+  const [issues, setIssues] = useState<SpecialIssue[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<SpecialIssueStatus | 'all'>('all');
@@ -235,9 +233,21 @@ export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
   const canEdit = !user || canEditSpecialIssue(user, project.id);
   const canDelete = !user || canDeleteSpecialIssue(user, project.id);
 
-  const loadIssues = useCallback(() => {
-    setIssues(loadInitialIssues(project.id));
+  const loadIssues = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const loaded = await loadInitialIssues(project.id);
+      setIssues(loaded);
+    } catch (error) {
+      console.error('Error loading special issues:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }, [project.id]);
+
+  useEffect(() => {
+    loadIssues();
+  }, [loadIssues]);
 
   // Sort: non-resolved first (by date desc), then resolved at the bottom (by date desc)
   const sortedAndFilteredIssues = useMemo(() => {
@@ -276,62 +286,70 @@ export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
     setEditingId(null);
   };
 
-  const saveEditing = () => {
+  const saveEditing = async () => {
     if (!editingId || !editFormData.description.trim() || !editFormData.date) return;
 
-    updateSpecialIssue(editingId, {
-      date: new Date(editFormData.date).toISOString(),
-      description: editFormData.description.trim(),
-      status: editFormData.status,
-      priority: editFormData.priority,
-      category: editFormData.category,
-      responsible: editFormData.responsible.trim() || undefined,
-      resolution: editFormData.resolution.trim() || undefined,
-      image_urls: editFormData.image_urls.length > 0 ? editFormData.image_urls : undefined,
-    });
+    try {
+      await updateSpecialIssue(editingId, {
+        date: new Date(editFormData.date).toISOString(),
+        description: editFormData.description.trim(),
+        status: editFormData.status,
+        priority: editFormData.priority,
+        category: editFormData.category,
+        responsible: editFormData.responsible.trim() || undefined,
+        resolution: editFormData.resolution.trim() || undefined,
+        image_urls: editFormData.image_urls.length > 0 ? editFormData.image_urls : undefined,
+      });
 
-    loadIssues();
-    setEditingId(null);
+      await loadIssues();
+      setEditingId(null);
+    } catch (error) {
+      console.error('Error updating special issue:', error);
+    }
   };
 
-  const handleAddNew = () => {
+  const handleAddNew = async () => {
     if (!newFormData.description.trim() || !newFormData.date) return;
 
-    const newIssue: SpecialIssue = {
-      id: `si-${Date.now()}`,
-      project_id: project.id,
-      date: new Date(newFormData.date).toISOString(),
-      description: newFormData.description.trim(),
-      status: newFormData.status,
-      priority: newFormData.priority,
-      category: newFormData.category,
-      responsible: newFormData.responsible.trim() || undefined,
-      resolution: newFormData.resolution.trim() || undefined,
-      image_urls: newFormData.image_urls.length > 0 ? newFormData.image_urls : undefined,
-      created_by: user?.id,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    addSpecialIssue(newIssue);
+    try {
+      await createSpecialIssue({
+        project_id: project.id,
+        date: new Date(newFormData.date).toISOString(),
+        description: newFormData.description.trim(),
+        status: newFormData.status,
+        priority: newFormData.priority,
+        category: newFormData.category,
+        responsible: newFormData.responsible.trim() || undefined,
+        resolution: newFormData.resolution.trim() || undefined,
+        image_urls: newFormData.image_urls.length > 0 ? newFormData.image_urls : undefined,
+        created_by: user?.id,
+      });
 
-    loadIssues();
-    setIsAddModalOpen(false);
-    setNewFormData({
-      date: getTodayISO(),
-      description: '',
-      status: 'open',
-      priority: 'medium',
-      category: 'other',
-      responsible: '',
-      resolution: '',
-      image_urls: [],
-    });
+      await loadIssues();
+      setIsAddModalOpen(false);
+      setNewFormData({
+        date: getTodayISO(),
+        description: '',
+        status: 'open',
+        priority: 'medium',
+        category: 'other',
+        responsible: '',
+        resolution: '',
+        image_urls: [],
+      });
+    } catch (error) {
+      console.error('Error creating special issue:', error);
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('האם אתה בטוח שברצונך למחוק בעיה זו?')) return;
-    deleteSpecialIssue(id);
-    loadIssues();
+    try {
+      await deleteSpecialIssue(id);
+      await loadIssues();
+    } catch (error) {
+      console.error('Error deleting special issue:', error);
+    }
   };
 
   const handleAddImageUrl = (isEdit: boolean) => {
@@ -401,7 +419,11 @@ export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
 
       {/* Issues List */}
       <div className="space-y-3">
-        {sortedAndFilteredIssues.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="size-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : sortedAndFilteredIssues.length === 0 ? (
           <div className="bg-surface-light dark:bg-surface-dark rounded-xl p-12 text-center text-text-secondary-light dark:text-text-secondary-dark border border-border-light dark:border-border-dark">
             אין בעיות מיוחדות
           </div>

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { getLastMonthCompletedMilestones, getNextMonthPendingMilestones } from '../../data/milestonesQueries';
 import { getLastMonthPaidAmount, getNextMonthPlannedPayments } from '../../data/budgetPaymentsQueries';
 import { formatDateForDisplay } from '../../utils/dateUtils';
@@ -40,12 +40,34 @@ const colorClasses = {
 
 export default function ProjectKPICards({ projectId, onTabChange }: ProjectKPICardsProps) {
   const [showModal, setShowModal] = useState<string | null>(null);
+  const [lastMonthMilestones, setLastMonthMilestones] = useState<MilestoneWithProject[]>([]);
+  const [nextMonthMilestones, setNextMonthMilestones] = useState<MilestoneWithProject[]>([]);
+  const [lastMonthPaid, setLastMonthPaid] = useState({ totalAmount: 0, paymentCount: 0, payments: [] as PaymentWithDetails[] });
+  const [nextMonthPlanned, setNextMonthPlanned] = useState({ totalAmount: 0, paymentCount: 0, payments: [] as PaymentWithDetails[] });
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Get data for current project
-  const lastMonthMilestones = useMemo(() => getLastMonthCompletedMilestones(projectId), [projectId]);
-  const nextMonthMilestones = useMemo(() => getNextMonthPendingMilestones(projectId), [projectId]);
-  const lastMonthPaid = useMemo(() => getLastMonthPaidAmount(projectId), [projectId]);
-  const nextMonthPlanned = useMemo(() => getNextMonthPlannedPayments(projectId), [projectId]);
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        const [milestonesPast, milestonesFuture, paidData, plannedData] = await Promise.all([
+          getLastMonthCompletedMilestones(projectId),
+          getNextMonthPendingMilestones(projectId),
+          getLastMonthPaidAmount(projectId),
+          getNextMonthPlannedPayments(projectId),
+        ]);
+        setLastMonthMilestones(milestonesPast);
+        setNextMonthMilestones(milestonesFuture);
+        setLastMonthPaid(paidData);
+        setNextMonthPlanned(plannedData);
+      } catch (error) {
+        console.error('Error loading KPI data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, [projectId]);
 
   const cards: CardData[] = [
     {
@@ -103,6 +125,14 @@ export default function ProjectKPICards({ projectId, onTabChange }: ProjectKPICa
   ];
 
   const activeCard = cards.find((c) => c.id === showModal);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="size-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <>

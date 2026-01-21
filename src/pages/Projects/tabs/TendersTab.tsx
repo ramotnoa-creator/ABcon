@@ -1,30 +1,28 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   getTenders,
   updateTender,
-  getAllTenders,
-  saveTenders,
-  addTender,
+  createTender,
   deleteTender,
-} from '../../../data/tendersStorage';
+} from '../../../services/tendersService';
 import {
   getTenderParticipants,
-  addTenderParticipant,
+  createTenderParticipant,
   addTenderParticipants,
   updateTenderParticipant,
   removeTenderParticipant,
   setTenderWinner,
   clearTenderWinner,
-} from '../../../data/tenderParticipantsStorage';
-import { getProfessionals } from '../../../data/professionalsStorage';
-import { addProjectProfessional } from '../../../data/professionalsStorage';
+} from '../../../services/tenderParticipantsService';
+import { getProfessionals } from '../../../services/professionalsService';
+import { createProjectProfessional } from '../../../services/projectProfessionalsService';
 import { seedTenders } from '../../../data/tendersData';
-import { getMilestones } from '../../../data/milestonesStorage';
-import { getBudgetCategories } from '../../../data/budgetCategoriesStorage';
-import { getBudgetChapters } from '../../../data/budgetChaptersStorage';
-import { addBudgetItem, getNextBudgetItemOrder, calculateBudgetItemTotals } from '../../../data/budgetItemsStorage';
+import { getMilestones } from '../../../services/milestonesService';
+import { getBudgetCategories } from '../../../services/budgetCategoriesService';
+import { getBudgetChapters } from '../../../services/budgetChaptersService';
+import { createBudgetItem, getNextBudgetItemOrder, calculateBudgetItemTotals } from '../../../services/budgetItemsService';
 import { uploadTenderQuote, getFileNameFromUrl } from '../../../lib/supabaseStorage';
 import { findChapterForTender } from '../../../utils/tenderChapterMapping';
 import type { Project, Tender, TenderStatus, TenderType, TenderParticipant, Professional, BudgetItem } from '../../../types';
@@ -83,65 +81,35 @@ const getTodayISO = (): string => {
   return new Date().toISOString().split('T')[0];
 };
 
-const loadInitialTenders = (projectId: string): Tender[] => {
-  let loaded = getTenders(projectId);
-
-  // Seed if empty
-  if (loaded.length === 0) {
-    const projectTenders = seedTenders.filter((t) => t.project_id === projectId);
-    if (projectTenders.length > 0) {
-      const all = getAllTenders();
-      projectTenders.forEach((tender) => {
-        all.push(tender);
-
-        // Migrate old tender format to TenderParticipant records
-        if (tender.candidate_professional_ids && tender.candidate_professional_ids.length > 0) {
-          tender.candidate_professional_ids.forEach((profId) => {
-            const existing = getTenderParticipants(tender.id);
-            const alreadyExists = existing.some(p => p.professional_id === profId);
-
-            if (!alreadyExists) {
-              const isWinner = tender.winner_professional_id === profId;
-              const participant: TenderParticipant = {
-                id: `tp-${tender.id}-${profId}`,
-                tender_id: tender.id,
-                professional_id: profId,
-                is_winner: isWinner,
-                created_at: tender.created_at || new Date().toISOString(),
-              };
-              addTenderParticipant(participant);
-            }
-          });
-        }
-      });
-      saveTenders(all);
-      loaded = projectTenders;
-    }
-  }
-
+// Async data loading functions
+async function loadInitialTenders(projectId: string): Promise<Tender[]> {
+  const loaded = await getTenders(projectId);
   return loaded;
-};
+}
 
-const loadInitialProfessionals = (): Professional[] => {
-  const professionals = getProfessionals();
+async function loadInitialProfessionals(): Promise<Professional[]> {
+  const professionals = await getProfessionals();
   // Return all professionals (including inactive) to show winners who may have been deactivated
   return professionals;
-};
+}
 
-const loadParticipantsMap = (tenders: Tender[]): Record<string, TenderParticipant[]> => {
+async function loadParticipantsMap(tenders: Tender[]): Promise<Record<string, TenderParticipant[]>> {
   const map: Record<string, TenderParticipant[]> = {};
-  tenders.forEach((tender) => {
-    map[tender.id] = getTenderParticipants(tender.id);
-  });
+  await Promise.all(
+    tenders.map(async (tender) => {
+      map[tender.id] = await getTenderParticipants(tender.id);
+    })
+  );
   return map;
-};
+}
 
 export default function TendersTab({ project }: TendersTabProps) {
   const navigate = useNavigate();
-  const [tenders, setTenders] = useState<Tender[]>(() => loadInitialTenders(project.id));
-  const [allProfessionals, setAllProfessionals] = useState<Professional[]>(() => loadInitialProfessionals());
-  const [participantsMap, setParticipantsMap] = useState<Record<string, TenderParticipant[]>>(() => loadParticipantsMap(loadInitialTenders(project.id)));
-  const [milestones] = useState(() => getMilestones(project.id));
+  const [tenders, setTenders] = useState<Tender[]>([]);
+  const [allProfessionals, setAllProfessionals] = useState<Professional[]>([]);
+  const [participantsMap, setParticipantsMap] = useState<Record<string, TenderParticipant[]>>({});
+  const [milestones, setMilestones] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Modal states
   const [isAddTenderModalOpen, setIsAddTenderModalOpen] = useState(false);
@@ -220,18 +188,44 @@ export default function TendersTab({ project }: TendersTabProps) {
   });
   const [selectedWinnerParticipant, setSelectedWinnerParticipant] = useState<TenderParticipant | null>(null);
 
-  const loadTenders = useCallback(() => {
-    const loaded = loadInitialTenders(project.id);
-    setTenders(loaded);
-    setParticipantsMap(loadParticipantsMap(loaded));
+  // Load initial data
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        const [loadedTenders, loadedProfessionals, loadedMilestones] = await Promise.all([
+          loadInitialTenders(project.id),
+          loadInitialProfessionals(),
+          getMilestones(project.id),
+        ]);
+        setTenders(loadedTenders);
+        setAllProfessionals(loadedProfessionals);
+        setMilestones(loadedMilestones);
+        const participants = await loadParticipantsMap(loadedTenders);
+        setParticipantsMap(participants);
+      } catch (error) {
+        console.error('Error loading tenders data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
   }, [project.id]);
 
-  const loadProfessionals = useCallback(() => {
-    setAllProfessionals(loadInitialProfessionals());
+  const loadTenders = useCallback(async () => {
+    const loaded = await loadInitialTenders(project.id);
+    setTenders(loaded);
+    const participants = await loadParticipantsMap(loaded);
+    setParticipantsMap(participants);
+  }, [project.id]);
+
+  const loadProfessionals = useCallback(async () => {
+    const loaded = await loadInitialProfessionals();
+    setAllProfessionals(loaded);
   }, []);
 
-  const refreshData = useCallback(() => {
-    loadTenders();
+  const refreshData = useCallback(async () => {
+    await loadTenders();
     loadProfessionals();
   }, [loadTenders, loadProfessionals]);
   void refreshData; // Available for refresh button
@@ -261,11 +255,10 @@ export default function TendersTab({ project }: TendersTabProps) {
   };
 
   // Handle add tender
-  const handleAddTender = () => {
+  const handleAddTender = async () => {
     if (!tenderForm.tender_name.trim()) return;
 
-    const newTender: Tender = {
-      id: `tender-${Date.now()}`,
+    const tenderData: Omit<Tender, 'id' | 'created_at' | 'updated_at'> = {
       project_id: project.id,
       tender_name: tenderForm.tender_name.trim(),
       tender_type: tenderForm.tender_type,
@@ -276,29 +269,31 @@ export default function TendersTab({ project }: TendersTabProps) {
       candidate_professional_ids: [],
       milestone_id: tenderForm.milestone_id || undefined,
       estimated_budget: tenderForm.estimated_budget ? parseFloat(tenderForm.estimated_budget) : undefined,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     };
 
-    addTender(newTender);
-    loadTenders();
+    try {
+      const newTender = await createTender(tenderData);
+      await loadTenders();
 
-    // Reset form and open professional picker
-    setTenderForm({
-      tender_name: '',
-      tender_type: 'contractor',
-      description: '',
-      due_date: '',
-      milestone_id: '',
-      estimated_budget: '',
-    });
-    setIsAddTenderModalOpen(false);
+      // Reset form and open professional picker
+      setTenderForm({
+        tender_name: '',
+        tender_type: 'contractor',
+        description: '',
+        due_date: '',
+        milestone_id: '',
+        estimated_budget: '',
+      });
+      setIsAddTenderModalOpen(false);
 
-    // Open professional picker for the new tender
-    setSelectedTender(newTender);
-    setProfessionalPickerFilter(newTender.tender_type);
-    setSelectedProfessionalIds([]);
-    setIsProfessionalPickerOpen(true);
+      // Open professional picker for the new tender
+      setSelectedTender(newTender);
+      setProfessionalPickerFilter(newTender.tender_type);
+      setSelectedProfessionalIds([]);
+      setIsProfessionalPickerOpen(true);
+    } catch (error) {
+      console.error('Error creating tender:', error);
+    }
   };
 
   // Handle file upload for participant quote
@@ -321,42 +316,50 @@ export default function TendersTab({ project }: TendersTabProps) {
   };
 
   // Handle add participants
-  const handleAddParticipants = () => {
+  const handleAddParticipants = async () => {
     if (!selectedTender || selectedProfessionalIds.length === 0) return;
 
-    addTenderParticipants(selectedTender.id, selectedProfessionalIds);
+    try {
+      await addTenderParticipants(selectedTender.id, selectedProfessionalIds);
 
-    // Update tender's candidate_professional_ids for backwards compatibility
-    const updatedCandidates = [
-      ...selectedTender.candidate_professional_ids,
-      ...selectedProfessionalIds,
-    ];
-    updateTender(selectedTender.id, { candidate_professional_ids: updatedCandidates });
+      // Update tender's candidate_professional_ids for backwards compatibility
+      const updatedCandidates = [
+        ...selectedTender.candidate_professional_ids,
+        ...selectedProfessionalIds,
+      ];
+      await updateTender(selectedTender.id, { candidate_professional_ids: updatedCandidates });
 
-    loadTenders();
-    setIsProfessionalPickerOpen(false);
-    setSelectedProfessionalIds([]);
+      await loadTenders();
+      setIsProfessionalPickerOpen(false);
+      setSelectedProfessionalIds([]);
+    } catch (error) {
+      console.error('Error adding participants:', error);
+    }
   };
 
   // Handle remove participant
-  const handleRemoveParticipant = (tender: Tender, professionalId: string) => {
-    removeTenderParticipant(tender.id, professionalId);
+  const handleRemoveParticipant = async (tender: Tender, professionalId: string) => {
+    try {
+      await removeTenderParticipant(tender.id, professionalId);
 
-    const updatedCandidates = tender.candidate_professional_ids.filter((id) => id !== professionalId);
-    updateTender(tender.id, {
-      candidate_professional_ids: updatedCandidates,
-      ...(tender.winner_professional_id === professionalId && {
-        winner_professional_id: undefined,
-        winner_professional_name: undefined,
-        status: tender.status === 'WinnerSelected' ? 'Open' : tender.status,
-      }),
-    });
+      const updatedCandidates = tender.candidate_professional_ids.filter((id) => id !== professionalId);
+      await updateTender(tender.id, {
+        candidate_professional_ids: updatedCandidates,
+        ...(tender.winner_professional_id === professionalId && {
+          winner_professional_id: undefined,
+          winner_professional_name: undefined,
+          status: tender.status === 'WinnerSelected' ? 'Open' : tender.status,
+        }),
+      });
 
-    if (tender.winner_professional_id === professionalId) {
-      clearTenderWinner(tender.id);
+      if (tender.winner_professional_id === professionalId) {
+        await clearTenderWinner(tender.id);
+      }
+
+      await loadTenders();
+    } catch (error) {
+      console.error('Error removing participant:', error);
     }
-
-    loadTenders();
   };
 
   // Handle select winner - Step 1: Select participant
@@ -370,7 +373,7 @@ export default function TendersTab({ project }: TendersTabProps) {
   };
 
   // Handle select winner - Step 2: Confirm and save
-  const handleSelectWinnerConfirm = () => {
+  const handleSelectWinnerConfirm = async () => {
     if (!selectedTender || !selectedWinnerParticipant) return;
 
     const participant = selectedWinnerParticipant;
@@ -379,39 +382,41 @@ export default function TendersTab({ project }: TendersTabProps) {
 
     const contractAmount = winnerForm.contract_amount ? parseFloat(winnerForm.contract_amount) : participant.total_amount;
 
-    // Update participant as winner
-    setTenderWinner(selectedTender.id, participant.id);
+    try {
+      // Update participant as winner
+      await setTenderWinner(selectedTender.id, participant.id);
 
-    // Update tender with contract_amount and management_remarks
-    updateTender(selectedTender.id, {
-      winner_professional_id: participant.professional_id,
-      winner_professional_name: professional.professional_name,
-      status: 'WinnerSelected',
-      contract_amount: contractAmount,
-      management_remarks: winnerForm.management_remarks.trim() || undefined,
-    });
+      // Update tender with contract_amount and management_remarks
+      await updateTender(selectedTender.id, {
+        winner_professional_id: participant.professional_id,
+        winner_professional_name: professional.professional_name,
+        status: 'WinnerSelected',
+        contract_amount: contractAmount,
+        management_remarks: winnerForm.management_remarks.trim() || undefined,
+      });
 
-    const tender = selectedTender;
+      const tender = selectedTender;
 
-    // Create ProjectProfessional automatically
-    const newProjectProfessional = {
-      id: `pp-${crypto.randomUUID()}`,
-      project_id: project.id,
-      professional_id: participant.professional_id,
-      project_role: undefined,
-      source: 'Tender' as const,
-      related_tender_id: tender.id,
-      related_tender_name: tender.tender_name,
-      is_active: true,
-    };
+      // Create ProjectProfessional automatically
+      const newProjectProfessional = {
+        project_id: project.id,
+        professional_id: participant.professional_id,
+        project_role: undefined,
+        source: 'Tender' as const,
+        related_tender_id: tender.id,
+        related_tender_name: tender.tender_name,
+        is_active: true,
+      };
 
-    addProjectProfessional(newProjectProfessional);
+      await createProjectProfessional(newProjectProfessional);
 
     // Auto-create budget item if we have a contract amount
     const budgetAmount = contractAmount || participant.total_amount;
     if (budgetAmount && budgetAmount > 0) {
-      const chapters = getBudgetChapters(project.id);
-      const categories = getBudgetCategories(project.id);
+      const [chapters, categories] = await Promise.all([
+        getBudgetChapters(project.id),
+        getBudgetCategories(project.id),
+      ]);
 
       if (chapters.length > 0) {
         const chapterId = findChapterForTender(tender.tender_type, chapters, categories);
@@ -424,8 +429,9 @@ export default function TendersTab({ project }: TendersTabProps) {
             vat_rate: vatRate,
           });
 
-          const newBudgetItem: BudgetItem = {
-            id: `bi-${crypto.randomUUID()}`,
+          const order = await getNextBudgetItemOrder(project.id, chapterId);
+
+          await createBudgetItem({
             project_id: project.id,
             chapter_id: chapterId,
             code: undefined,
@@ -442,37 +448,40 @@ export default function TendersTab({ project }: TendersTabProps) {
             supplier_name: professional.professional_name,
             tender_id: tender.id,
             paid_amount: 0,
-            order: getNextBudgetItemOrder(project.id, chapterId),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
-
-          addBudgetItem(newBudgetItem);
+            order,
+          });
         }
       }
     }
 
-    loadTenders();
-    setIsSelectWinnerModalOpen(false);
-    setSelectedTender(null);
-    setSelectedWinnerParticipant(null);
-    setWinnerForm({ contract_amount: '', management_remarks: '' });
+      await loadTenders();
+      setIsSelectWinnerModalOpen(false);
+      setSelectedTender(null);
+      setSelectedWinnerParticipant(null);
+      setWinnerForm({ contract_amount: '', management_remarks: '' });
+    } catch (error) {
+      console.error('Error selecting winner:', error);
+    }
   };
 
   // Handle update participant details
-  const handleUpdateParticipant = () => {
+  const handleUpdateParticipant = async () => {
     if (!selectedParticipant) return;
 
-    updateTenderParticipant(selectedParticipant.id, {
-      quote_file: participantForm.quote_file.trim() || undefined,
-      total_amount: participantForm.total_amount ? parseFloat(participantForm.total_amount) : undefined,
-      notes: participantForm.notes.trim() || undefined,
-    });
+    try {
+      await updateTenderParticipant(selectedParticipant.id, {
+        quote_file: participantForm.quote_file.trim() || undefined,
+        total_amount: participantForm.total_amount ? parseFloat(participantForm.total_amount) : undefined,
+        notes: participantForm.notes.trim() || undefined,
+      });
 
-    loadTenders();
-    setIsParticipantDetailsOpen(false);
-    setSelectedParticipant(null);
-    setParticipantForm({ quote_file: '', total_amount: '', notes: '' });
+      await loadTenders();
+      setIsParticipantDetailsOpen(false);
+      setSelectedParticipant(null);
+      setParticipantForm({ quote_file: '', total_amount: '', notes: '' });
+    } catch (error) {
+      console.error('Error updating participant:', error);
+    }
   };
 
   // Open participant details modal
@@ -488,12 +497,16 @@ export default function TendersTab({ project }: TendersTabProps) {
   };
 
   // Handle delete tender
-  const handleDeleteTender = (tender: Tender) => {
+  const handleDeleteTender = async (tender: Tender) => {
     if (!confirm(`האם אתה בטוח שברצונך למחוק את המכרז "${tender.tender_name}"?`)) {
       return;
     }
-    deleteTender(tender.id);
-    loadTenders();
+    try {
+      await deleteTender(tender.id);
+      await loadTenders();
+    } catch (error) {
+      console.error('Error deleting tender:', error);
+    }
   };
 
   // Get participant with professional data - sorted by price (lowest first)
@@ -531,6 +544,14 @@ export default function TendersTab({ project }: TendersTabProps) {
 
     return { min, max, avg, count: prices.length, lowestParticipantId };
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

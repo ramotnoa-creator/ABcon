@@ -1,7 +1,7 @@
 import type { BudgetPayment, BudgetItem, Project } from '../types';
-import { getAllBudgetPayments } from './budgetPaymentsStorage';
-import { getAllBudgetItems, getBudgetItems } from './budgetItemsStorage';
-import { getProjects } from './storage';
+import { getAllBudgetPayments } from '../services/budgetPaymentsService';
+import { getAllBudgetItems, getBudgetItems } from '../services/budgetItemsService';
+import { getProjects } from '../services/projectsService';
 
 export interface PaymentWithDetails {
   payment: BudgetPayment;
@@ -19,15 +19,17 @@ export interface PaymentSummary {
  * Get payments within a date range, optionally filtered by project
  * Uses payment_date for paid payments, invoice_date for pending/approved
  */
-export function getPaymentsInDateRange(
+export async function getPaymentsInDateRange(
   startDate: Date,
   endDate: Date,
   projectId?: string,
   statusFilter?: ('pending' | 'approved' | 'paid')[]
-): PaymentWithDetails[] {
-  const allPayments = getAllBudgetPayments();
-  const allItems = getAllBudgetItems();
-  const projects = getProjects();
+): Promise<PaymentWithDetails[]> {
+  const [allPayments, allItems, projects] = await Promise.all([
+    getAllBudgetPayments(),
+    getAllBudgetItems(),
+    getProjects(),
+  ]);
 
   // Create lookup maps
   const itemMap = new Map(allItems.map((i) => [i.id, i]));
@@ -36,7 +38,7 @@ export function getPaymentsInDateRange(
   // If filtering by project, get relevant item IDs
   let relevantItemIds: Set<string> | null = null;
   if (projectId) {
-    const projectItems = getBudgetItems(projectId);
+    const projectItems = await getBudgetItems(projectId);
     relevantItemIds = new Set(projectItems.map((i) => i.id));
   }
 
@@ -88,11 +90,11 @@ export function getPaymentsInDateRange(
  * Get payments that were paid in the last 30 days
  * Optionally filter by project
  */
-export function getLastMonthPaidAmount(projectId?: string): PaymentSummary {
+export async function getLastMonthPaidAmount(projectId?: string): Promise<PaymentSummary> {
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-  const payments = getPaymentsInDateRange(thirtyDaysAgo, now, projectId, ['paid']);
+  const payments = await getPaymentsInDateRange(thirtyDaysAgo, now, projectId, ['paid']);
 
   return {
     totalAmount: payments.reduce((sum, p) => sum + p.payment.total_amount, 0),
@@ -105,11 +107,11 @@ export function getLastMonthPaidAmount(projectId?: string): PaymentSummary {
  * Get payments scheduled for the next 30 days (pending or approved)
  * Optionally filter by project
  */
-export function getNextMonthPlannedPayments(projectId?: string): PaymentSummary {
+export async function getNextMonthPlannedPayments(projectId?: string): Promise<PaymentSummary> {
   const now = new Date();
   const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-  const payments = getPaymentsInDateRange(now, thirtyDaysFromNow, projectId, [
+  const payments = await getPaymentsInDateRange(now, thirtyDaysFromNow, projectId, [
     'pending',
     'approved',
   ]);
@@ -142,14 +144,16 @@ export function groupPaymentsByProject(
 /**
  * Get payment summary for dashboard display
  */
-export function getPaymentDashboardSummary(): {
+export async function getPaymentDashboardSummary(): Promise<{
   lastMonthPaid: number;
   lastMonthCount: number;
   nextMonthPlanned: number;
   nextMonthCount: number;
-} {
-  const lastMonth = getLastMonthPaidAmount();
-  const nextMonth = getNextMonthPlannedPayments();
+}> {
+  const [lastMonth, nextMonth] = await Promise.all([
+    getLastMonthPaidAmount(),
+    getNextMonthPlannedPayments(),
+  ]);
 
   return {
     lastMonthPaid: lastMonth.totalAmount,

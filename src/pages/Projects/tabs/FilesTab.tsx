@@ -1,5 +1,6 @@
-import { useState, useMemo, useCallback } from 'react';
-import { getFiles, addFile, updateFile, getAllFiles, saveFiles, removeFileFromProject } from '../../../data/filesStorage';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { getFiles, createFile, updateFile, getAllFiles, removeFileFromProject } from '../../../services/filesService';
+import { saveFiles } from '../../../data/filesStorage';
 import { seedFiles } from '../../../data/filesData';
 import type { Project } from '../../../types';
 import type { File } from '../../../types';
@@ -38,8 +39,8 @@ const getInitials = (name: string): string => {
   return name.substring(0, 2).toUpperCase();
 };
 
-const loadInitialFiles = (projectId: string): File[] => {
-  let loaded = getFiles(projectId);
+const loadInitialFiles = async (projectId: string): Promise<File[]> => {
+  let loaded = await getFiles(projectId);
 
   // Seed if empty
   if (loaded.length === 0) {
@@ -47,7 +48,7 @@ const loadInitialFiles = (projectId: string): File[] => {
       (f) => f.related_entity_type === 'Project' && f.related_entity_id === projectId
     );
     if (projectFiles.length > 0) {
-      const all = getAllFiles();
+      const all = await getAllFiles();
       projectFiles.forEach((file) => all.push(file));
       saveFiles(all);
       loaded = projectFiles;
@@ -58,16 +59,29 @@ const loadInitialFiles = (projectId: string): File[] => {
 };
 
 export default function FilesTab({ project }: FilesTabProps) {
-  const [files, setFiles] = useState<File[]>(() => loadInitialFiles(project.id));
+  const [files, setFiles] = useState<File[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [editingFile, setEditingFile] = useState<File | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const loadFiles = useCallback(() => {
-    setFiles(loadInitialFiles(project.id));
+  const loadFiles = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const loaded = await loadInitialFiles(project.id);
+      setFiles(loaded);
+    } catch (error) {
+      console.error('Error loading files:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }, [project.id]);
+
+  useEffect(() => {
+    loadFiles();
+  }, [loadFiles]);
 
   const filteredFiles = useMemo(() => {
     if (!searchQuery.trim()) return files;
@@ -96,11 +110,10 @@ export default function FilesTab({ project }: FilesTabProps) {
     notes: '',
   });
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!uploadForm.file_name.trim() || !uploadForm.file_url.trim()) return;
 
-    const newFile: File = {
-      id: `file-${Date.now()}`,
+    const fileData: Omit<File, 'id' | 'created_at' | 'updated_at'> = {
       file_name: uploadForm.file_name.trim(),
       file_url: uploadForm.file_url.trim(),
       file_size_display: uploadForm.file_size_display || undefined,
@@ -111,45 +124,55 @@ export default function FilesTab({ project }: FilesTabProps) {
       uploaded_at: new Date().toISOString(),
       uploaded_by: uploadForm.uploaded_by.trim(),
       notes: uploadForm.notes.trim() || undefined,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     };
 
-    addFile(newFile);
-    loadFiles();
-    setIsUploadModalOpen(false);
-    setUploadForm({
-      file_name: '',
-      file_url: '',
-      file_size_display: '',
-      description_short: '',
-      uploaded_by: 'ישראל ישראלי',
-      notes: '',
-    });
+    try {
+      await createFile(fileData);
+      await loadFiles();
+      setIsUploadModalOpen(false);
+      setUploadForm({
+        file_name: '',
+        file_url: '',
+        file_size_display: '',
+        description_short: '',
+        uploaded_by: 'ישראל ישראלי',
+        notes: '',
+      });
+    } catch (error) {
+      console.error('Error creating file:', error);
+    }
   };
 
   const handleEdit = (file: File) => {
     setEditingFile(file);
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingFile) return;
 
-    updateFile(editingFile.id, {
-      description_short: editingFile.description_short,
-      notes: editingFile.notes,
-      uploaded_by: editingFile.uploaded_by,
-    });
+    try {
+      await updateFile(editingFile.id, {
+        description_short: editingFile.description_short,
+        notes: editingFile.notes,
+        uploaded_by: editingFile.uploaded_by,
+      });
 
-    loadFiles();
-    setEditingFile(null);
+      await loadFiles();
+      setEditingFile(null);
+    } catch (error) {
+      console.error('Error updating file:', error);
+    }
   };
 
-  const handleRemoveFromProject = (fileId: string) => {
+  const handleRemoveFromProject = async (fileId: string) => {
     if (!confirm('האם אתה בטוח שברצונך להסיר את הקובץ מהפרויקט?')) return;
-    
-    removeFileFromProject(fileId);
-    loadFiles();
+
+    try {
+      await removeFileFromProject(fileId);
+      await loadFiles();
+    } catch (error) {
+      console.error('Error removing file from project:', error);
+    }
   };
 
   const handleCopyLink = (url: string) => {
@@ -195,41 +218,47 @@ export default function FilesTab({ project }: FilesTabProps) {
 
       {/* Files Table - Desktop */}
       <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark overflow-hidden">
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-right text-sm">
-            <thead className="bg-background-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark">
-              <tr>
-                <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  שם קובץ
-                </th>
-                <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  תיאור קצר
-                </th>
-                <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  קישור
-                </th>
-                <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  הועלה ע״י
-                </th>
-                <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  תאריך העלאה
-                </th>
-                <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  הערות
-                </th>
-                <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  פעולות
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-light dark:divide-border-dark">
-              {paginatedFiles.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-text-secondary-light dark:text-text-secondary-dark">
-                    אין קבצים
-                  </td>
-                </tr>
-              ) : (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="size-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <>
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-right text-sm">
+                <thead className="bg-background-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark">
+                  <tr>
+                    <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                      שם קובץ
+                    </th>
+                    <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                      תיאור קצר
+                    </th>
+                    <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                      קישור
+                    </th>
+                    <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                      הועלה ע״י
+                    </th>
+                    <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                      תאריך העלאה
+                    </th>
+                    <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                      הערות
+                    </th>
+                    <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                      פעולות
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-light dark:divide-border-dark">
+                  {paginatedFiles.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-12 text-center text-text-secondary-light dark:text-text-secondary-dark">
+                        אין קבצים
+                      </td>
+                    </tr>
+                  ) : (
                 paginatedFiles.map((file) => {
                   const fileIcon = getFileIcon(file.file_type, file.file_name);
                   return (
@@ -328,64 +357,66 @@ export default function FilesTab({ project }: FilesTabProps) {
           </table>
         </div>
 
-        {/* Mobile Cards */}
-        <div className="block md:hidden divide-y divide-border-light dark:divide-border-dark">
-          {paginatedFiles.length === 0 ? (
-            <div className="p-4 text-center text-text-secondary-light dark:text-text-secondary-dark">
-              אין קבצים
-            </div>
-          ) : (
-            paginatedFiles.map((file) => {
-              const fileIcon = getFileIcon(file.file_type, file.file_name);
-              return (
-                <div key={file.id} className="p-4 flex flex-col gap-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`size-10 rounded ${fileIcon.color} flex items-center justify-center shrink-0`}>
-                        <span className="material-symbols-outlined">{fileIcon.icon}</span>
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-sm text-text-main-light dark:text-text-main-dark line-clamp-1">
-                          {file.file_name}
-                        </h3>
-                        <p className="text-xs text-text-secondary-light">
-                          {file.description_short || '-'}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-medium text-text-secondary-light bg-background-light dark:bg-surface-dark px-2 py-1 rounded border border-border-light">
-                      {formatDateForDisplay(file.uploaded_at).split('/').slice(0, 2).join('/')}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between mt-1">
-                    <div className="flex items-center gap-2">
-                      <div className="size-5 rounded-full bg-primary text-white flex items-center justify-center text-[10px] font-bold">
-                        {getInitials(file.uploaded_by)}
-                      </div>
-                      <span className="text-xs text-text-secondary-light">{file.uploaded_by}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleEdit(file)}
-                        className="flex items-center justify-center size-8 rounded-full bg-background-light dark:bg-surface-dark border border-border-light text-primary hover:bg-primary hover:text-white transition-colors"
-                        title="עריכת מטא דאטה"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">edit</span>
-                      </button>
-                      <button
-                        onClick={() => handleOpenFile(file.file_url)}
-                        className="flex items-center justify-center size-8 rounded-full bg-primary text-white shadow-sm hover:bg-primary-hover transition-colors"
-                        title="פתיחת קובץ"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">open_in_new</span>
-                      </button>
-                    </div>
-                  </div>
+            {/* Mobile Cards */}
+            <div className="block md:hidden divide-y divide-border-light dark:divide-border-dark">
+              {paginatedFiles.length === 0 ? (
+                <div className="p-4 text-center text-text-secondary-light dark:text-text-secondary-dark">
+                  אין קבצים
                 </div>
-              );
-            })
-          )}
-        </div>
+              ) : (
+                paginatedFiles.map((file) => {
+                  const fileIcon = getFileIcon(file.file_type, file.file_name);
+                  return (
+                    <div key={file.id} className="p-4 flex flex-col gap-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`size-10 rounded ${fileIcon.color} flex items-center justify-center shrink-0`}>
+                            <span className="material-symbols-outlined">{fileIcon.icon}</span>
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-sm text-text-main-light dark:text-text-main-dark line-clamp-1">
+                              {file.file_name}
+                            </h3>
+                            <p className="text-xs text-text-secondary-light">
+                              {file.description_short || '-'}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-xs font-medium text-text-secondary-light bg-background-light dark:bg-surface-dark px-2 py-1 rounded border border-border-light">
+                          {formatDateForDisplay(file.uploaded_at).split('/').slice(0, 2).join('/')}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <div className="flex items-center gap-2">
+                          <div className="size-5 rounded-full bg-primary text-white flex items-center justify-center text-[10px] font-bold">
+                            {getInitials(file.uploaded_by)}
+                          </div>
+                          <span className="text-xs text-text-secondary-light">{file.uploaded_by}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleEdit(file)}
+                            className="flex items-center justify-center size-8 rounded-full bg-background-light dark:bg-surface-dark border border-border-light text-primary hover:bg-primary hover:text-white transition-colors"
+                            title="עריכת מטא דאטה"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">edit</span>
+                          </button>
+                          <button
+                            onClick={() => handleOpenFile(file.file_url)}
+                            className="flex items-center justify-center size-8 rounded-full bg-primary text-white shadow-sm hover:bg-primary-hover transition-colors"
+                            title="פתיחת קובץ"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Pagination */}

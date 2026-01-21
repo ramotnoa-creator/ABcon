@@ -1,9 +1,9 @@
-import { useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import type { Project } from '../../../types';
 import { formatDateForDisplay, formatDateHebrew } from '../../../utils/dateUtils';
-import { getProjectProfessionals } from '../../../data/professionalsStorage';
-import { getTasks } from '../../../data/tasksStorage';
-import { getFiles } from '../../../data/filesStorage';
+import { getProjectProfessionalsByProjectId } from '../../../services/projectProfessionalsService';
+import { getTasks } from '../../../services/tasksService';
+import { getFiles } from '../../../services/filesService';
 import ProjectKPICards from '../../../components/Projects/ProjectKPICards';
 
 interface OverviewTabProps {
@@ -13,20 +13,34 @@ interface OverviewTabProps {
 }
 
 export default function OverviewTab({ project, statusColors, onTabChange }: OverviewTabProps) {
-  // Compute counts using useMemo instead of useState + useEffect
-  const { professionalsCount, openTasksCount, filesCount } = useMemo(() => {
-    const projectProfessionals = getProjectProfessionals(project.id);
-    const projectTasks = getTasks(project.id);
-    const openTasks = projectTasks.filter(
-      (t) => t.status !== 'Done' && t.status !== 'Canceled'
-    );
-    const projectFiles = getFiles(project.id);
+  // State for counts
+  const [professionalsCount, setProfessionalsCount] = useState(0);
+  const [openTasksCount, setOpenTasksCount] = useState(0);
+  const [filesCount, setFilesCount] = useState(0);
 
-    return {
-      professionalsCount: projectProfessionals.length,
-      openTasksCount: openTasks.length,
-      filesCount: projectFiles.length,
+  // Load counts on mount
+  useEffect(() => {
+    const loadCounts = async () => {
+      try {
+        const [projectProfessionals, projectTasks, projectFiles] = await Promise.all([
+          getProjectProfessionalsByProjectId(project.id),
+          getTasks(project.id),
+          getFiles(project.id),
+        ]);
+
+        const openTasks = projectTasks.filter(
+          (t) => t.status !== 'Done' && t.status !== 'Canceled'
+        );
+
+        setProfessionalsCount(projectProfessionals.length);
+        setOpenTasksCount(openTasks.length);
+        setFilesCount(projectFiles.length);
+      } catch (error) {
+        console.error('Error loading overview counts:', error);
+      }
     };
+
+    loadCounts();
   }, [project.id]);
 
   const statusLabels: Record<string, string> = {

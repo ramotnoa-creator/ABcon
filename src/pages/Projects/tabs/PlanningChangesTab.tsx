@@ -1,12 +1,11 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   getPlanningChanges,
-  getAllPlanningChanges,
-  savePlanningChanges,
-  addPlanningChange,
+  createPlanningChange,
   updatePlanningChange,
   deletePlanningChange,
-} from '../../../data/planningChangesStorage';
+} from '../../../services/planningChangesService';
+import { savePlanningChanges } from '../../../data/planningChangesStorage';
 import { seedPlanningChanges } from '../../../data/planningChangesData';
 import { useAuth } from '../../../contexts/AuthContext';
 import {
@@ -134,15 +133,13 @@ const formatCurrency = (amount?: number): string => {
   }).format(amount);
 };
 
-const loadInitialChanges = (projectId: string): PlanningChange[] => {
-  let loaded = getPlanningChanges(projectId);
+const loadInitialChanges = async (projectId: string): Promise<PlanningChange[]> => {
+  let loaded = await getPlanningChanges(projectId);
 
   if (loaded.length === 0) {
     const projectChanges = seedPlanningChanges.filter((pc) => pc.project_id === projectId);
     if (projectChanges.length > 0) {
-      const all = getAllPlanningChanges();
-      projectChanges.forEach((change) => all.push(change));
-      savePlanningChanges(all);
+      savePlanningChanges([...loaded, ...projectChanges]);
       loaded = projectChanges;
     }
   }
@@ -152,7 +149,8 @@ const loadInitialChanges = (projectId: string): PlanningChange[] => {
 
 export default function PlanningChangesTab({ project }: PlanningChangesTabProps) {
   const { user } = useAuth();
-  const [changes, setChanges] = useState<PlanningChange[]>(() => loadInitialChanges(project.id));
+  const [changes, setChanges] = useState<PlanningChange[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [decisionFilter, setDecisionFilter] = useState<PlanningChangeDecision | 'all'>('all');
@@ -183,9 +181,21 @@ export default function PlanningChangesTab({ project }: PlanningChangesTabProps)
   const canEdit = !user || canEditPlanningChange(user, project.id);
   const canDelete = !user || canDeletePlanningChange(user, project.id);
 
-  const loadChanges = useCallback(() => {
-    setChanges(loadInitialChanges(project.id));
+  const loadChanges = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const loaded = await loadInitialChanges(project.id);
+      setChanges(loaded);
+    } catch (error) {
+      console.error('Error loading planning changes:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }, [project.id]);
+
+  useEffect(() => {
+    loadChanges();
+  }, [loadChanges]);
 
   // Sort: pending first, then in_progress, then approved at bottom
   const sortedAndFilteredChanges = useMemo(() => {
@@ -223,60 +233,69 @@ export default function PlanningChangesTab({ project }: PlanningChangesTabProps)
     setEditingId(null);
   };
 
-  const saveEditing = () => {
+  const saveEditing = async () => {
     if (!editingId || !editFormData.description.trim()) return;
 
     const budgetImpact = editFormData.budget_impact.trim()
       ? parseFloat(editFormData.budget_impact)
       : undefined;
 
-    updatePlanningChange(editingId, {
-      description: editFormData.description.trim(),
-      schedule_impact: editFormData.schedule_impact.trim() || undefined,
-      budget_impact: isNaN(budgetImpact as number) ? undefined : budgetImpact,
-      decision: editFormData.decision,
-      image_urls: editFormData.image_urls.length > 0 ? editFormData.image_urls : undefined,
-    });
+    try {
+      await updatePlanningChange(editingId, {
+        description: editFormData.description.trim(),
+        schedule_impact: editFormData.schedule_impact.trim() || undefined,
+        budget_impact: isNaN(budgetImpact as number) ? undefined : budgetImpact,
+        decision: editFormData.decision,
+        image_urls: editFormData.image_urls.length > 0 ? editFormData.image_urls : undefined,
+      });
 
-    loadChanges();
-    setEditingId(null);
+      await loadChanges();
+      setEditingId(null);
+    } catch (error) {
+      console.error('Error updating planning change:', error);
+    }
   };
 
-  const handleAddNew = () => {
+  const handleAddNew = async () => {
     if (!newFormData.description.trim()) return;
 
     const budgetImpact = newFormData.budget_impact.trim()
       ? parseFloat(newFormData.budget_impact)
       : undefined;
 
-    addPlanningChange({
-      id: `pc-${Date.now()}`,
-      project_id: project.id,
-      description: newFormData.description.trim(),
-      schedule_impact: newFormData.schedule_impact.trim() || undefined,
-      budget_impact: isNaN(budgetImpact as number) ? undefined : budgetImpact,
-      decision: newFormData.decision,
-      image_urls: newFormData.image_urls.length > 0 ? newFormData.image_urls : undefined,
-      created_by: user?.id,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
+    try {
+      await createPlanningChange({
+        project_id: project.id,
+        description: newFormData.description.trim(),
+        schedule_impact: newFormData.schedule_impact.trim() || undefined,
+        budget_impact: isNaN(budgetImpact as number) ? undefined : budgetImpact,
+        decision: newFormData.decision,
+        image_urls: newFormData.image_urls.length > 0 ? newFormData.image_urls : undefined,
+        created_by: user?.id,
+      });
 
-    loadChanges();
-    setIsAddModalOpen(false);
-    setNewFormData({
-      description: '',
-      schedule_impact: '',
-      budget_impact: '',
-      decision: 'pending',
-      image_urls: [],
-    });
+      await loadChanges();
+      setIsAddModalOpen(false);
+      setNewFormData({
+        description: '',
+        schedule_impact: '',
+        budget_impact: '',
+        decision: 'pending',
+        image_urls: [],
+      });
+    } catch (error) {
+      console.error('Error creating planning change:', error);
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('האם אתה בטוח שברצונך למחוק שינוי זה?')) return;
-    deletePlanningChange(id);
-    loadChanges();
+    try {
+      await deletePlanningChange(id);
+      await loadChanges();
+    } catch (error) {
+      console.error('Error deleting planning change:', error);
+    }
   };
 
   const handleAddImageUrl = (isEdit: boolean) => {
@@ -346,7 +365,11 @@ export default function PlanningChangesTab({ project }: PlanningChangesTabProps)
 
       {/* Changes List */}
       <div className="space-y-3">
-        {sortedAndFilteredChanges.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="size-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : sortedAndFilteredChanges.length === 0 ? (
           <div className="bg-surface-light dark:bg-surface-dark rounded-xl p-12 text-center text-text-secondary-light dark:text-text-secondary-dark border border-border-light dark:border-border-dark">
             אין שינויים בתכנון
           </div>

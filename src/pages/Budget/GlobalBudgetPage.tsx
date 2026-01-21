@@ -1,16 +1,17 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAllBudgets, saveBudgets } from '../../data/budgetStorage';
-import { getProjects } from '../../data/storage';
-import { getProjectBudgetSummary } from '../../data/budgetItemsStorage';
+import { getAllBudgets } from '../../services/budgetService';
+import { getProjects } from '../../services/projectsService';
+import { getProjectBudgetSummary } from '../../services/budgetItemsService';
+import { saveBudgets } from '../../data/budgetStorage';
 import { seedBudgets } from '../../data/budgetData';
 import { getLastMonthPaidAmount, getNextMonthPlannedPayments } from '../../data/budgetPaymentsQueries';
 import AddBudgetItemForm from '../../components/Budget/AddBudgetItemForm';
 import * as XLSX from 'xlsx';
 import type { Budget, Project } from '../../types';
 
-const loadInitialData = (): { budgets: Budget[]; projects: Project[] } => {
-  let loadedBudgets = getAllBudgets();
+const loadInitialData = async (): Promise<{ budgets: Budget[]; projects: Project[] }> => {
+  let loadedBudgets = await getAllBudgets();
 
   // Seed if empty
   if (loadedBudgets.length === 0) {
@@ -18,9 +19,11 @@ const loadInitialData = (): { budgets: Budget[]; projects: Project[] } => {
     saveBudgets(loadedBudgets);
   }
 
+  const projects = await getProjects();
+
   return {
     budgets: loadedBudgets,
-    projects: getProjects(),
+    projects,
   };
 };
 
@@ -132,14 +135,32 @@ function KPICard({ icon, label, value, subValue, color, progress }: KPICardProps
 export default function GlobalBudgetPage() {
   const navigate = useNavigate();
   const [refreshKey, setRefreshKey] = useState(0);
-  const [data] = useState(() => loadInitialData());
-  const { budgets, projects } = data;
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [varianceFilter, setVarianceFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [showAddItemModal, setShowAddItemModal] = useState(false);
   const itemsPerPage = 10;
+
+  // Load data on mount and when refreshKey changes
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        const data = await loadInitialData();
+        setBudgets(data.budgets);
+        setProjects(data.projects);
+      } catch (error) {
+        console.error('Error loading budget data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, [refreshKey]);
 
   // Payment summary data - refreshKey triggers re-fetch after adding items
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -251,6 +272,16 @@ export default function GlobalBudgetPage() {
     },
     [navigate]
   );
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 px-4 lg:px-10 py-6 max-w-[1400px] mx-auto w-full">
+        <div className="flex items-center justify-center py-12">
+          <div className="size-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 px-4 lg:px-10 py-6 max-w-[1400px] mx-auto w-full pb-20 lg:pb-6">

@@ -1,11 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getProfessionals } from '../../../services/professionalsService';
 import {
-  getProjectProfessionalsWithDetails,
+  getProjectProfessionalsByProjectId,
+  createProjectProfessional,
   removeProjectProfessional,
-  addProjectProfessional,
-  getProfessionals,
-} from '../../../data/professionalsStorage';
+} from '../../../services/projectProfessionalsService';
 import type { Project } from '../../../types';
 import type { Professional } from '../../../types';
 
@@ -15,58 +15,91 @@ interface ProfessionalsTabProps {
 
 type ProjectProfessionalItem = { professional: Professional; projectRole?: string; source: string };
 
-const loadInitialProjectProfessionals = (projectId: string): ProjectProfessionalItem[] => {
-  const withDetails = getProjectProfessionalsWithDetails(projectId);
-  return withDetails.map((pp) => ({
-    professional: pp.professional,
-    projectRole: pp.project_role,
-    source: pp.source,
-  }));
+const loadInitialProjectProfessionals = async (projectId: string): Promise<ProjectProfessionalItem[]> => {
+  const [projectProfessionals, professionals] = await Promise.all([
+    getProjectProfessionalsByProjectId(projectId),
+    getProfessionals(),
+  ]);
+
+  return projectProfessionals
+    .map((pp) => {
+      const professional = professionals.find((p) => p.id === pp.professional_id);
+      if (professional) {
+        return {
+          professional,
+          projectRole: pp.project_role,
+          source: pp.source,
+        };
+      }
+      return null;
+    })
+    .filter((item): item is ProjectProfessionalItem => item !== null);
 };
 
 export default function ProfessionalsTab({ project }: ProfessionalsTabProps) {
   const navigate = useNavigate();
-  const [projectProfessionals, setProjectProfessionals] = useState<ProjectProfessionalItem[]>(
-    () => loadInitialProjectProfessionals(project.id)
-  );
+  const [projectProfessionals, setProjectProfessionals] = useState<ProjectProfessionalItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [availableProfessionals, setAvailableProfessionals] = useState<Professional[]>([]);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string>('');
 
-  const loadProjectProfessionals = useCallback(() => {
-    setProjectProfessionals(loadInitialProjectProfessionals(project.id));
+  const loadProjectProfessionals = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const loaded = await loadInitialProjectProfessionals(project.id);
+      setProjectProfessionals(loaded);
+    } catch (error) {
+      console.error('Error loading project professionals:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }, [project.id]);
 
-  const handleAddClick = () => {
-    const allProfessionals = getProfessionals();
-    const assignedIds = new Set(projectProfessionals.map((pp) => pp.professional.id));
-    const available = allProfessionals.filter((p) => p.is_active && !assignedIds.has(p.id));
-    setAvailableProfessionals(available);
-    setIsAddModalOpen(true);
+  useEffect(() => {
+    loadProjectProfessionals();
+  }, [loadProjectProfessionals]);
+
+  const handleAddClick = async () => {
+    try {
+      const allProfessionals = await getProfessionals();
+      const assignedIds = new Set(projectProfessionals.map((pp) => pp.professional.id));
+      const available = allProfessionals.filter((p) => p.is_active && !assignedIds.has(p.id));
+      setAvailableProfessionals(available);
+      setIsAddModalOpen(true);
+    } catch (error) {
+      console.error('Error loading professionals:', error);
+    }
   };
 
-  const handleAddProfessional = () => {
+  const handleAddProfessional = async () => {
     if (!selectedProfessionalId) return;
 
-    const newProjectProfessional = {
-      id: `pp-${Date.now()}`,
-      project_id: project.id,
-      professional_id: selectedProfessionalId,
-      project_role: undefined,
-      source: 'Manual' as const,
-      is_active: true,
-    };
+    try {
+      await createProjectProfessional({
+        project_id: project.id,
+        professional_id: selectedProfessionalId,
+        project_role: undefined,
+        source: 'Manual' as const,
+        is_active: true,
+      });
 
-    addProjectProfessional(newProjectProfessional);
-    loadProjectProfessionals();
-    setIsAddModalOpen(false);
-    setSelectedProfessionalId('');
+      await loadProjectProfessionals();
+      setIsAddModalOpen(false);
+      setSelectedProfessionalId('');
+    } catch (error) {
+      console.error('Error adding professional to project:', error);
+    }
   };
 
-  const handleRemoveProfessional = (professionalId: string) => {
+  const handleRemoveProfessional = async (professionalId: string) => {
     if (confirm('האם אתה בטוח שברצונך להסיר את איש המקצוע מהפרויקט?')) {
-      removeProjectProfessional(project.id, professionalId);
-      loadProjectProfessionals();
+      try {
+        await removeProjectProfessional(project.id, professionalId);
+        await loadProjectProfessionals();
+      } catch (error) {
+        console.error('Error removing professional from project:', error);
+      }
     }
   };
 
@@ -95,38 +128,43 @@ export default function ProfessionalsTab({ project }: ProfessionalsTabProps) {
 
       {/* Desktop Table */}
       <div className="hidden md:block bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-background-light dark:bg-background-dark border-b border-border-light dark:border-border-dark">
-              <tr>
-                <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
-                  שם איש מקצוע
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
-                  חברה
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
-                  תחום
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
-                  טלפון
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
-                  אימייל
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
-                  תפקיד בפרויקט
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
-                  מקור
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
-                  פעולות
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-light dark:divide-border-dark">
-              {projectProfessionals.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="size-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-background-light dark:bg-background-dark border-b border-border-light dark:border-border-dark">
+                <tr>
+                  <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
+                    שם איש מקצוע
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
+                    חברה
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
+                    תחום
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
+                    טלפון
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
+                    אימייל
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
+                    תפקיד בפרויקט
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
+                    מקור
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
+                    פעולות
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-light dark:divide-border-dark">
+                {projectProfessionals.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-12 text-center text-text-secondary-light dark:text-text-secondary-dark">
                     אין אנשי מקצוע משויכים לפרויקט זה
@@ -177,14 +215,19 @@ export default function ProfessionalsTab({ project }: ProfessionalsTabProps) {
                   </tr>
                 ))
               )}
-            </tbody>
-          </table>
-        </div>
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Mobile Cards */}
       <div className="md:hidden flex flex-col gap-4">
-        {projectProfessionals.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="size-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : projectProfessionals.length === 0 ? (
           <div className="text-center py-12 text-text-secondary-light dark:text-text-secondary-dark">
             אין אנשי מקצוע משויכים לפרויקט זה
           </div>

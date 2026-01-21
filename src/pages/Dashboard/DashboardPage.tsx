@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import KPICards from '../../components/Dashboard/KPICards';
 import AlertsSection from '../../components/Dashboard/AlertsSection';
@@ -15,15 +15,29 @@ import {
   getLastMonthCompletedMilestones,
   getNextMonthPendingMilestones,
 } from '../../data/milestonesQueries';
+import type { MilestoneWithProject } from '../../data/milestonesQueries';
 
 export default function DashboardPage() {
   const [isVisible, setIsVisible] = useState(false);
-
-  // Milestone data for KPI cards
-  const lastMonthMilestones = useMemo(() => getLastMonthCompletedMilestones(), []);
-  const nextMonthMilestones = useMemo(() => getNextMonthPendingMilestones(), []);
+  const [lastMonthMilestones, setLastMonthMilestones] = useState<MilestoneWithProject[]>([]);
+  const [nextMonthMilestones, setNextMonthMilestones] = useState<MilestoneWithProject[]>([]);
 
   useEffect(() => {
+    // Load milestone data
+    const loadMilestones = async () => {
+      try {
+        const [lastMonth, nextMonth] = await Promise.all([
+          getLastMonthCompletedMilestones(),
+          getNextMonthPendingMilestones(),
+        ]);
+        setLastMonthMilestones(lastMonth);
+        setNextMonthMilestones(nextMonth);
+      } catch (error) {
+        console.error('Error loading milestones:', error);
+      }
+    };
+    loadMilestones();
+
     // Trigger entrance animation after mount
     const timer = setTimeout(() => setIsVisible(true), 50);
     return () => clearTimeout(timer);

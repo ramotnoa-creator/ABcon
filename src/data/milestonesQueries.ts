@@ -1,6 +1,6 @@
 import type { ProjectMilestone, Project } from '../types';
-import { getAllMilestones, getMilestones } from './milestonesStorage';
-import { getProjects } from './storage';
+import { getAllMilestones, getMilestones } from '../services/milestonesService';
+import { getProjects } from '../services/projectsService';
 
 export interface MilestoneWithProject {
   milestone: ProjectMilestone;
@@ -10,13 +10,15 @@ export interface MilestoneWithProject {
 /**
  * Get milestones within a date range, optionally filtered by project
  */
-export function getMilestonesInDateRange(
+export async function getMilestonesInDateRange(
   startDate: Date,
   endDate: Date,
   projectId?: string
-): MilestoneWithProject[] {
-  const milestones = projectId ? getMilestones(projectId) : getAllMilestones();
-  const projects = getProjects();
+): Promise<MilestoneWithProject[]> {
+  const [milestones, projects] = await Promise.all([
+    projectId ? getMilestones(projectId) : getAllMilestones(),
+    getProjects(),
+  ]);
   const projectMap = new Map(projects.map((p) => [p.id, p]));
 
   return milestones
@@ -36,26 +38,24 @@ export function getMilestonesInDateRange(
  * Get milestones completed in the last 30 days
  * Optionally filter by project
  */
-export function getLastMonthCompletedMilestones(projectId?: string): MilestoneWithProject[] {
+export async function getLastMonthCompletedMilestones(projectId?: string): Promise<MilestoneWithProject[]> {
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-  return getMilestonesInDateRange(thirtyDaysAgo, now, projectId).filter(
-    (item) => item.milestone.status === 'completed'
-  );
+  const milestonesInRange = await getMilestonesInDateRange(thirtyDaysAgo, now, projectId);
+  return milestonesInRange.filter((item) => item.milestone.status === 'completed');
 }
 
 /**
  * Get pending/in-progress milestones due in the next 30 days
  * Optionally filter by project
  */
-export function getNextMonthPendingMilestones(projectId?: string): MilestoneWithProject[] {
+export async function getNextMonthPendingMilestones(projectId?: string): Promise<MilestoneWithProject[]> {
   const now = new Date();
   const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-  return getMilestonesInDateRange(now, thirtyDaysFromNow, projectId).filter(
-    (item) => item.milestone.status !== 'completed'
-  );
+  const milestonesInRange = await getMilestonesInDateRange(now, thirtyDaysFromNow, projectId);
+  return milestonesInRange.filter((item) => item.milestone.status !== 'completed');
 }
 
 /**
@@ -79,17 +79,17 @@ export function groupMilestonesByProject(
 /**
  * Get milestone summary for a date range
  */
-export function getMilestoneSummary(
+export async function getMilestoneSummary(
   startDate: Date,
   endDate: Date,
   projectId?: string
-): {
+): Promise<{
   total: number;
   completed: number;
   pending: number;
   inProgress: number;
-} {
-  const milestones = getMilestonesInDateRange(startDate, endDate, projectId);
+}> {
+  const milestones = await getMilestonesInDateRange(startDate, endDate, projectId);
 
   return {
     total: milestones.length,

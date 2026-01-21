@@ -1,8 +1,12 @@
-import { useState, useMemo, useCallback } from 'react';
-import { getBudgetCategories, getAllBudgetCategories, saveBudgetCategories } from '../../../data/budgetCategoriesStorage';
-import { getBudgetChapters, getAllBudgetChapters, saveBudgetChapters } from '../../../data/budgetChaptersStorage';
-import { getBudgetItems, getAllBudgetItems, saveBudgetItems } from '../../../data/budgetItemsStorage';
-import { getAllBudgetPayments, saveBudgetPayments } from '../../../data/budgetPaymentsStorage';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { getBudgetCategories } from '../../../services/budgetCategoriesService';
+import { getBudgetChapters } from '../../../services/budgetChaptersService';
+import { getBudgetItems } from '../../../services/budgetItemsService';
+import { getAllBudgetPayments } from '../../../services/budgetPaymentsService';
+import { saveBudgetCategories } from '../../../data/budgetCategoriesStorage';
+import { saveBudgetChapters } from '../../../data/budgetChaptersStorage';
+import { saveBudgetItems } from '../../../data/budgetItemsStorage';
+import { saveBudgetPayments } from '../../../data/budgetPaymentsStorage';
 import { seedBudgetCategories, seedBudgetChapters, seedBudgetItems, seedBudgetPayments } from '../../../data/budgetData';
 import AddBudgetItemForm from '../../../components/Budget/AddBudgetItemForm';
 import type { Project, BudgetCategory, BudgetChapter, BudgetItem, BudgetPayment, BudgetItemStatus } from '../../../types';
@@ -547,54 +551,46 @@ interface BudgetData {
   payments: BudgetPayment[];
 }
 
-const loadInitialBudgetData = (projectId: string): BudgetData => {
+const loadInitialBudgetData = async (projectId: string): Promise<BudgetData> => {
   // Load categories
-  let loadedCategories = getBudgetCategories(projectId);
+  let loadedCategories = await getBudgetCategories(projectId);
   if (loadedCategories.length === 0) {
     const seedCats = seedBudgetCategories.filter(c => c.project_id === projectId);
     if (seedCats.length > 0) {
-      const allCats = getAllBudgetCategories();
-      allCats.push(...seedCats);
-      saveBudgetCategories(allCats);
+      saveBudgetCategories([...loadedCategories, ...seedCats]);
       loadedCategories = seedCats;
     }
   }
 
   // Load chapters
-  let loadedChapters = getBudgetChapters(projectId);
+  let loadedChapters = await getBudgetChapters(projectId);
   if (loadedChapters.length === 0) {
     const seedChaps = seedBudgetChapters.filter(c => c.project_id === projectId);
     if (seedChaps.length > 0) {
-      const allChaps = getAllBudgetChapters();
-      allChaps.push(...seedChaps);
-      saveBudgetChapters(allChaps);
+      saveBudgetChapters([...loadedChapters, ...seedChaps]);
       loadedChapters = seedChaps;
     }
   }
 
   // Load items
-  let loadedItems = getBudgetItems(projectId);
+  let loadedItems = await getBudgetItems(projectId);
   if (loadedItems.length === 0) {
     const seedItms = seedBudgetItems.filter(i => i.project_id === projectId);
     if (seedItms.length > 0) {
-      const allItms = getAllBudgetItems();
-      allItms.push(...seedItms);
-      saveBudgetItems(allItms);
+      saveBudgetItems([...loadedItems, ...seedItms]);
       loadedItems = seedItms;
     }
   }
 
   // Load payments
-  let loadedPayments = getAllBudgetPayments();
+  let loadedPayments = await getAllBudgetPayments();
   const itemIds = loadedItems.map(i => i.id);
   loadedPayments = loadedPayments.filter(p => itemIds.includes(p.budget_item_id));
 
   if (loadedPayments.length === 0) {
     const seedPays = seedBudgetPayments.filter(p => itemIds.includes(p.budget_item_id));
     if (seedPays.length > 0) {
-      const allPays = getAllBudgetPayments();
-      allPays.push(...seedPays);
-      saveBudgetPayments(allPays);
+      saveBudgetPayments([...loadedPayments, ...seedPays]);
       loadedPayments = seedPays;
     }
   }
@@ -612,16 +608,51 @@ const loadInitialBudgetData = (projectId: string): BudgetData => {
 // ============================================================
 export default function BudgetTab({ project }: BudgetTabProps) {
   const [view, setView] = useState<ViewMode>('tree');
-  const [budgetData, setBudgetData] = useState<BudgetData>(() => loadInitialBudgetData(project.id));
+  const [budgetData, setBudgetData] = useState<BudgetData>({
+    categories: [],
+    chapters: [],
+    items: [],
+    payments: [],
+  });
+  const [isLoading, setIsLoading] = useState(true);
   const [showAddItemModal, setShowAddItemModal] = useState(false);
 
   const { categories, chapters, items, payments } = budgetData;
 
-  // Reload budget data after adding an item
-  const handleItemAdded = useCallback(() => {
-    setBudgetData(loadInitialBudgetData(project.id));
-    setShowAddItemModal(false);
+  // Load budget data on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        const data = await loadInitialBudgetData(project.id);
+        setBudgetData(data);
+      } catch (error) {
+        console.error('Error loading budget data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
   }, [project.id]);
+
+  // Reload budget data after adding an item
+  const handleItemAdded = useCallback(async () => {
+    try {
+      const data = await loadInitialBudgetData(project.id);
+      setBudgetData(data);
+      setShowAddItemModal(false);
+    } catch (error) {
+      console.error('Error reloading budget data:', error);
+    }
+  }, [project.id]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="size-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
