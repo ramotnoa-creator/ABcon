@@ -195,14 +195,8 @@ export default function DeveloperApprovalTab({ project }: DeveloperApprovalTabPr
 
   return (
     <div className="space-y-6">
-      {/* Header with stats */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h2 className="text-xl font-bold">אישורי יזם</h2>
-          <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm mt-1">
-            ניהול בקשות ואישורים מהיזם
-          </p>
-        </div>
+      {/* Header */}
+      <div className="flex justify-end mb-4">
         <button
           onClick={() => {
             setEditingApproval(null);

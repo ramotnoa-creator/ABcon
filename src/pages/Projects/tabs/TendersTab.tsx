@@ -9,7 +9,6 @@ import {
 } from '../../../services/tendersService';
 import {
   getTenderParticipants,
-  createTenderParticipant,
   addTenderParticipants,
   updateTenderParticipant,
   removeTenderParticipant,
@@ -18,14 +17,13 @@ import {
 } from '../../../services/tenderParticipantsService';
 import { getProfessionals } from '../../../services/professionalsService';
 import { createProjectProfessional } from '../../../services/projectProfessionalsService';
-import { seedTenders } from '../../../data/tendersData';
 import { getMilestones } from '../../../services/milestonesService';
 import { getBudgetCategories } from '../../../services/budgetCategoriesService';
 import { getBudgetChapters } from '../../../services/budgetChaptersService';
 import { createBudgetItem, getNextBudgetItemOrder, calculateBudgetItemTotals } from '../../../services/budgetItemsService';
 import { uploadTenderQuote, getFileNameFromUrl } from '../../../lib/supabaseStorage';
 import { findChapterForTender } from '../../../utils/tenderChapterMapping';
-import type { Project, Tender, TenderStatus, TenderType, TenderParticipant, Professional, BudgetItem } from '../../../types';
+import type { Project, Tender, TenderStatus, TenderType, TenderParticipant, Professional } from '../../../types';
 import { formatDateForDisplay } from '../../../utils/dateUtils';
 
 interface TendersTabProps {
@@ -556,8 +554,7 @@ export default function TendersTab({ project }: TendersTabProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <h3 className="text-xl font-bold">מכרזים</h3>
+      <div className="flex justify-end">
         <button
           onClick={(e) => openModalNearButton(e, setIsAddTenderModalOpen)}
           className="flex items-center justify-center h-10 px-5 rounded-lg bg-primary text-white hover:bg-primary-hover transition text-sm font-bold tracking-[0.015em] shadow-sm"

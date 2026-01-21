@@ -385,16 +385,13 @@ export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="flex items-center gap-3">
-          <h3 className="text-xl font-bold">בעיות מיוחדות</h3>
-          {openIssuesCount > 0 && (
-            <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200">
-              {openIssuesCount} פתוחות
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-3 w-full md:w-auto">
+      <div className="flex items-center justify-between gap-4">
+        {openIssuesCount > 0 && (
+          <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200">
+            {openIssuesCount} פתוחות
+          </span>
+        )}
+        <div className="flex items-center gap-3 flex-1 justify-end">
           <select
             className="h-10 px-3 rounded-lg bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
             value={statusFilter}

@@ -9,34 +9,38 @@ import {
   dashboardKPIs,
   dashboardAlerts,
   statusDistribution,
-  projectsRequiringAttention,
+  getProjectsRequiringAttention,
 } from '../../data/dashboardData';
 import {
   getLastMonthCompletedMilestones,
   getNextMonthPendingMilestones,
 } from '../../data/milestonesQueries';
 import type { MilestoneWithProject } from '../../data/milestonesQueries';
+import type { ProjectRequiringAttention } from '../../types';
 
 export default function DashboardPage() {
   const [isVisible, setIsVisible] = useState(false);
   const [lastMonthMilestones, setLastMonthMilestones] = useState<MilestoneWithProject[]>([]);
   const [nextMonthMilestones, setNextMonthMilestones] = useState<MilestoneWithProject[]>([]);
+  const [projectsRequiringAttention, setProjectsRequiringAttention] = useState<ProjectRequiringAttention[]>([]);
 
   useEffect(() => {
-    // Load milestone data
-    const loadMilestones = async () => {
+    // Load all dashboard data
+    const loadDashboardData = async () => {
       try {
-        const [lastMonth, nextMonth] = await Promise.all([
+        const [lastMonth, nextMonth, projects] = await Promise.all([
           getLastMonthCompletedMilestones(),
           getNextMonthPendingMilestones(),
+          getProjectsRequiringAttention(),
         ]);
         setLastMonthMilestones(lastMonth);
         setNextMonthMilestones(nextMonth);
+        setProjectsRequiringAttention(projects);
       } catch (error) {
-        console.error('Error loading milestones:', error);
+        console.error('Error loading dashboard data:', error);
       }
     };
-    loadMilestones();
+    loadDashboardData();
 
     // Trigger entrance animation after mount
     const timer = setTimeout(() => setIsVisible(true), 50);

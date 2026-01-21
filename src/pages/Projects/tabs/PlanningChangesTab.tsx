@@ -331,16 +331,13 @@ export default function PlanningChangesTab({ project }: PlanningChangesTabProps)
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="flex items-center gap-3">
-          <h3 className="text-xl font-bold">שינויים בתכנון</h3>
-          {pendingCount > 0 && (
-            <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200">
-              {pendingCount} ממתינים
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-3 w-full md:w-auto">
+      <div className="flex items-center justify-between gap-4">
+        {pendingCount > 0 && (
+          <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200">
+            {pendingCount} ממתינים
+          </span>
+        )}
+        <div className="flex items-center gap-3 flex-1 justify-end">
           <select
             className="h-10 px-3 rounded-lg bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
             value={decisionFilter}

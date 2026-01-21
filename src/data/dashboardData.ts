@@ -1,4 +1,78 @@
-import type { Alert, KPI, ProjectRequiringAttention, StatusDistribution } from '../types';
+import type { Alert, KPI, ProjectRequiringAttention, StatusDistribution, Project } from '../types';
+import { getProjects } from '../services/projectsService';
+
+// Helper to calculate progress based on status
+function calculateProgress(status: string): number {
+  const statusProgress: Record<string, number> = {
+    'תכנון': 15,
+    'היתרים': 35,
+    'מכרזים': 50,
+    'ביצוע': 70,
+    'מסירה': 95,
+    'ארכיון': 100,
+  };
+  return statusProgress[status] || 0;
+}
+
+// Helper to get status color
+function getStatusColor(status: string): 'red' | 'yellow' | 'blue' {
+  if (status === 'ביצוע') return 'blue';
+  if (status === 'היתרים' || status === 'מכרזים') return 'yellow';
+  return 'blue';
+}
+
+// Helper to get critical issue for a project
+function getCriticalIssue(project: Project): { issue: string; color: 'red' | 'default' } {
+  // Check for permit delay
+  if (project.permit_target_date) {
+    const targetDate = new Date(project.permit_target_date);
+    const today = new Date();
+    if (targetDate < today && project.status !== 'ארכיון') {
+      return { issue: 'איחור בלו"ז היתר', color: 'red' };
+    }
+  }
+
+  // Default issues based on status
+  if (project.status === 'היתרים') return { issue: 'בהמתנה לאישור', color: 'default' };
+  if (project.status === 'מכרזים') return { issue: 'בתהליך מכרזים', color: 'default' };
+  if (project.status === 'ביצוע') return { issue: 'בביצוע שוטף', color: 'default' };
+  return { issue: 'בתכנון', color: 'default' };
+}
+
+// Fetch real projects for dashboard
+export async function getProjectsRequiringAttention(): Promise<ProjectRequiringAttention[]> {
+  try {
+    const projects = await getProjects();
+
+    // Filter active projects (not archived) and map to dashboard format
+    const activeProjects = projects.filter(p => p.status !== 'ארכיון');
+
+    // Sort by urgency (permit target date closest to today)
+    const sorted = activeProjects.sort((a, b) => {
+      const aDate = a.permit_target_date ? new Date(a.permit_target_date).getTime() : Infinity;
+      const bDate = b.permit_target_date ? new Date(b.permit_target_date).getTime() : Infinity;
+      return aDate - bDate;
+    });
+
+    // Take top 5
+    return sorted.slice(0, 5).map(project => {
+      const { issue, color: issueColor } = getCriticalIssue(project);
+      return {
+        id: project.id,
+        project_name: project.project_name,
+        project_manager: project.client_name, // Using client_name as manager for now
+        status: project.status,
+        critical_issue: issue,
+        progress: calculateProgress(project.status),
+        statusColor: getStatusColor(project.status),
+        issueColor,
+      };
+    });
+  } catch (error) {
+    console.error('Error fetching projects for dashboard:', error);
+    return projectsRequiringAttention; // Fallback to static data
+  }
+}
 
 export const dashboardKPIs: KPI[] = [
   {

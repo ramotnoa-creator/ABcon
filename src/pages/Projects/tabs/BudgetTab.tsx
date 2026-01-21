@@ -658,11 +658,7 @@ export default function BudgetTab({ project }: BudgetTabProps) {
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-white dark:bg-surface-dark rounded-xl border border-gray-200 dark:border-border-dark p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-xl font-bold text-gray-800 dark:text-white">ניהול תקציב</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{project.project_name}</p>
-          </div>
+        <div className="flex items-center justify-end mb-4">
           <button
             onClick={() => setShowAddItemModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover text-sm shadow-sm"

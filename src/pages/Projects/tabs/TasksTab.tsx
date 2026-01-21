@@ -1,7 +1,11 @@
-import { useState, useCallback } from 'react';
-import { getTasks, addTask, updateTask, getAllTasks, saveTasks } from '../../../data/tasksStorage';
-import { getProjectProfessionalsWithDetails } from '../../../data/professionalsStorage';
-import { seedTasks } from '../../../data/tasksData';
+import { useState, useCallback, useEffect } from 'react';
+import {
+  getTasks,
+  createTask,
+  updateTask,
+} from '../../../services/tasksService';
+import { getProjectProfessionalsByProjectId } from '../../../services/projectProfessionalsService';
+import { getProfessionals } from '../../../services/professionalsService';
 import type { Project } from '../../../types';
 import type { Task, TaskStatus, TaskPriority } from '../../../types';
 import { formatDateForDisplay } from '../../../utils/dateUtils';
@@ -32,51 +36,69 @@ const priorityIcons: Record<TaskPriority, string> = {
   Low: '🟢',
 };
 
-const loadInitialTasks = (projectId: string): Task[] => {
-  let loaded = getTasks(projectId);
-
-  // Seed if empty
-  if (loaded.length === 0) {
-    const projectTasks = seedTasks.filter((t) => t.project_id === projectId);
-    if (projectTasks.length > 0) {
-      const all = getAllTasks();
-      projectTasks.forEach((task) => all.push(task));
-      saveTasks(all);
-      loaded = projectTasks;
-    }
-  }
-
+const loadInitialTasks = async (projectId: string): Promise<Task[]> => {
+  const loaded = await getTasks(projectId);
   return loaded;
 };
 
-const loadInitialProfessionals = (projectId: string): Array<{ id: string; name: string }> => {
-  const withDetails = getProjectProfessionalsWithDetails(projectId);
-  return withDetails.map((pp) => ({
-    id: pp.professional.id,
-    name: pp.professional.professional_name,
-  }));
+const loadInitialProfessionals = async (projectId: string): Promise<Array<{ id: string; name: string }>> => {
+  const [projectProfessionals, allProfessionals] = await Promise.all([
+    getProjectProfessionalsByProjectId(projectId),
+    getProfessionals(),
+  ]);
+
+  return projectProfessionals.map((pp) => {
+    const professional = allProfessionals.find((p) => p.id === pp.professional_id);
+    return {
+      id: pp.professional_id,
+      name: professional?.professional_name || 'Unknown',
+    };
+  });
 };
 
 export default function TasksTab({ project }: TasksTabProps) {
-  const [tasks, setTasks] = useState<Task[]>(() => loadInitialTasks(project.id));
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [projectProfessionals, setProjectProfessionals] = useState<
     Array<{ id: string; name: string }>
-  >(() => loadInitialProfessionals(project.id));
+  >([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const loadTasks = useCallback(() => {
-    setTasks(loadInitialTasks(project.id));
+  const loadTasks = useCallback(async () => {
+    const loaded = await loadInitialTasks(project.id);
+    setTasks(loaded);
   }, [project.id]);
 
-  const loadProjectProfessionals = useCallback(() => {
-    setProjectProfessionals(loadInitialProfessionals(project.id));
+  const loadProjectProfessionals = useCallback(async () => {
+    const loaded = await loadInitialProfessionals(project.id);
+    setProjectProfessionals(loaded);
   }, [project.id]);
 
-  const refreshData = useCallback(() => {
-    loadTasks();
-    loadProjectProfessionals();
+  // Load initial data
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        const [loadedTasks, loadedProfessionals] = await Promise.all([
+          loadInitialTasks(project.id),
+          loadInitialProfessionals(project.id),
+        ]);
+        setTasks(loadedTasks);
+        setProjectProfessionals(loadedProfessionals);
+      } catch (error) {
+        console.error('Error loading tasks data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, [project.id]);
+
+  const refreshData = useCallback(async () => {
+    await loadTasks();
+    await loadProjectProfessionals();
   }, [loadTasks, loadProjectProfessionals]);
   void refreshData; // Available for refresh button
 
@@ -90,11 +112,10 @@ export default function TasksTab({ project }: TasksTabProps) {
     notes: '',
   });
 
-  const handleCreateTask = () => {
+  const handleCreateTask = async () => {
     if (!newTaskForm.title.trim()) return;
 
-    const newTask: Task = {
-      id: `task-${Date.now()}`,
+    const taskData: Omit<Task, 'id' | 'created_at' | 'updated_at'> = {
       project_id: project.id,
       title: newTaskForm.title.trim(),
       description: newTaskForm.description.trim() || undefined,
@@ -104,39 +125,51 @@ export default function TasksTab({ project }: TasksTabProps) {
       assignee_name: projectProfessionals.find((p) => p.id === newTaskForm.assignee_professional_id)?.name,
       due_date: newTaskForm.due_date || undefined,
       notes: newTaskForm.notes.trim() || undefined,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     };
 
-    addTask(newTask);
-    loadTasks();
-    setIsNewTaskModalOpen(false);
-    setNewTaskForm({
-      title: '',
-      description: '',
-      status: 'Backlog',
-      priority: 'Medium',
-      assignee_professional_id: '',
-      due_date: '',
-      notes: '',
-    });
+    try {
+      await createTask(taskData);
+      await loadTasks();
+      setIsNewTaskModalOpen(false);
+      setNewTaskForm({
+        title: '',
+        description: '',
+        status: 'Backlog',
+        priority: 'Medium',
+        assignee_professional_id: '',
+        due_date: '',
+        notes: '',
+      });
+    } catch (error) {
+      console.error('Error creating task:', error);
+    }
   };
 
-  const handleStatusChange = (taskId: string, newStatus: TaskStatus) => {
-    updateTask(taskId, { status: newStatus });
-    loadTasks();
+  const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
+    try {
+      await updateTask(taskId, { status: newStatus });
+      await loadTasks();
+    } catch (error) {
+      console.error('Error updating task status:', error);
+    }
   };
 
   const getTasksByStatus = (status: TaskStatus): Task[] => {
     return tasks.filter((t) => t.status === status);
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <h3 className="text-xl font-bold">משימות</h3>
-        <div className="flex gap-2">
+      <div className="flex justify-end gap-2">
           <button
             onClick={() => setIsImportModalOpen(true)}
             className="flex items-center justify-center h-10 px-4 rounded-lg bg-slate-600 text-white hover:bg-slate-700 transition text-sm font-bold"
@@ -151,7 +184,6 @@ export default function TasksTab({ project }: TasksTabProps) {
             <span className="material-symbols-outlined me-2 text-[18px]">add</span>
             משימה חדשה
           </button>
-        </div>
       </div>
 
       {/* Kanban Board - Desktop */}

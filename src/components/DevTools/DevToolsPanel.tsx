@@ -7,11 +7,13 @@
 import { useState } from 'react';
 import { seedDatabase, clearDatabase, seedDataSummary } from '../../data/seedData';
 import { isDemoMode } from '../../lib/neon';
+import { mergeSeedDataToNeon } from '../../services/migrationService';
 
 export default function DevToolsPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
   const [lastAction, setLastAction] = useState<string | null>(null);
+  const [progressLog, setProgressLog] = useState<string[]>([]);
 
   // Only show in development
   if (import.meta.env.PROD) {
@@ -84,6 +86,47 @@ export default function DevToolsPanel() {
     setTimeout(() => {
       window.location.reload();
     }, 1000);
+  };
+
+  const handleMergeToNeon = async () => {
+    if (isDemoMode) {
+      setLastAction('❌ Cannot merge - not connected to Neon (demo mode)');
+      return;
+    }
+
+    if (!confirm('Merge seed data to Neon production?\n\nThis will ADD records (not replace existing data).\n\nThis is a ONE-TIME operation - running again will create duplicates.')) {
+      return;
+    }
+
+    setIsSeeding(true);
+    setLastAction(null);
+    setProgressLog([]);
+
+    try {
+      const result = await mergeSeedDataToNeon((message) => {
+        setProgressLog((prev) => [...prev.slice(-8), message]);
+      });
+
+      const totalCreated = Object.values(result.created).reduce((a, b) => a + b, 0);
+
+      if (result.success) {
+        setLastAction(`✅ Merged ${totalCreated} records to Neon!`);
+      } else {
+        setLastAction(`⚠️ Merged ${totalCreated} records with ${result.errors.length} errors`);
+      }
+
+      console.log('Migration result:', result);
+
+      // Reload page to see new data
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (error) {
+      setLastAction(`❌ Migration failed: ${error}`);
+      console.error('Migration error:', error);
+    } finally {
+      setIsSeeding(false);
+    }
   };
 
   return (
@@ -181,6 +224,29 @@ export default function DevToolsPanel() {
               <span className="material-symbols-outlined text-[18px]">swap_horiz</span>
               Toggle Demo Mode
             </button>
+
+            {/* Merge to Neon Button - Only show when connected */}
+            {!isDemoMode && (
+              <button
+                onClick={handleMergeToNeon}
+                disabled={isSeeding}
+                className="w-full py-2.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded font-bold text-sm transition-colors flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-outlined text-[18px]">
+                  {isSeeding ? 'hourglass_empty' : 'merge'}
+                </span>
+                {isSeeding ? 'Merging...' : 'Merge Seed Data to Neon'}
+              </button>
+            )}
+
+            {/* Progress Log */}
+            {progressLog.length > 0 && (
+              <div className="text-[10px] p-2 bg-gray-900 text-green-400 rounded border border-gray-700 font-mono max-h-32 overflow-y-auto">
+                {progressLog.map((line, i) => (
+                  <div key={i}>{line}</div>
+                ))}
+              </div>
+            )}
 
             {/* Last Action Result */}
             {lastAction && (

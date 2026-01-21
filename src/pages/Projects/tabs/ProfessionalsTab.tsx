@@ -6,14 +6,13 @@ import {
   createProjectProfessional,
   removeProjectProfessional,
 } from '../../../services/projectProfessionalsService';
-import type { Project } from '../../../types';
-import type { Professional } from '../../../types';
+import type { Project, Professional, ProjectProfessionalSource } from '../../../types';
 
 interface ProfessionalsTabProps {
   project: Project;
 }
 
-type ProjectProfessionalItem = { professional: Professional; projectRole?: string; source: string };
+type ProjectProfessionalItem = { professional: Professional; projectRole: string | undefined; source: ProjectProfessionalSource };
 
 const loadInitialProjectProfessionals = async (projectId: string): Promise<ProjectProfessionalItem[]> => {
   const [projectProfessionals, professionals] = await Promise.all([
@@ -110,13 +109,7 @@ export default function ProfessionalsTab({ project }: ProfessionalsTabProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h3 className="text-xl font-bold mb-2">בעלי מקצוע</h3>
-          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            אנשי מקצוע המשויכים לפרויקט זה. ניתן להוסיף רק ממאגר אנשי המקצוע הגלובלי.
-          </p>
-        </div>
+      <div className="flex justify-end">
         <button
           onClick={handleAddClick}
           className="flex items-center justify-center h-10 px-4 rounded-lg bg-primary text-white hover:bg-primary-hover transition text-sm font-bold"
