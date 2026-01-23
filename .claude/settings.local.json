@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)",
+      "mcp__Neon__list_projects",
+      "mcp__Neon__create_project",
+      "mcp__Neon__run_sql",
+      "mcp__Neon__run_sql_transaction",
+      "Bash(npm install:*)",
+      "Bash(npm run dev:*)",
+      "Bash(ls:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nFeature: Complete localStorage to Neon database migration\n\nThis commit completes the service layer migration, moving all data access\nfrom localStorage to Neon PostgreSQL with dual-mode support.\n\nServices Created \\(18 total\\):\n- budgetService, budgetCategoriesService, budgetChaptersService\n- budgetItemsService, budgetPaymentsService\n- filesService, ganttTasksService \\(NEW\\)\n- milestonesService, planningChangesService\n- professionalsService, projectProfessionalsService, projectsService\n- specialIssuesService, tasksService\n- tenderParticipantsService, tendersService, unitsService\n\nDatabase Changes:\n- Added budgets table migration \\(004_add_budgets_table.sql\\)\n- Tracks project-level budget with planned vs actual variance\n- UNIQUE constraint ensures one budget per project\n\nQuery Layer Updates:\n- Converted budgetPaymentsQueries to async with services\n- All functions use Promise.all for parallel data loading\n- milestonesQueries already using services\n\nComponent Updates:\n- ProjectKPICards: Converted from useMemo to async useEffect\n- DashboardPage: Async milestone data loading\n- All 11 pages migrated to service layer:\n  * BudgetTab, ProjectDetailPage, PlanningChangesTab\n  * SpecialIssuesTab, ProfessionalsTab, TendersTab\n  * FilesTab, OverviewTab, GlobalFilesPage\n  * GlobalTendersPage, GlobalBudgetPage\n\nArchitecture:\n- All services follow async/await pattern\n- Dual-mode: Neon DB with localStorage fallback\n- Error handling with console.error logging\n- Parameterized SQL queries prevent injection\n- Dynamic UPDATE queries for partial updates\n\nStatus: Migration 100% complete, ready for Neon DB testing\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit:*)",
+      "Bash(test:*)",
+      "mcp__Neon__get_connection_string",
+      "mcp__Neon__get_database_tables",
+      "Bash(if exist nul del nul)",
+      "Bash(git rm:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git reset:*)",
+      "Bash(node hash-password.js:*)"
+    ]
+  }
+}

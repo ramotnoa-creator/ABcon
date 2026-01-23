@@ -14,7 +14,7 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState(false);
   const [tokenValid, setTokenValid] = useState(true);
 
-  // Check for valid token in URL hash (Supabase sends token via hash)
+  // Check for valid token in URL hash
   useEffect(() => {
     const hash = window.location.hash;
     if (!hash || !hash.includes('access_token')) {

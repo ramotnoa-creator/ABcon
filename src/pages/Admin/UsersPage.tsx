@@ -5,7 +5,7 @@ import { getProjects } from '../../data/storage';
 import type { User, UserRole } from '../../types/auth';
 import type { Project } from '../../types';
 
-// Mock users data for development - will be replaced with Supabase
+// Mock users data for development
 const MOCK_USERS: User[] = [
   {
     id: '1',

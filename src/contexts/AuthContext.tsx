@@ -11,7 +11,7 @@ import {
   clearSession,
 } from '../services/authService';
 
-// Simple Session interface (no Supabase dependency)
+// Session interface for authentication
 interface Session {
   access_token: string;
   refresh_token: string;
