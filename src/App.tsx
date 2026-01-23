@@ -5,7 +5,6 @@ import LoginPage from './pages/Auth/LoginPage';
 import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/Auth/ResetPasswordPage';
 import Header from './components/Layout/Header';
-import Breadcrumbs from './components/Layout/Breadcrumbs';
 import DashboardPage from './pages/Dashboard/DashboardPage';
 import ProjectsPage from './pages/Projects/ProjectsPage';
 import CreateProjectPage from './pages/Projects/CreateProjectPage';
@@ -47,114 +46,18 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route
-                path="/dashboard"
-                element={
-                  <>
-                    <Breadcrumbs items={[{ label: 'ראשי', href: '/' }, { label: 'לוח בקרה ניהולי' }]} />
-                    <DashboardPage />
-                  </>
-                }
-              />
-              <Route
-                path="/projects"
-                element={
-                  <>
-                    <Breadcrumbs items={[{ label: 'פרויקטים' }]} />
-                    <ProjectsPage />
-                  </>
-                }
-              />
-              <Route
-                path="/projects/new"
-                element={
-                  <>
-                    <Breadcrumbs items={[{ label: 'בית', href: '/dashboard' }, { label: 'פרויקטים', href: '/projects' }, { label: 'יצירת פרויקט חדש' }]} />
-                    <CreateProjectPage />
-                  </>
-                }
-              />
-              <Route
-                path="/projects/:id"
-                element={
-                  <>
-                    <Breadcrumbs items={[{ label: 'פרויקטים', href: '/projects' }, { label: 'פרטי פרויקט' }]} />
-                    <ProjectDetailPage />
-                  </>
-                }
-              />
-              <Route
-                path="/projects/:id/edit"
-                element={
-                  <>
-                    <Breadcrumbs items={[{ label: 'פרויקטים', href: '/projects' }, { label: 'עריכת פרויקט' }]} />
-                    <EditProjectPage />
-                  </>
-                }
-              />
-              <Route
-                path="/tenders"
-                element={
-                  <>
-                    <Breadcrumbs items={[{ label: 'מכרזים' }]} />
-                    <GlobalTendersPage />
-                  </>
-                }
-              />
-              <Route
-                path="/professionals"
-                element={
-                  <>
-                    <Breadcrumbs items={[{ label: 'אנשי מקצוע' }]} />
-                    <ProfessionalsListPage />
-                  </>
-                }
-              />
-              <Route
-                path="/professionals/:id"
-                element={
-                  <>
-                    <Breadcrumbs items={[{ label: 'אנשי מקצוע', href: '/professionals' }, { label: 'כרטיס איש מקצוע' }]} />
-                    <ProfessionalDetailPage />
-                  </>
-                }
-              />
-              <Route
-                path="/professionals/new"
-                element={
-                  <>
-                    <Breadcrumbs items={[{ label: 'אנשי מקצוע', href: '/professionals' }, { label: 'יצירת איש מקצוע חדש' }]} />
-                    <CreateProfessionalPage />
-                  </>
-                }
-              />
-              <Route
-                path="/files"
-                element={
-                  <>
-                    <Breadcrumbs items={[{ label: 'קבצים' }]} />
-                    <GlobalFilesPage />
-                  </>
-                }
-              />
-              <Route
-                path="/budget"
-                element={
-                  <>
-                    <Breadcrumbs items={[{ label: 'תקציב' }]} />
-                    <GlobalBudgetPage />
-                  </>
-                }
-              />
-              <Route
-                path="/admin/users"
-                element={
-                  <>
-                    <Breadcrumbs items={[{ label: 'ניהול' }, { label: 'משתמשים' }]} />
-                    <UsersPage />
-                  </>
-                }
-              />
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/projects" element={<ProjectsPage />} />
+              <Route path="/projects/new" element={<CreateProjectPage />} />
+              <Route path="/projects/:id" element={<ProjectDetailPage />} />
+              <Route path="/projects/:id/edit" element={<EditProjectPage />} />
+              <Route path="/tenders" element={<GlobalTendersPage />} />
+              <Route path="/professionals" element={<ProfessionalsListPage />} />
+              <Route path="/professionals/:id" element={<ProfessionalDetailPage />} />
+              <Route path="/professionals/new" element={<CreateProfessionalPage />} />
+              <Route path="/files" element={<GlobalFilesPage />} />
+              <Route path="/budget" element={<GlobalBudgetPage />} />
+              <Route path="/admin/users" element={<UsersPage />} />
             </Route>
           </Route>
         </Routes>

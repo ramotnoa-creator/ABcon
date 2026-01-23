@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Project, ProjectStatus } from '../../types';
-import { addProject } from '../../data/storage';
+import { createProject } from '../../services/projectsService';
+import { useAuth } from '../../contexts/AuthContext';
 import { calculateTargetDate, formatDateForDisplay, formatDateHebrew } from '../../utils/dateUtils';
 
 const statusOptions: { value: ProjectStatus; label: string }[] = [
@@ -13,6 +14,7 @@ const statusOptions: { value: ProjectStatus; label: string }[] = [
 
 export default function CreateProjectPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     project_name: '',
     client_name: '',
@@ -72,15 +74,14 @@ export default function CreateProjectPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validate()) {
       return;
     }
 
-    const newProject: Project = {
-      id: `project-${Date.now()}`,
+    const projectData: Omit<Project, 'id' | 'created_at'> = {
       project_name: formData.project_name.trim(),
       client_name: formData.client_name.trim(),
       address: formData.address.trim() || undefined,
@@ -89,13 +90,17 @@ export default function CreateProjectPage() {
       permit_duration_months: formData.permit_duration_months || undefined,
       permit_target_date: targetDate || undefined,
       permit_approval_date: formData.permit_approval_date || undefined,
-      created_at: createdAt,
       updated_at_text: formatDateHebrew(createdAt),
       notes: formData.notes.trim() || undefined,
     };
 
-    addProject(newProject);
-    navigate('/projects');
+    try {
+      await createProject(projectData, user?.id);
+      navigate('/projects');
+    } catch (error) {
+      console.error('Error creating project:', error);
+      // Could add error handling UI here
+    }
   };
 
   const handleCancel = () => {

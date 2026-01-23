@@ -6,6 +6,8 @@ import { getProjects } from '../../services/projectsService';
 import { getProfessionals } from '../../services/professionalsService';
 import { formatDateForDisplay } from '../../utils/dateUtils';
 import type { Tender, TenderStatus, TenderType, TenderParticipant, Project, Professional } from '../../types';
+import { useAuth } from '../../contexts/AuthContext';
+import { canAccessProject, canViewAllProjects } from '../../utils/permissions';
 
 const statusLabels: Record<TenderStatus, string> = {
   Draft: 'טיוטה',
@@ -168,6 +170,7 @@ function KPICard({ icon, label, value, subValue, color }: KPICardProps) {
 
 export default function GlobalTendersPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<TenderStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<TenderType | 'all'>('all');
@@ -188,8 +191,15 @@ export default function GlobalTendersPage() {
           getProfessionals(),
         ]);
 
+        // Filter tenders based on user permissions
+        const accessibleTenders = tenders.filter((tender) => {
+          if (!user) return false;
+          if (canViewAllProjects(user)) return true;
+          return canAccessProject(user, tender.project_id);
+        });
+
         const tendersData = await Promise.all(
-          tenders.map(async (tender) => {
+          accessibleTenders.map(async (tender) => {
             const project = projects.find((p) => p.id === tender.project_id);
             const rawParticipants = await getTenderParticipants(tender.id);
 
@@ -252,7 +262,7 @@ export default function GlobalTendersPage() {
     };
 
     loadData();
-  }, []);
+  }, [user]);
 
   // Calculate KPIs
   const kpiData = useMemo(() => {

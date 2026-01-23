@@ -20,8 +20,10 @@ import {
 } from '../../data/milestonesQueries';
 import type { MilestoneWithProject } from '../../data/milestonesQueries';
 import type { ProjectRequiringAttention } from '../../types';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const [isVisible, setIsVisible] = useState(false);
   const [lastMonthMilestones, setLastMonthMilestones] = useState<MilestoneWithProject[]>([]);
   const [nextMonthMilestones, setNextMonthMilestones] = useState<MilestoneWithProject[]>([]);
@@ -33,10 +35,10 @@ export default function DashboardPage() {
     const loadDashboardData = async () => {
       try {
         const [lastMonth, nextMonth, projects, tenders] = await Promise.all([
-          getLastMonthCompletedMilestones(),
-          getNextMonthPendingMilestones(),
-          getProjectsRequiringAttention(),
-          getTendersEndingSoon(),
+          getLastMonthCompletedMilestones(undefined, user),
+          getNextMonthPendingMilestones(undefined, user),
+          getProjectsRequiringAttention(user),
+          getTendersEndingSoon(user),
         ]);
         setLastMonthMilestones(lastMonth);
         setNextMonthMilestones(nextMonth);
@@ -51,7 +53,7 @@ export default function DashboardPage() {
     // Trigger entrance animation after mount
     const timer = setTimeout(() => setIsVisible(true), 50);
     return () => clearTimeout(timer);
-  }, []);
+  }, [user]);
 
   return (
     <div className="flex-1 px-4 lg:px-10 py-6 max-w-[1400px] mx-auto w-full pb-20 lg:pb-6">

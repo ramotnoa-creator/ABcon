@@ -9,8 +9,11 @@ import { getLastMonthPaidAmount, getNextMonthPlannedPayments } from '../../data/
 import AddBudgetItemForm from '../../components/Budget/AddBudgetItemForm';
 import * as XLSX from 'xlsx';
 import type { Budget, Project } from '../../types';
+import type { User } from '../../types/auth';
+import { useAuth } from '../../contexts/AuthContext';
+import { canAccessProject, canViewAllProjects } from '../../utils/permissions';
 
-const loadInitialData = async (): Promise<{ budgets: Budget[]; projects: Project[] }> => {
+const loadInitialData = async (user: User | null): Promise<{ budgets: Budget[]; projects: Project[] }> => {
   let loadedBudgets = await getAllBudgets();
 
   // Seed if empty
@@ -21,8 +24,15 @@ const loadInitialData = async (): Promise<{ budgets: Budget[]; projects: Project
 
   const projects = await getProjects();
 
+  // Filter budgets based on user permissions
+  const accessibleBudgets = loadedBudgets.filter((budget) => {
+    if (!user) return false;
+    if (canViewAllProjects(user)) return true;
+    return canAccessProject(user, budget.project_id);
+  });
+
   return {
-    budgets: loadedBudgets,
+    budgets: accessibleBudgets,
     projects,
   };
 };
@@ -134,6 +144,7 @@ function KPICard({ icon, label, value, subValue, color, progress }: KPICardProps
 
 export default function GlobalBudgetPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [refreshKey, setRefreshKey] = useState(0);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -143,6 +154,8 @@ export default function GlobalBudgetPage() {
   const [varianceFilter, setVarianceFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [showAddItemModal, setShowAddItemModal] = useState(false);
+  const [lastMonthPaid, setLastMonthPaid] = useState({ totalAmount: 0, paymentCount: 0 });
+  const [nextMonthPlanned, setNextMonthPlanned] = useState({ totalAmount: 0, paymentCount: 0 });
   const itemsPerPage = 10;
 
   // Load data on mount and when refreshKey changes
@@ -150,7 +163,7 @@ export default function GlobalBudgetPage() {
     const loadData = async () => {
       try {
         setIsLoading(true);
-        const data = await loadInitialData();
+        const data = await loadInitialData(user);
         setBudgets(data.budgets);
         setProjects(data.projects);
       } catch (error) {
@@ -160,13 +173,24 @@ export default function GlobalBudgetPage() {
       }
     };
     loadData();
-  }, [refreshKey]);
+  }, [refreshKey, user]);
 
   // Payment summary data - refreshKey triggers re-fetch after adding items
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const lastMonthPaid = useMemo(() => getLastMonthPaidAmount(), [refreshKey]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const nextMonthPlanned = useMemo(() => getNextMonthPlannedPayments(), [refreshKey]);
+  useEffect(() => {
+    const loadPaymentSummaries = async () => {
+      try {
+        const [lastMonth, nextMonth] = await Promise.all([
+          getLastMonthPaidAmount(undefined, user),
+          getNextMonthPlannedPayments(undefined, user),
+        ]);
+        setLastMonthPaid(lastMonth);
+        setNextMonthPlanned(nextMonth);
+      } catch (error) {
+        console.error('Error loading payment summaries:', error);
+      }
+    };
+    loadPaymentSummaries();
+  }, [refreshKey, user]);
 
   // Handle item added
   const handleItemAdded = useCallback(() => {

@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getProfessionals } from '../../data/professionalsStorage';
+import { getProfessionals } from '../../services/professionalsService';
 import type { Professional } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { canManageProfessionals } from '../../utils/permissions';
@@ -8,10 +8,28 @@ import { canManageProfessionals } from '../../utils/permissions';
 export default function ProfessionalsListPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [professionals] = useState<Professional[]>(() => getProfessionals());
+  const [professionals, setProfessionals] = useState<Professional[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [fieldFilter, setFieldFilter] = useState<string>('all');
   const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'inactive'>('all');
+
+  // Load professionals from database
+  useEffect(() => {
+    const loadProfessionals = async () => {
+      try {
+        setIsLoading(true);
+        const data = await getProfessionals();
+        setProfessionals(data);
+      } catch (error) {
+        console.error('Error loading professionals:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProfessionals();
+  }, []);
 
   // Get unique fields for filter
   const uniqueFields = useMemo(() => {
@@ -144,8 +162,16 @@ export default function ProfessionalsListPage() {
         </div>
       </div>
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      )}
+
       {/* Desktop Table View */}
-      <div className="hidden md:block bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark overflow-hidden">
+      {!isLoading && (
+        <div className="hidden md:block bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-background-light dark:bg-background-dark border-b border-border-light dark:border-border-dark">
@@ -217,9 +243,11 @@ export default function ProfessionalsListPage() {
           </table>
         </div>
       </div>
+      )}
 
       {/* Mobile Card View */}
-      <div className="md:hidden flex flex-col gap-4">
+      {!isLoading && (
+        <div className="md:hidden flex flex-col gap-4">
         {filteredProfessionals.length === 0 ? (
           <div className="text-center py-12 text-text-secondary-light dark:text-text-secondary-dark">
             לא נמצאו אנשי מקצוע
@@ -277,7 +305,8 @@ export default function ProfessionalsListPage() {
             </div>
           ))
         )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

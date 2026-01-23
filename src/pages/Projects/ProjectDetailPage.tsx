@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { getProjectById } from '../../data/storage';
+import { getProjectById } from '../../services/projectsService';
 import { getOpenIssuesCount } from '../../services/specialIssuesService';
 import { useAuth } from '../../contexts/AuthContext';
 import { canEditProject, canCreateTask, canAccessProject } from '../../utils/permissions';
+import type { Project } from '../../types';
 import OverviewTab from './tabs/OverviewTab';
 import ProfessionalsTab from './tabs/ProfessionalsTab';
 import TendersTab from './tabs/TendersTab';
@@ -31,9 +32,8 @@ export default function ProjectDetailPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-
-  // Use useMemo for project lookup - it's derived from id
-  const project = useMemo(() => getProjectById(id || ''), [id]);
+  const [project, setProject] = useState<Project | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Permission checks
   const canEdit = canEditProject(user, id || '');
@@ -54,6 +54,27 @@ export default function ProjectDetailPage() {
   const indicatorRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
 
+  // Load project data
+  useEffect(() => {
+    const loadProject = async () => {
+      if (!id) {
+        setIsLoading(false);
+        return;
+      }
+      try {
+        setIsLoading(true);
+        const projectData = await getProjectById(id);
+        setProject(projectData);
+      } catch (error) {
+        console.error('Error loading project:', error);
+        setProject(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadProject();
+  }, [id]);
+
   // Load open issues count - recalculates when activeTab changes to special-issues
   useEffect(() => {
     const loadCount = async () => {
@@ -73,12 +94,14 @@ export default function ProjectDetailPage() {
 
   // Navigate away if project not found or user doesn't have access
   useEffect(() => {
-    if (id && (!project || !hasAccess)) {
+    if (!isLoading && id && (!project || !hasAccess)) {
       navigate('/projects');
     }
     // Animate header on mount
-    setTimeout(() => setIsHeaderVisible(true), 50);
-  }, [id, navigate, project, hasAccess]);
+    if (project) {
+      setTimeout(() => setIsHeaderVisible(true), 50);
+    }
+  }, [id, navigate, project, hasAccess, isLoading]);
 
   // Update tab indicator position
   useEffect(() => {
@@ -114,7 +137,7 @@ export default function ProjectDetailPage() {
     }
   }, [searchParams, validTabIds, activeTab]);
 
-  if (!project) {
+  if (isLoading || !project) {
     return (
       <div className="flex-1 px-4 lg:px-10 py-6 max-w-[1400px] mx-auto w-full">
         <div className="flex items-center gap-3 text-text-secondary-light dark:text-text-secondary-dark">
@@ -192,7 +215,7 @@ export default function ProjectDetailPage() {
             {project.project_name}
           </h1>
           <p className="text-text-secondary-light dark:text-text-secondary-dark text-base">
-            מזהה פרויקט: #{project.id}
+            {project.client_name}
           </p>
         </div>
         <div className="hidden md:flex gap-3">

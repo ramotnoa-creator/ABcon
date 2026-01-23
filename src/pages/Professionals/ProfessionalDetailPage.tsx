@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   getProfessionalById,
-  saveProfessionals,
-  getAllProjectProfessionals,
-  addProjectProfessional,
+  updateProfessional,
+} from '../../services/professionalsService';
+import { getProjects } from '../../services/projectsService';
+import {
+  getProjectProfessionalsByProfessionalId,
+  createProjectProfessional,
   removeProjectProfessional,
-  getProfessionals,
-} from '../../data/professionalsStorage';
-import { getProjects } from '../../data/storage';
+} from '../../services/projectProfessionalsService';
 import type { Professional, ProjectProfessional } from '../../types';
 import type { Project } from '../../types';
 
@@ -17,33 +18,14 @@ type RelatedProject = {
   projectProfessional: ProjectProfessional;
 };
 
-const loadRelatedProjectsData = (professionalId: string): RelatedProject[] => {
-  const allProjectProfessionals = getAllProjectProfessionals();
-  const projects = getProjects();
-
-  return allProjectProfessionals
-    .filter((pp) => pp.professional_id === professionalId && pp.is_active)
-    .map((pp) => {
-      const project = projects.find((p) => p.id === pp.project_id);
-      if (project) {
-        return { project, projectProfessional: pp };
-      }
-      return null;
-    })
-    .filter((item): item is RelatedProject => item !== null);
-};
-
 export default function ProfessionalDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  // Initialize state with data if id exists
-  const [professional, setProfessional] = useState<Professional | null>(() =>
-    id ? getProfessionalById(id) : null
-  );
-  const [relatedProjects, setRelatedProjects] = useState<RelatedProject[]>(() =>
-    id ? loadRelatedProjectsData(id) : []
-  );
+  // Initialize state - will load async
+  const [professional, setProfessional] = useState<Professional | null>(null);
+  const [relatedProjects, setRelatedProjects] = useState<RelatedProject[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [, setIsAddToProjectOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -62,25 +44,96 @@ export default function ProfessionalDetailPage() {
     rating: 0,
   });
 
-  // Navigate away if professional not found on initial load
+  // Load professional and related projects on mount
   useEffect(() => {
-    if (id && !professional) {
-      navigate('/professionals');
-    }
-  }, [id, professional, navigate]);
+    const loadData = async () => {
+      if (!id) {
+        navigate('/professionals');
+        return;
+      }
 
-  const loadRelatedProjects = useCallback((professionalId: string) => {
-    setRelatedProjects(loadRelatedProjectsData(professionalId));
+      try {
+        setIsLoading(true);
+        const professionalData = await getProfessionalById(id);
+
+        if (!professionalData) {
+          navigate('/professionals');
+          return;
+        }
+
+        setProfessional(professionalData);
+
+        // Load related projects
+        const [projectProfessionals, allProjects] = await Promise.all([
+          getProjectProfessionalsByProfessionalId(id),
+          getProjects(),
+        ]);
+
+        const related: RelatedProject[] = projectProfessionals
+          .map((pp) => {
+            const project = allProjects.find((p) => p.id === pp.project_id);
+            if (project) {
+              return { project, projectProfessional: pp };
+            }
+            return null;
+          })
+          .filter((item): item is RelatedProject => item !== null);
+
+        setRelatedProjects(related);
+      } catch (error) {
+        console.error('Error loading professional data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [id, navigate]);
+
+  const loadRelatedProjects = useCallback(async (professionalId: string) => {
+    try {
+      const [projectProfessionals, allProjects] = await Promise.all([
+        getProjectProfessionalsByProfessionalId(professionalId),
+        getProjects(),
+      ]);
+
+      const related: RelatedProject[] = projectProfessionals
+        .map((pp) => {
+          const project = allProjects.find((p) => p.id === pp.project_id);
+          if (project) {
+            return { project, projectProfessional: pp };
+          }
+          return null;
+        })
+        .filter((item): item is RelatedProject => item !== null);
+
+      setRelatedProjects(related);
+    } catch (error) {
+      console.error('Error loading related projects:', error);
+    }
   }, []);
 
   // Compute available projects (always computed, not just when modal is open)
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
+
+  useEffect(() => {
+    const loadProjects = async () => {
+      try {
+        const projects = await getProjects();
+        setAllProjects(projects);
+      } catch (error) {
+        console.error('Error loading projects:', error);
+      }
+    };
+    loadProjects();
+  }, []);
+
   const availableProjects = useMemo(() => {
-    const allProjects = getProjects();
     const assignedProjectIds = new Set(
       relatedProjects.map((rp) => rp.projectProfessional.project_id)
     );
     return allProjects.filter((p) => !assignedProjectIds.has(p.id));
-  }, [relatedProjects]);
+  }, [allProjects, relatedProjects]);
 
   const handleEdit = () => {
     if (!professional) return;
@@ -96,29 +149,10 @@ export default function ProfessionalDetailPage() {
     setIsEditModalOpen(true);
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!professional) return;
 
-    const allProfessionals = getProfessionals();
-    const updated = allProfessionals.map((p) =>
-      p.id === professional.id
-        ? {
-            ...p,
-            professional_name: editFormData.professional_name.trim(),
-            company_name: editFormData.company_name.trim() || undefined,
-            field: editFormData.field.trim(),
-            phone: editFormData.phone.trim() || undefined,
-            email: editFormData.email.trim() || undefined,
-            notes: editFormData.notes.trim() || undefined,
-            rating: editFormData.rating || undefined,
-          }
-        : p
-    );
-    saveProfessionals(updated);
-
-    // Update local state
-    setProfessional({
-      ...professional,
+    const updates = {
       professional_name: editFormData.professional_name.trim(),
       company_name: editFormData.company_name.trim() || undefined,
       field: editFormData.field.trim(),
@@ -126,27 +160,38 @@ export default function ProfessionalDetailPage() {
       email: editFormData.email.trim() || undefined,
       notes: editFormData.notes.trim() || undefined,
       rating: editFormData.rating || undefined,
-    });
+    };
 
-    setIsEditModalOpen(false);
+    try {
+      await updateProfessional(professional.id, updates);
+
+      // Update local state
+      setProfessional({
+        ...professional,
+        ...updates,
+      });
+
+      setIsEditModalOpen(false);
+    } catch (error) {
+      console.error('Error updating professional:', error);
+    }
   };
 
-  const handleDeactivate = () => {
+  const handleDeactivate = async () => {
     if (!professional || !confirm('האם אתה בטוח שברצונך להשבית את איש המקצוע?')) return;
 
-    const allProfessionals = getProfessionals();
-    const updated = allProfessionals.map((p) =>
-      p.id === professional.id ? { ...p, is_active: false } : p
-    );
-    saveProfessionals(updated);
-    setProfessional({ ...professional, is_active: false });
+    try {
+      await updateProfessional(professional.id, { is_active: false });
+      setProfessional({ ...professional, is_active: false });
+    } catch (error) {
+      console.error('Error deactivating professional:', error);
+    }
   };
 
-  const handleAddToProject = () => {
+  const handleAddToProject = async () => {
     if (!formData.project_id || !professional) return;
 
-    const newProjectProfessional: ProjectProfessional = {
-      id: `pp-${Date.now()}`,
+    const newProjectProfessional: Omit<ProjectProfessional, 'id'> = {
       project_id: formData.project_id,
       professional_id: professional.id,
       project_role: formData.project_role || undefined,
@@ -156,17 +201,25 @@ export default function ProfessionalDetailPage() {
       notes: formData.notes || undefined,
     };
 
-    addProjectProfessional(newProjectProfessional);
-    setIsAddToProjectOpen(false);
-    setFormData({ project_id: '', project_role: '', start_date: '', notes: '' });
-    loadRelatedProjects(professional.id);
+    try {
+      await createProjectProfessional(newProjectProfessional);
+      setIsAddToProjectOpen(false);
+      setFormData({ project_id: '', project_role: '', start_date: '', notes: '' });
+      await loadRelatedProjects(professional.id);
+    } catch (error) {
+      console.error('Error adding professional to project:', error);
+    }
   };
 
-  const handleRemoveFromProject = (projectId: string) => {
+  const handleRemoveFromProject = async (projectId: string) => {
     if (!professional || !confirm('האם אתה בטוח שברצונך להסיר את איש המקצוע מהפרויקט?')) return;
 
-    removeProjectProfessional(projectId, professional.id);
-    loadRelatedProjects(professional.id);
+    try {
+      await removeProjectProfessional(projectId, professional.id);
+      await loadRelatedProjects(professional.id);
+    } catch (error) {
+      console.error('Error removing professional from project:', error);
+    }
   };
 
   const getInitials = (name: string): string => {
@@ -192,10 +245,12 @@ export default function ProfessionalDetailPage() {
     return colors[status] || colors['פעיל'];
   };
 
-  if (!professional) {
+  if (isLoading || !professional) {
     return (
       <div className="flex-1 px-4 lg:px-10 py-6 max-w-[1400px] mx-auto w-full">
-        <p className="text-text-secondary-light dark:text-text-secondary-dark">טוען...</p>
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
       </div>
     );
   }

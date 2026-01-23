@@ -36,6 +36,29 @@ export function getProfessionalById(id: string): Professional | null {
   return professionals.find(p => p.id === id) || null;
 }
 
+export function addProfessional(professional: Professional): void {
+  const professionals = getProfessionals();
+  professionals.push(professional);
+  saveProfessionals(professionals);
+}
+
+export function updateProfessional(id: string, updates: Partial<Professional>): void {
+  const professionals = getProfessionals();
+  const index = professionals.findIndex(p => p.id === id);
+  if (index !== -1) {
+    professionals[index] = { ...professionals[index], ...updates };
+    saveProfessionals(professionals);
+  }
+}
+
+export function deleteProfessional(id: string): void {
+  const professionals = getProfessionals();
+  const updated = professionals.map(p =>
+    p.id === id ? { ...p, is_active: false } : p
+  );
+  saveProfessionals(updated);
+}
+
 // Project Professionals storage
 export function getProjectProfessionals(projectId: string): ProjectProfessional[] {
   try {

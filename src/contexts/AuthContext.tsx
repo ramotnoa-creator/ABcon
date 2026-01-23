@@ -1,7 +1,17 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase, isDemoMode } from '../lib/supabase';
+import { supabase, isDemoMode as isSupabaseDemoMode } from '../lib/supabase';
+import { isDemoMode as isNeonDemoMode } from '../lib/neon';
 import type { User, LoginCredentials, RegisterData, AuthError } from '../types/auth';
 import type { Session as SupabaseSession } from '@supabase/supabase-js';
+import {
+  authenticateUser,
+  getUserById,
+  registerUser,
+  updateUserPassword,
+  saveSession,
+  getSession,
+  clearSession,
+} from '../services/authService';
 
 // AuthState uses Supabase's Session type for compatibility
 interface AuthState {
@@ -29,7 +39,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Demo user for when Supabase is not configured
+// Demo user for when database is not configured
 const DEMO_USER: User = {
   id: 'demo-user',
   email: 'demo@example.com',
@@ -42,6 +52,10 @@ const DEMO_USER: User = {
   updated_at: new Date().toISOString(),
   assignedProjects: ['1', '2', '3'],
 };
+
+// Determine which database mode we're using
+const isDemoMode = isNeonDemoMode && isSupabaseDemoMode;
+const isNeonMode = !isNeonDemoMode && !import.meta.env.VITE_SUPABASE_URL;
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({
@@ -106,6 +120,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // Neon mode: Check for stored session
+    if (isNeonMode) {
+      const session = getSession();
+      if (session) {
+        // Verify user still exists and is active
+        getUserById(session.user.id)
+          .then((user) => {
+            if (user && user.is_active) {
+              setAuthState({
+                user,
+                session: null,
+                isAuthenticated: true,
+                isLoading: false,
+              });
+            } else {
+              clearSession();
+              setAuthState({
+                user: null,
+                session: null,
+                isAuthenticated: false,
+                isLoading: false,
+              });
+            }
+          })
+          .catch(() => {
+            clearSession();
+            setAuthState({
+              user: null,
+              session: null,
+              isAuthenticated: false,
+              isLoading: false,
+            });
+          });
+      } else {
+        setAuthState({
+          user: null,
+          session: null,
+          isAuthenticated: false,
+          isLoading: false,
+        });
+      }
+      return;
+    }
+
+    // Supabase mode
     if (!supabase) {
       setAuthState({
         user: null,
@@ -274,6 +333,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // Neon mode: Authenticate with password hashing
+    if (isNeonMode) {
+      try {
+        setError(null);
+        setAuthState((prev: AuthState) => ({ ...prev, isLoading: true }));
+
+        const user = await authenticateUser(credentials);
+
+        if (!user) {
+          setError({ message: 'אימייל או סיסמה שגויים' });
+          setAuthState((prev: AuthState) => ({ ...prev, isLoading: false }));
+          throw new Error('אימייל או סיסמה שגויים');
+        }
+
+        // Save session to localStorage
+        saveSession(user);
+
+        setAuthState({
+          user,
+          session: null,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+      } catch (err: unknown) {
+        console.error('Login error:', err);
+        const errorMessage = err instanceof Error ? err.message : 'שגיאה בהתחברות';
+        const errorCode = (err as { code?: string })?.code;
+        setError({
+          message: errorMessage,
+          code: errorCode,
+        });
+        setAuthState((prev: AuthState) => ({ ...prev, isLoading: false }));
+        throw err;
+      }
+      return;
+    }
+
+    // Supabase mode
     if (!supabase) {
       throw new Error('Supabase not configured');
     }
@@ -343,6 +440,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // Neon mode: Clear session from localStorage
+    if (isNeonMode) {
+      clearSession();
+      setAuthState({
+        user: null,
+        session: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
+      return;
+    }
+
+    // Supabase mode
     if (!supabase) {
       return;
     }
@@ -375,8 +485,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Register new user (only admins can do this in production)
   const register = async (data: RegisterData) => {
-    if (isDemoMode || !supabase) {
+    if (isDemoMode) {
       throw new Error('Registration not available in demo mode');
+    }
+
+    // Neon mode: Use authService
+    if (isNeonMode) {
+      try {
+        setError(null);
+        setAuthState((prev: AuthState) => ({ ...prev, isLoading: true }));
+
+        await registerUser(data);
+
+        setAuthState((prev: AuthState) => ({ ...prev, isLoading: false }));
+      } catch (err: unknown) {
+        console.error('Registration error:', err);
+        const errorMessage = err instanceof Error ? err.message : 'שגיאה ברישום';
+        const errorCode = (err as { code?: string })?.code;
+        setError({
+          message: errorMessage,
+          code: errorCode,
+        });
+        setAuthState((prev: AuthState) => ({ ...prev, isLoading: false }));
+        throw err;
+      }
+      return;
+    }
+
+    // Supabase mode
+    if (!supabase) {
+      throw new Error('Database not configured');
     }
 
     try {
@@ -464,8 +602,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Update password (after reset)
   const updatePassword = async (newPassword: string) => {
-    if (isDemoMode || !supabase) {
+    if (isDemoMode) {
       throw new Error('Password update not available in demo mode');
+    }
+
+    // Neon mode: Update password with bcrypt
+    if (isNeonMode) {
+      try {
+        setError(null);
+
+        if (!authState.user) {
+          throw new Error('No user logged in');
+        }
+
+        await updateUserPassword(authState.user.id, newPassword);
+      } catch (err: unknown) {
+        console.error('Password update error:', err);
+        const errorMessage = err instanceof Error ? err.message : 'שגיאה בעדכון סיסמה';
+        const errorCode = (err as { code?: string })?.code;
+        setError({
+          message: errorMessage,
+          code: errorCode,
+        });
+        throw err;
+      }
+      return;
+    }
+
+    // Supabase mode
+    if (!supabase) {
+      throw new Error('Database not configured');
     }
 
     try {

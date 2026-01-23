@@ -1,6 +1,8 @@
 import type { Alert, KPI, ProjectRequiringAttention, StatusDistribution, Project } from '../types';
+import type { User } from '../types/auth';
 import { getProjects } from '../services/projectsService';
 import { getAllTenders } from '../services/tendersService';
+import { canAccessProject, canViewAllProjects } from '../utils/permissions';
 
 // Type for tender summary in dashboard
 export interface TenderEndingSoon {
@@ -52,12 +54,18 @@ function getCriticalIssue(project: Project): { issue: string; color: 'red' | 'de
 }
 
 // Fetch real projects for dashboard
-export async function getProjectsRequiringAttention(): Promise<ProjectRequiringAttention[]> {
+export async function getProjectsRequiringAttention(user: User | null): Promise<ProjectRequiringAttention[]> {
   try {
     const projects = await getProjects();
 
-    // Filter active projects (not archived) and map to dashboard format
-    const activeProjects = projects.filter(p => p.status !== 'ארכיון');
+    // Filter active projects (not archived) and by user permissions
+    const activeProjects = projects.filter(p => {
+      if (p.status === 'ארכיון') return false;
+      if (!user) return false;
+      // Only show projects the user has access to
+      if (canViewAllProjects(user)) return true;
+      return canAccessProject(user, p.id);
+    });
 
     // Sort by urgency (permit target date closest to today)
     const sorted = activeProjects.sort((a, b) => {
@@ -87,7 +95,7 @@ export async function getProjectsRequiringAttention(): Promise<ProjectRequiringA
 }
 
 // Fetch tenders ending in the next 30 days
-export async function getTendersEndingSoon(): Promise<TenderEndingSoon[]> {
+export async function getTendersEndingSoon(user: User | null): Promise<TenderEndingSoon[]> {
   try {
     const tenders = await getAllTenders();
     const projects = await getProjects();
@@ -101,6 +109,12 @@ export async function getTendersEndingSoon(): Promise<TenderEndingSoon[]> {
       .filter(t => {
         const dueDate = new Date(t.due_date!);
         return dueDate >= today && dueDate <= thirtyDaysFromNow;
+      })
+      .filter(t => {
+        // Only show tenders from projects the user has access to
+        if (!user) return false;
+        if (canViewAllProjects(user)) return true;
+        return canAccessProject(user, t.project_id);
       })
       .map(t => {
         const project = projects.find(p => p.id === t.project_id);

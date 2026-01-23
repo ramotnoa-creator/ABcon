@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import type { Project, Task } from '../../types';
-import { getAllTasks, saveTasks } from '../../data/tasksStorage';
+import { getTasks, createTask, updateTask } from '../../services/tasksService';
 import { formatDateForDisplay } from '../../utils/dateUtils';
 
 interface GanttImportProps {
@@ -383,7 +383,7 @@ export default function GanttImport({ project, onClose }: GanttImportProps) {
   };
 
   // Step 3: Preview & Validation
-  const handleConfirmImport = () => {
+  const handleConfirmImport = async () => {
     const validRows = validatedRows.filter((row) => row.errors.length === 0);
     const invalidCount = validatedRows.length - validRows.length;
 
@@ -393,13 +393,12 @@ export default function GanttImport({ project, onClose }: GanttImportProps) {
     }
 
     // Step 4: Import Logic
-    const allTasks = getAllTasks();
-    const projectTasks = allTasks.filter((t) => t.project_id === project.id);
+    const projectTasks = await getTasks(project.id);
     let successCount = 0;
     let updateCount = 0;
     let errorCount = invalidCount;
 
-    validRows.forEach((row) => {
+    for (const row of validRows) {
       try {
         // Generate external_reference_id: use taskId if mapped, otherwise generate from name + start date
         let externalReferenceId: string | undefined = row.taskId;
@@ -434,14 +433,14 @@ export default function GanttImport({ project, onClose }: GanttImportProps) {
         // 1. First try to match by external_reference_id (if we have an identifier)
         // 2. Otherwise match by task name + planned start date
         let existingTask: Task | undefined;
-        
+
         if (row.taskId) {
           // Prefer identifier if exists
           existingTask = projectTasks.find(
             (t) => t.external_reference_id === row.taskId
           );
         }
-        
+
         // If no match by identifier, try name + start date
         if (!existingTask) {
           existingTask = projectTasks.find(
@@ -451,27 +450,21 @@ export default function GanttImport({ project, onClose }: GanttImportProps) {
 
         if (existingTask) {
           // Update existing task
-          const taskIndex = allTasks.findIndex((t) => t.id === existingTask!.id);
-          if (taskIndex !== -1) {
-            allTasks[taskIndex] = {
-              ...existingTask,
-              title: row.taskName,
-              status,
-              start_date: row.plannedStart,
-              due_date: row.plannedEnd,
-              duration_days: row.duration,
-              percent_complete: row.percentComplete,
-              external_reference_id: externalReferenceId,
-              assignee_name: row.assignee,
-              notes: combinedNotes,
-              updated_at: new Date().toISOString(),
-            };
-            updateCount++;
-          }
+          await updateTask(existingTask.id, {
+            title: row.taskName,
+            status,
+            start_date: row.plannedStart,
+            due_date: row.plannedEnd,
+            duration_days: row.duration,
+            percent_complete: row.percentComplete,
+            external_reference_id: externalReferenceId,
+            assignee_name: row.assignee,
+            notes: combinedNotes,
+          });
+          updateCount++;
         } else {
           // Create new task
-          const newTask: Task = {
-            id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          const taskData: Omit<Task, 'id' | 'created_at' | 'updated_at'> = {
             project_id: project.id,
             title: row.taskName,
             status,
@@ -483,20 +476,17 @@ export default function GanttImport({ project, onClose }: GanttImportProps) {
             external_reference_id: externalReferenceId,
             assignee_name: row.assignee,
             notes: combinedNotes,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
           };
 
-          allTasks.push(newTask);
+          await createTask(taskData);
           successCount++;
         }
       } catch (error) {
         console.error('Error processing task:', error);
         errorCount++;
       }
-    });
+    }
 
-    saveTasks(allTasks);
     setImportResults({ success: successCount, errors: errorCount, updated: updateCount });
     setStep(4);
   };

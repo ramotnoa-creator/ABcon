@@ -1,22 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { Project, ProjectStatus } from '../../types';
-import { getProjects, saveProjects } from '../../data/storage';
-import { seedProjects } from '../../data/mockData';
+import { getProjects, getUserProjects } from '../../services/projectsService';
 import { useAuth } from '../../contexts/AuthContext';
 import { canCreateProject, canAccessProject, canViewAllProjects } from '../../utils/permissions';
-
-const loadInitialProjects = (): Project[] => {
-  let loaded = getProjects();
-
-  // Seed if empty
-  if (loaded.length === 0) {
-    saveProjects(seedProjects);
-    loaded = seedProjects;
-  }
-
-  return loaded;
-};
 
 const statusOptions: { value: 'all' | ProjectStatus; label: string }[] = [
   { value: 'all', label: 'כל הסטטוסים' },
@@ -40,7 +27,8 @@ const statusColors: Record<ProjectStatus, string> = {
 export default function ProjectsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [allProjects] = useState<Project[]>(() => loadInitialProjects());
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | ProjectStatus>('all');
   const [isVisible, setIsVisible] = useState(false);
@@ -49,6 +37,32 @@ export default function ProjectsPage() {
     const timer = setTimeout(() => setIsVisible(true), 50);
     return () => clearTimeout(timer);
   }, []);
+
+  // Load projects from database
+  useEffect(() => {
+    const loadProjects = async () => {
+      try {
+        setIsLoading(true);
+        let projects: Project[];
+
+        if (canViewAllProjects(user)) {
+          projects = await getProjects();
+        } else if (user) {
+          projects = await getUserProjects(user.id);
+        } else {
+          projects = [];
+        }
+
+        setAllProjects(projects);
+      } catch (error) {
+        console.error('Error loading projects:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProjects();
+  }, [user]);
 
   // Filter projects by user access permissions
   const accessibleProjects = useMemo(() => {
@@ -148,39 +162,47 @@ export default function ProjectsPage() {
         </div>
       </div>
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      )}
+
       {/* Projects List - Desktop Table View */}
-      <div 
-        className={`hidden md:block bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark overflow-hidden transition-all duration-500 delay-200 ${
-          isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-        }`}
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-background-light dark:bg-background-dark border-b border-border-light dark:border-border-dark">
-              <tr>
-                <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
-                  שם פרויקט
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
-                  שם לקוח
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
-                  כתובת
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
-                  סטטוס
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
-                  תאריך יעד היתר
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
-                  עודכן לאחרונה
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-light dark:divide-border-dark">
-              {filteredProjects.length === 0 ? (
+      {!isLoading && (
+        <div
+          className={`hidden md:block bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark overflow-hidden transition-all duration-500 delay-200 ${
+            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+          }`}
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-background-light dark:bg-background-dark border-b border-border-light dark:border-border-dark">
                 <tr>
+                  <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
+                    שם פרויקט
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
+                    שם לקוח
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
+                    כתובת
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
+                    סטטוס
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
+                    תאריך יעד היתר
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
+                    עודכן לאחרונה
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-light dark:divide-border-dark">
+                {filteredProjects.length === 0 ? (
+                  <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-text-secondary-light dark:text-text-secondary-dark">
                     <div className="flex flex-col items-center gap-2">
                       <span className="material-symbols-outlined text-[48px] opacity-50">search_off</span>
@@ -225,9 +247,11 @@ export default function ProjectsPage() {
           </table>
         </div>
       </div>
+      )}
 
       {/* Projects List - Mobile Card View */}
-      <div className="md:hidden flex flex-col gap-4">
+      {!isLoading && (
+        <div className="md:hidden flex flex-col gap-4">
         {filteredProjects.length === 0 ? (
           <div 
             className={`text-center py-12 text-text-secondary-light dark:text-text-secondary-dark transition-all duration-500 delay-200 ${
@@ -282,7 +306,8 @@ export default function ProjectsPage() {
             </div>
           ))
         )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

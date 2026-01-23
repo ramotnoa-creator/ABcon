@@ -5,7 +5,10 @@ import { saveFiles } from '../../data/filesStorage';
 import { getProjects } from '../../services/projectsService';
 import { seedFiles } from '../../data/filesData';
 import type { File, FileEntityType, Project } from '../../types';
+import type { User } from '../../types/auth';
 import { formatDateForDisplay } from '../../utils/dateUtils';
+import { useAuth } from '../../contexts/AuthContext';
+import { canAccessProject, canViewAllProjects } from '../../utils/permissions';
 
 const getFileIcon = (fileType?: string, fileName?: string): { icon: string; color: string } => {
   const ext = fileName?.split('.').pop()?.toLowerCase() || '';
@@ -36,7 +39,7 @@ const getInitials = (name: string): string => {
   return name.substring(0, 2).toUpperCase();
 };
 
-const loadInitialFiles = async (): Promise<File[]> => {
+const loadInitialFiles = async (user: User | null): Promise<File[]> => {
   let loaded = await getAllFiles();
 
   // Seed if empty
@@ -45,11 +48,24 @@ const loadInitialFiles = async (): Promise<File[]> => {
     saveFiles(loaded);
   }
 
-  return loaded;
+  // Filter files based on user permissions
+  const accessibleFiles = loaded.filter((file) => {
+    if (!user) return false;
+    if (canViewAllProjects(user)) return true;
+    // If file has a related_entity_id (project_id), check access to that project
+    if (file.related_entity_id) {
+      return canAccessProject(user, file.related_entity_id);
+    }
+    // If file has no related entity, allow access for now (global files)
+    return true;
+  });
+
+  return accessibleFiles;
 };
 
 export default function GlobalFilesPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [files, setFiles] = useState<File[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -62,19 +78,19 @@ export default function GlobalFilesPage() {
 
   const loadFiles = useCallback(async () => {
     try {
-      const loaded = await loadInitialFiles();
+      const loaded = await loadInitialFiles(user);
       setFiles(loaded);
     } catch (error) {
       console.error('Error loading files:', error);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     const loadData = async () => {
       try {
         setIsLoading(true);
         const [loadedFiles, loadedProjects] = await Promise.all([
-          loadInitialFiles(),
+          loadInitialFiles(user),
           getProjects(),
         ]);
         setFiles(loadedFiles);
@@ -86,7 +102,7 @@ export default function GlobalFilesPage() {
       }
     };
     loadData();
-  }, []);
+  }, [user]);
 
   const filteredFiles = useMemo(() => {
     let filtered = files;

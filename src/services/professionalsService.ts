@@ -11,7 +11,7 @@ import {
   addProfessional as addProfessionalLocal,
   updateProfessional as updateProfessionalLocal,
   deleteProfessional as deleteProfessionalLocal,
-} from '../data/storage';
+} from '../data/professionalsStorage';
 
 // Check if we're in demo mode
 const isDemoMode = isNeonDemoMode;

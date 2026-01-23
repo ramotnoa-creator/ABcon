@@ -5,6 +5,8 @@
 
 import { executeQuery, executeQuerySingle, isDemoMode as isNeonDemoMode } from '../lib/neon';
 import type { GanttTask } from '../types';
+import type { User } from '../types/auth';
+import { canViewAllProjects } from '../utils/permissions';
 import {
   getGanttTasks as getGanttTasksLocal,
   getGanttTasksByMilestone as getGanttTasksByMilestoneLocal,
@@ -87,6 +89,42 @@ export async function getAllGanttTasks(): Promise<GanttTask[]> {
   } catch (error) {
     console.error('Error fetching all gantt tasks:', error);
     return getAllGanttTasksLocal();
+  }
+}
+
+// ============================================================
+// GET USER GANTT TASKS (FILTERED BY PERMISSIONS)
+// ============================================================
+
+export async function getUserGanttTasks(user: User | null): Promise<GanttTask[]> {
+  if (!user) return [];
+
+  // Admin and accountant can see all gantt tasks
+  if (canViewAllProjects(user)) {
+    return getAllGanttTasks();
+  }
+
+  // For PM and entrepreneur, get gantt tasks from assigned projects only
+  const assignedProjects = user.assignedProjects || [];
+  if (assignedProjects.length === 0) return [];
+
+  if (isDemoMode) {
+    const allTasks = getAllGanttTasksLocal();
+    return allTasks.filter((task) => assignedProjects.includes(task.project_id));
+  }
+
+  try {
+    const placeholders = assignedProjects.map((_, i) => `$${i + 1}`).join(', ');
+    const data = await executeQuery<any>(
+      `SELECT * FROM gantt_tasks WHERE project_id IN (${placeholders}) ORDER BY "order" ASC`,
+      assignedProjects
+    );
+
+    return (data || []).map(transformGanttTaskFromDB);
+  } catch (error) {
+    console.error('Error fetching user gantt tasks:', error);
+    const allTasks = getAllGanttTasksLocal();
+    return allTasks.filter((task) => assignedProjects.includes(task.project_id));
   }
 }
 

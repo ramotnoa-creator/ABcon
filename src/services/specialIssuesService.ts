@@ -5,6 +5,8 @@
 
 import { executeQuery, executeQuerySingle, isDemoMode as isNeonDemoMode } from '../lib/neon';
 import type { SpecialIssue } from '../types';
+import type { User } from '../types/auth';
+import { canViewAllProjects } from '../utils/permissions';
 import {
   getSpecialIssues as getSpecialIssuesLocal,
   getAllSpecialIssues as getAllSpecialIssuesLocal,
@@ -59,6 +61,42 @@ export async function getAllSpecialIssues(): Promise<SpecialIssue[]> {
   } catch (error) {
     console.error('Error fetching all special issues:', error);
     return getAllSpecialIssuesLocal();
+  }
+}
+
+// ============================================================
+// GET USER SPECIAL ISSUES (FILTERED BY PERMISSIONS)
+// ============================================================
+
+export async function getUserSpecialIssues(user: User | null): Promise<SpecialIssue[]> {
+  if (!user) return [];
+
+  // Admin and accountant can see all issues
+  if (canViewAllProjects(user)) {
+    return getAllSpecialIssues();
+  }
+
+  // For PM and entrepreneur, get issues from assigned projects only
+  const assignedProjects = user.assignedProjects || [];
+  if (assignedProjects.length === 0) return [];
+
+  if (isDemoMode) {
+    const allIssues = getAllSpecialIssuesLocal();
+    return allIssues.filter((issue) => assignedProjects.includes(issue.project_id));
+  }
+
+  try {
+    const placeholders = assignedProjects.map((_, i) => `$${i + 1}`).join(', ');
+    const data = await executeQuery<any>(
+      `SELECT * FROM special_issues WHERE project_id IN (${placeholders})`,
+      assignedProjects
+    );
+
+    return (data || []).map(transformSpecialIssueFromDB);
+  } catch (error) {
+    console.error('Error fetching user special issues:', error);
+    const allIssues = getAllSpecialIssuesLocal();
+    return allIssues.filter((issue) => assignedProjects.includes(issue.project_id));
   }
 }
 

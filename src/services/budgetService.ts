@@ -4,7 +4,7 @@
  */
 
 import { executeQuery, executeQuerySingle, isDemoMode as isNeonDemoMode } from '../lib/neon';
-import type { Budget, BudgetStatus } from '../types';
+import type { Budget } from '../types';
 import {
   getBudget as getBudgetLocal,
   getAllBudgets as getAllBudgetsLocal,

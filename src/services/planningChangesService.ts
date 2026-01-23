@@ -5,6 +5,8 @@
 
 import { executeQuery, executeQuerySingle, isDemoMode as isNeonDemoMode } from '../lib/neon';
 import type { PlanningChange } from '../types';
+import type { User } from '../types/auth';
+import { canViewAllProjects } from '../utils/permissions';
 import {
   getPlanningChanges as getPlanningChangesLocal,
   getAllPlanningChanges as getAllPlanningChangesLocal,
@@ -63,6 +65,42 @@ export async function getAllPlanningChanges(): Promise<PlanningChange[]> {
 }
 
 // ============================================================
+// GET USER PLANNING CHANGES (FILTERED BY PERMISSIONS)
+// ============================================================
+
+export async function getUserPlanningChanges(user: User | null): Promise<PlanningChange[]> {
+  if (!user) return [];
+
+  // Admin and accountant can see all changes
+  if (canViewAllProjects(user)) {
+    return getAllPlanningChanges();
+  }
+
+  // For PM and entrepreneur, get changes from assigned projects only
+  const assignedProjects = user.assignedProjects || [];
+  if (assignedProjects.length === 0) return [];
+
+  if (isDemoMode) {
+    const allChanges = getAllPlanningChangesLocal();
+    return allChanges.filter((change) => assignedProjects.includes(change.project_id));
+  }
+
+  try {
+    const placeholders = assignedProjects.map((_, i) => `$${i + 1}`).join(', ');
+    const data = await executeQuery<any>(
+      `SELECT * FROM planning_changes WHERE project_id IN (${placeholders})`,
+      assignedProjects
+    );
+
+    return (data || []).map(transformPlanningChangeFromDB);
+  } catch (error) {
+    console.error('Error fetching user planning changes:', error);
+    const allChanges = getAllPlanningChangesLocal();
+    return allChanges.filter((change) => assignedProjects.includes(change.project_id));
+  }
+}
+
+// ============================================================
 // GET PLANNING CHANGE BY ID
 // ============================================================
 
@@ -115,7 +153,14 @@ export async function createPlanningChange(
   change: Omit<PlanningChange, 'id' | 'change_number' | 'created_at' | 'updated_at'>
 ): Promise<PlanningChange> {
   if (isDemoMode) {
-    return addPlanningChangeLocal(change);
+    const now = new Date().toISOString();
+    const changeWithMetadata: Omit<PlanningChange, 'change_number'> = {
+      ...change,
+      id: crypto.randomUUID(),
+      created_at: now,
+      updated_at: now,
+    };
+    return addPlanningChangeLocal(changeWithMetadata);
   }
 
   try {
@@ -147,7 +192,14 @@ export async function createPlanningChange(
   } catch (error) {
     console.error('Error creating planning change:', error);
     // Fallback to localStorage
-    return addPlanningChangeLocal(change);
+    const now = new Date().toISOString();
+    const changeWithMetadata: Omit<PlanningChange, 'change_number'> = {
+      ...change,
+      id: crypto.randomUUID(),
+      created_at: now,
+      updated_at: now,
+    };
+    return addPlanningChangeLocal(changeWithMetadata);
   }
 }
 

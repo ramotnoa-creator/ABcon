@@ -5,6 +5,8 @@
 
 import { executeQuery, executeQuerySingle, isDemoMode as isNeonDemoMode } from '../lib/neon';
 import type { Task } from '../types';
+import type { User } from '../types/auth';
+import { canViewAllProjects } from '../utils/permissions';
 import {
   getTasks as getTasksLocal,
   getAllTasks as getAllTasksLocal,
@@ -59,6 +61,42 @@ export async function getAllTasks(): Promise<Task[]> {
   } catch (error) {
     console.error('Error fetching all tasks:', error);
     return getAllTasksLocal();
+  }
+}
+
+// ============================================================
+// GET USER TASKS (FILTERED BY PERMISSIONS)
+// ============================================================
+
+export async function getUserTasks(user: User | null): Promise<Task[]> {
+  if (!user) return [];
+
+  // Admin and accountant can see all tasks
+  if (canViewAllProjects(user)) {
+    return getAllTasks();
+  }
+
+  // For PM and entrepreneur, get tasks from assigned projects only
+  const assignedProjects = user.assignedProjects || [];
+  if (assignedProjects.length === 0) return [];
+
+  if (isDemoMode) {
+    const allTasks = getAllTasksLocal();
+    return allTasks.filter((task) => assignedProjects.includes(task.project_id));
+  }
+
+  try {
+    const placeholders = assignedProjects.map((_, i) => `$${i + 1}`).join(', ');
+    const data = await executeQuery<any>(
+      `SELECT * FROM tasks WHERE project_id IN (${placeholders}) ORDER BY created_at DESC`,
+      assignedProjects
+    );
+
+    return (data || []).map(transformTaskFromDB);
+  } catch (error) {
+    console.error('Error fetching user tasks:', error);
+    const allTasks = getAllTasksLocal();
+    return allTasks.filter((task) => assignedProjects.includes(task.project_id));
   }
 }
 

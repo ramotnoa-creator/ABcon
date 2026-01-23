@@ -1114,7 +1114,7 @@ const SummaryCards = ({ apartments }: { apartments: Apartment[] }) => {
 // ============================================================
 // MAIN COMPONENT
 // ============================================================
-export default function TasksMilestonesTab({ project }: TasksMilestonesTabProps) {
+export default function TasksMilestonesTab({ project: _project }: TasksMilestonesTabProps) {
   const [view, setView] = useState<'milestones' | 'gantt' | 'timeline'>('milestones');
   const [filterApt, setFilterApt] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');

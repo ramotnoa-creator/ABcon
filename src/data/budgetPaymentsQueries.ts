@@ -1,7 +1,9 @@
 import type { BudgetPayment, BudgetItem, Project } from '../types';
+import type { User } from '../types/auth';
 import { getAllBudgetPayments } from '../services/budgetPaymentsService';
 import { getAllBudgetItems, getBudgetItems } from '../services/budgetItemsService';
 import { getProjects } from '../services/projectsService';
+import { canAccessProject, canViewAllProjects } from '../utils/permissions';
 
 export interface PaymentWithDetails {
   payment: BudgetPayment;
@@ -16,14 +18,15 @@ export interface PaymentSummary {
 }
 
 /**
- * Get payments within a date range, optionally filtered by project
+ * Get payments within a date range, optionally filtered by project and user permissions
  * Uses payment_date for paid payments, invoice_date for pending/approved
  */
 export async function getPaymentsInDateRange(
   startDate: Date,
   endDate: Date,
   projectId?: string,
-  statusFilter?: ('pending' | 'approved' | 'paid')[]
+  statusFilter?: ('pending' | 'approved' | 'paid')[],
+  user?: User | null
 ): Promise<PaymentWithDetails[]> {
   const [allPayments, allItems, projects] = await Promise.all([
     getAllBudgetPayments(),
@@ -72,7 +75,17 @@ export async function getPaymentsInDateRange(
         project: project!,
       };
     })
-    .filter((item) => item.budgetItem && item.project)
+    .filter((item) => {
+      if (!item.budgetItem || !item.project) return false;
+
+      // Filter by user permissions
+      if (user) {
+        if (canViewAllProjects(user)) return true;
+        return canAccessProject(user, item.project.id);
+      }
+
+      return true;
+    })
     .sort((a, b) => {
       const dateA =
         a.payment.status === 'paid' && a.payment.payment_date
@@ -88,13 +101,13 @@ export async function getPaymentsInDateRange(
 
 /**
  * Get payments that were paid in the last 30 days
- * Optionally filter by project
+ * Optionally filter by project and user permissions
  */
-export async function getLastMonthPaidAmount(projectId?: string): Promise<PaymentSummary> {
+export async function getLastMonthPaidAmount(projectId?: string, user?: User | null): Promise<PaymentSummary> {
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-  const payments = await getPaymentsInDateRange(thirtyDaysAgo, now, projectId, ['paid']);
+  const payments = await getPaymentsInDateRange(thirtyDaysAgo, now, projectId, ['paid'], user);
 
   return {
     totalAmount: payments.reduce((sum, p) => sum + p.payment.total_amount, 0),
@@ -105,16 +118,16 @@ export async function getLastMonthPaidAmount(projectId?: string): Promise<Paymen
 
 /**
  * Get payments scheduled for the next 30 days (pending or approved)
- * Optionally filter by project
+ * Optionally filter by project and user permissions
  */
-export async function getNextMonthPlannedPayments(projectId?: string): Promise<PaymentSummary> {
+export async function getNextMonthPlannedPayments(projectId?: string, user?: User | null): Promise<PaymentSummary> {
   const now = new Date();
   const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
   const payments = await getPaymentsInDateRange(now, thirtyDaysFromNow, projectId, [
     'pending',
     'approved',
-  ]);
+  ], user);
 
   return {
     totalAmount: payments.reduce((sum, p) => sum + p.payment.total_amount, 0),

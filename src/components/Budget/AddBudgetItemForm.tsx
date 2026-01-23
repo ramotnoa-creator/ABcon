@@ -1,12 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { BudgetItem } from '../../types';
-import { getBudgetCategories } from '../../data/budgetCategoriesStorage';
-import { getBudgetChapters } from '../../data/budgetChaptersStorage';
-import { addBudgetItem, getNextBudgetItemOrder, calculateBudgetItemTotals } from '../../data/budgetItemsStorage';
-import { getProfessionals } from '../../data/professionalsStorage';
-import { getTenders } from '../../data/tendersStorage';
-import { getMilestones } from '../../data/milestonesStorage';
-import { getProjects } from '../../data/storage';
+import { getBudgetCategories } from '../../services/budgetCategoriesService';
+import { getBudgetChapters } from '../../services/budgetChaptersService';
+import { createBudgetItem, getNextBudgetItemOrder, calculateBudgetItemTotals } from '../../services/budgetItemsService';
+import { getProfessionals } from '../../services/professionalsService';
+import { getTenders } from '../../services/tendersService';
+import { getMilestones } from '../../services/milestonesService';
+import { getProjects } from '../../services/projectsService';
 
 interface AddBudgetItemFormProps {
   projectId?: string; // Optional - if not provided, show project selector
@@ -26,28 +26,61 @@ const formatCurrency = (amount: number): string => {
 export default function AddBudgetItemForm({ projectId: initialProjectId, onSuccess, onCancel }: AddBudgetItemFormProps) {
   // Project selection (for global budget page)
   const [selectedProjectId, setSelectedProjectId] = useState(initialProjectId || '');
-  const projects = useMemo(() => getProjects(), []);
+  const [projects, setProjects] = useState<any[]>([]);
 
   const effectiveProjectId = initialProjectId || selectedProjectId;
 
   // Load data based on selected project
-  const categories = useMemo(
-    () => (effectiveProjectId ? getBudgetCategories(effectiveProjectId) : []),
-    [effectiveProjectId]
-  );
-  const chapters = useMemo(
-    () => (effectiveProjectId ? getBudgetChapters(effectiveProjectId) : []),
-    [effectiveProjectId]
-  );
-  const professionals = useMemo(() => getProfessionals().filter((p) => p.is_active), []);
-  const tenders = useMemo(
-    () => (effectiveProjectId ? getTenders(effectiveProjectId) : []),
-    [effectiveProjectId]
-  );
-  const milestones = useMemo(
-    () => (effectiveProjectId ? getMilestones(effectiveProjectId) : []),
-    [effectiveProjectId]
-  );
+  const [categories, setCategories] = useState<any[]>([]);
+  const [chapters, setChapters] = useState<any[]>([]);
+  const [professionals, setProfessionals] = useState<any[]>([]);
+  const [tenders, setTenders] = useState<any[]>([]);
+  const [milestones, setMilestones] = useState<any[]>([]);
+
+  // Load projects on mount
+  useEffect(() => {
+    const loadProjects = async () => {
+      const loadedProjects = await getProjects();
+      setProjects(loadedProjects);
+    };
+    loadProjects();
+  }, []);
+
+  // Load professionals on mount
+  useEffect(() => {
+    const loadProfessionals = async () => {
+      const loadedProfessionals = await getProfessionals();
+      setProfessionals(loadedProfessionals.filter((p) => p.is_active));
+    };
+    loadProfessionals();
+  }, []);
+
+  // Load project-specific data when project changes
+  useEffect(() => {
+    const loadProjectData = async () => {
+      if (!effectiveProjectId) {
+        setCategories([]);
+        setChapters([]);
+        setTenders([]);
+        setMilestones([]);
+        return;
+      }
+
+      const [loadedCategories, loadedChapters, loadedTenders, loadedMilestones] = await Promise.all([
+        getBudgetCategories(effectiveProjectId),
+        getBudgetChapters(effectiveProjectId),
+        getTenders(effectiveProjectId),
+        getMilestones(effectiveProjectId),
+      ]);
+
+      setCategories(loadedCategories);
+      setChapters(loadedChapters);
+      setTenders(loadedTenders);
+      setMilestones(loadedMilestones);
+    };
+
+    loadProjectData();
+  }, [effectiveProjectId]);
 
   // Form state
   const [form, setForm] = useState({
@@ -84,7 +117,7 @@ export default function AddBudgetItemForm({ projectId: initialProjectId, onSucce
   );
 
   // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!effectiveProjectId || !form.chapter_id || !form.description.trim()) {
@@ -93,9 +126,9 @@ export default function AddBudgetItemForm({ projectId: initialProjectId, onSucce
     }
 
     const supplier = professionals.find((p) => p.id === form.supplier_id);
+    const order = await getNextBudgetItemOrder(effectiveProjectId, form.chapter_id);
 
-    const newItem: BudgetItem = {
-      id: `bi-${crypto.randomUUID()}`,
+    const newItemData: Omit<BudgetItem, 'id' | 'created_at' | 'updated_at'> = {
       project_id: effectiveProjectId,
       chapter_id: form.chapter_id,
       code: undefined,
@@ -113,14 +146,17 @@ export default function AddBudgetItemForm({ projectId: initialProjectId, onSucce
       tender_id: form.tender_id || undefined,
       paid_amount: 0,
       expected_payment_date: form.expected_payment_date || undefined,
-      order: getNextBudgetItemOrder(effectiveProjectId, form.chapter_id),
+      order,
       notes: form.notes.trim() || undefined,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     };
 
-    addBudgetItem(newItem);
-    onSuccess?.();
+    try {
+      await createBudgetItem(newItemData);
+      onSuccess?.();
+    } catch (error) {
+      console.error('Error creating budget item:', error);
+      alert('שגיאה ביצירת פריט תקציב');
+    }
   };
 
   // Reset form when project changes
