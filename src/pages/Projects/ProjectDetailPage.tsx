@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { getProjectById } from '../../services/projectsService';
 import { getOpenIssuesCount } from '../../services/specialIssuesService';
 import { useAuth } from '../../contexts/AuthContext';
-import { canEditProject, canCreateTask, canAccessProject } from '../../utils/permissions';
+import { canEditProject, canAccessProject } from '../../utils/permissions';
 import type { Project } from '../../types';
 import OverviewTab from './tabs/OverviewTab';
 import ProfessionalsTab from './tabs/ProfessionalsTab';
@@ -37,7 +37,6 @@ export default function ProjectDetailPage() {
 
   // Permission checks
   const canEdit = canEditProject(user, id || '');
-  const canAddTask = canCreateTask(user, id || '');
   const hasAccess = canAccessProject(user, id || '');
 
   // Get valid tab IDs
@@ -152,10 +151,6 @@ export default function ProjectDetailPage() {
     navigate(`/projects/${id}/edit`);
   };
 
-  const handleNewTask = () => {
-    handleTabChange('tasks-milestones');
-  };
-
   const statusColors: Record<string, string> = {
     'תכנון': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200',
     'היתרים': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200',
@@ -228,15 +223,6 @@ export default function ProjectDetailPage() {
               עריכת פרויקט
             </button>
           )}
-          {canAddTask && (
-            <button
-              onClick={handleNewTask}
-              className="flex items-center justify-center h-10 px-4 rounded-lg bg-primary text-white hover:bg-primary-hover transition-all duration-200 text-sm font-bold tracking-[0.015em] btn-press hover:shadow-lg hover:shadow-primary/25"
-            >
-              <span className="material-symbols-outlined me-2 text-[18px]">add</span>
-              משימה חדשה
-            </button>
-          )}
         </div>
       </div>
 
@@ -297,24 +283,14 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* Mobile Footer with slide up animation */}
-      {(canEdit || canAddTask) && (
+      {canEdit && (
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-surface-light dark:bg-surface-dark border-t border-border-light dark:border-border-dark md:hidden z-50 flex gap-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] animate-fade-in-up">
-          {canEdit && (
-            <button
-              onClick={handleEdit}
-              className="flex-1 flex items-center justify-center h-12 px-4 rounded-lg bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark text-text-main-light dark:text-text-main-dark font-bold text-sm btn-press transition-all duration-200 hover:shadow-md"
-            >
-              עריכת פרויקט
-            </button>
-          )}
-          {canAddTask && (
-            <button
-              onClick={handleNewTask}
-              className="flex-[2] flex items-center justify-center h-12 px-4 rounded-lg bg-primary text-white font-bold text-sm shadow-md btn-press transition-all duration-200 hover:bg-primary-hover hover:shadow-lg"
-            >
-              משימה חדשה
-            </button>
-          )}
+          <button
+            onClick={handleEdit}
+            className="flex-1 flex items-center justify-center h-12 px-4 rounded-lg bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark text-text-main-light dark:text-text-main-dark font-bold text-sm btn-press transition-all duration-200 hover:shadow-md"
+          >
+            עריכת פרויקט
+          </button>
         </div>
       )}
     </div>
