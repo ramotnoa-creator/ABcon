@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -8,6 +9,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const { login } = useAuth();
+  const { showError, showSuccess } = useToast();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: FormEvent) => {
@@ -17,11 +19,13 @@ export default function LoginPage() {
 
     try {
       await login({ email, password });
+      showSuccess('התחברת בהצלחה!');
       navigate('/dashboard');
     } catch (error: unknown) {
       console.error('Login failed:', error);
       const message = error instanceof Error ? error.message : 'שגיאה בהתחברות. אנא נסה שוב.';
       setErrorMessage(message);
+      showError(message);
     } finally {
       setIsLoading(false);
     }

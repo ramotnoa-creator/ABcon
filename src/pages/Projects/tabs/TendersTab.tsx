@@ -21,7 +21,15 @@ import { getMilestones } from '../../../services/milestonesService';
 import { getBudgetCategories } from '../../../services/budgetCategoriesService';
 import { getBudgetChapters } from '../../../services/budgetChaptersService';
 import { createBudgetItem, getNextBudgetItemOrder, calculateBudgetItemTotals } from '../../../services/budgetItemsService';
-import { uploadTenderQuote, getFileNameFromUrl } from '../../../lib/supabaseStorage';
+// File upload functions - TODO: Implement file storage service
+const uploadTenderQuote = async (_tenderId: string, _participantId: string, _file: File): Promise<string> => {
+  throw new Error('File upload service not configured');
+};
+
+const getFileNameFromUrl = (url: string | null | undefined): string => {
+  if (!url) return '';
+  return url.split('/').pop() || '';
+};
 import { findChapterForTender } from '../../../utils/tenderChapterMapping';
 import type { Project, Tender, TenderStatus, TenderType, TenderParticipant, Professional } from '../../../types';
 import { formatDateForDisplay } from '../../../utils/dateUtils';

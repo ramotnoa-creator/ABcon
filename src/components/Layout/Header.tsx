@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { getRoleDisplayName, canManageUsers } from '../../utils/permissions';
+import { isDemoMode } from '../../lib/neon';
 import MobileMenu from './MobileMenu';
 
 const navItems = [
@@ -77,13 +78,22 @@ export default function Header() {
         <div className="flex items-center gap-4 lg:gap-8">
           <div className="flex items-center gap-4">
             <Link to="/dashboard" className="flex items-center gap-4 group">
-              <img 
-                src="/favicon.png" 
-                alt="אנ פרויקטים" 
+              <img
+                src="/favicon.png"
+                alt="אנ פרויקטים"
                 className="size-8 transition-transform duration-300 group-hover:scale-110"
               />
               <h2 className="hidden md:block text-lg font-bold leading-tight tracking-[-0.015em] transition-colors duration-200 group-hover:text-primary">אנ פרויקטים</h2>
             </Link>
+            {/* Connection Status Indicator */}
+            <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+              isDemoMode
+                ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300'
+                : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+            }`}>
+              <span className={`size-1.5 rounded-full ${isDemoMode ? 'bg-orange-500' : 'bg-green-500'} animate-pulse`} />
+              {isDemoMode ? 'דמו' : 'פעיל'}
+            </div>
           </div>
         </div>
 
