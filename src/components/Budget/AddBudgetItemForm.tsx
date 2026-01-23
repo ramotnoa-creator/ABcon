@@ -7,6 +7,7 @@ import { getProfessionals } from '../../services/professionalsService';
 import { getTenders } from '../../services/tendersService';
 import { getMilestones } from '../../services/milestonesService';
 import { getProjects } from '../../services/projectsService';
+import { useToast } from '../../contexts/ToastContext';
 
 interface AddBudgetItemFormProps {
   projectId?: string; // Optional - if not provided, show project selector
@@ -24,6 +25,8 @@ const formatCurrency = (amount: number): string => {
 };
 
 export default function AddBudgetItemForm({ projectId: initialProjectId, onSuccess, onCancel }: AddBudgetItemFormProps) {
+  const { showSuccess, showError } = useToast();
+
   // Project selection (for global budget page)
   const [selectedProjectId, setSelectedProjectId] = useState(initialProjectId || '');
   const [projects, setProjects] = useState<any[]>([]);
@@ -121,7 +124,7 @@ export default function AddBudgetItemForm({ projectId: initialProjectId, onSucce
     e.preventDefault();
 
     if (!effectiveProjectId || !form.chapter_id || !form.description.trim()) {
-      alert('נא למלא את כל השדות הנדרשים');
+      showError('נא למלא את כל השדות הנדרשים');
       return;
     }
 
@@ -152,10 +155,11 @@ export default function AddBudgetItemForm({ projectId: initialProjectId, onSucce
 
     try {
       await createBudgetItem(newItemData);
+      showSuccess('פריט התקציב נוסף בהצלחה!');
       onSuccess?.();
     } catch (error) {
       console.error('Error creating budget item:', error);
-      alert('שגיאה ביצירת פריט תקציב');
+      showError('שגיאה ביצירת פריט תקציב. אנא נסה שוב.');
     }
   };
 

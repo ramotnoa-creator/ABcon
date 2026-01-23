@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createProfessional } from '../../services/professionalsService';
 import { validateIsraeliPhone, validateEmail } from '../../utils/validation';
-import { Toast } from '../../components/Toast';
+import { useToast } from '../../contexts/ToastContext';
 import type { Professional } from '../../types';
 
 export default function CreateProfessionalPage() {
   const navigate = useNavigate();
+  const { showSuccess, showError } = useToast();
   const [formData, setFormData] = useState({
     professional_name: '',
     company_name: '',
@@ -17,7 +18,6 @@ export default function CreateProfessionalPage() {
     notes: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -66,13 +66,11 @@ export default function CreateProfessionalPage() {
 
     try {
       const newProfessional = await createProfessional(professionalData);
-      setToast({ message: 'איש מקצוע נוצר בהצלחה', type: 'success' });
-      setTimeout(() => {
-        navigate(`/professionals/${newProfessional.id}`);
-      }, 1000);
+      showSuccess('איש מקצוע נוצר בהצלחה!');
+      navigate(`/professionals/${newProfessional.id}`);
     } catch (error) {
       console.error('Error creating professional:', error);
-      setToast({ message: 'שגיאה ביצירת איש מקצוע', type: 'error' });
+      showError('שגיאה ביצירת איש מקצוע. אנא נסה שוב.');
     }
   };
 
@@ -323,15 +321,6 @@ export default function CreateProfessionalPage() {
           </div>
         </form>
       </div>
-
-      {/* Toast notification */}
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { Project, ProjectStatus } from '../../types';
-import { getProjectById, updateProject } from '../../data/storage';
+import { getProjectById, updateProject } from '../../services/projectsService';
+import { useToast } from '../../contexts/ToastContext';
 import { calculateTargetDate, formatDateForDisplay, formatDateHebrew } from '../../utils/dateUtils';
 
 const statusOptions: { value: ProjectStatus; label: string }[] = [
@@ -16,6 +17,7 @@ const statusOptions: { value: ProjectStatus; label: string }[] = [
 export default function EditProjectPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { showSuccess, showError } = useToast();
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<Project | null>(null);
 
@@ -34,20 +36,23 @@ export default function EditProjectPage() {
 
   // Load project data
   useEffect(() => {
-    if (!id) {
-      navigate('/projects');
-      return;
-    }
+    const loadProject = async () => {
+      if (!id) {
+        navigate('/projects');
+        return;
+      }
 
-    const loadedProject = getProjectById(id);
-    if (!loadedProject) {
-      navigate('/projects');
-      return;
-    }
+      try {
+        const loadedProject = await getProjectById(id);
+        if (!loadedProject) {
+          showError('הפרויקט לא נמצא');
+          navigate('/projects');
+          return;
+        }
 
-    setProject(loadedProject);
-    setFormData({
-      project_name: loadedProject.project_name,
+        setProject(loadedProject);
+        setFormData({
+          project_name: loadedProject.project_name,
       client_name: loadedProject.client_name,
       address: loadedProject.address || '',
       status: loadedProject.status,
@@ -55,9 +60,16 @@ export default function EditProjectPage() {
       permit_duration_months: loadedProject.permit_duration_months || 12,
       permit_approval_date: loadedProject.permit_approval_date || '',
       notes: loadedProject.notes || '',
-    });
-    setLoading(false);
-  }, [id, navigate]);
+        });
+        setLoading(false);
+      } catch (error) {
+        console.error('Error loading project:', error);
+        showError('שגיאה בטעינת הפרויקט');
+        navigate('/projects');
+      }
+    };
+    loadProject();
+  }, [id, navigate, showError]);
 
   // Calculate target date when start date or duration changes
   const targetDate = useMemo(() => {
@@ -104,27 +116,33 @@ export default function EditProjectPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validate() || !project) {
       return;
     }
 
-    updateProject(project.id, {
-      project_name: formData.project_name.trim(),
-      client_name: formData.client_name.trim(),
-      address: formData.address.trim() || undefined,
-      status: formData.status,
-      permit_start_date: formData.permit_start_date || undefined,
-      permit_duration_months: formData.permit_duration_months || undefined,
-      permit_target_date: targetDate || undefined,
-      permit_approval_date: formData.permit_approval_date || undefined,
-      updated_at_text: formatDateHebrew(new Date().toISOString()),
-      notes: formData.notes.trim() || undefined,
-    });
+    try {
+      await updateProject(project.id, {
+        project_name: formData.project_name.trim(),
+        client_name: formData.client_name.trim(),
+        address: formData.address.trim() || undefined,
+        status: formData.status,
+        permit_start_date: formData.permit_start_date || undefined,
+        permit_duration_months: formData.permit_duration_months || undefined,
+        permit_target_date: targetDate || undefined,
+        permit_approval_date: formData.permit_approval_date || undefined,
+        updated_at_text: formatDateHebrew(new Date().toISOString()),
+        notes: formData.notes.trim() || undefined,
+      });
 
-    navigate(`/projects/${id}`);
+      showSuccess('הפרויקט עודכן בהצלחה!');
+      navigate(`/projects/${id}`);
+    } catch (error) {
+      console.error('Error updating project:', error);
+      showError('שגיאה בעדכון הפרויקט. אנא נסה שוב.');
+    }
   };
 
   const handleCancel = () => {

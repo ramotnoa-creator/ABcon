@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../../../contexts/ToastContext';
 import {
   getTenders,
   updateTender,
@@ -111,6 +112,7 @@ async function loadParticipantsMap(tenders: Tender[]): Promise<Record<string, Te
 
 export default function TendersTab({ project }: TendersTabProps) {
   const navigate = useNavigate();
+  const { showSuccess, showError } = useToast();
   const [tenders, setTenders] = useState<Tender[]>([]);
   const [allProfessionals, setAllProfessionals] = useState<Professional[]>([]);
   const [participantsMap, setParticipantsMap] = useState<Record<string, TenderParticipant[]>>({});
@@ -297,8 +299,10 @@ export default function TendersTab({ project }: TendersTabProps) {
       setProfessionalPickerFilter(newTender.tender_type);
       setSelectedProfessionalIds([]);
       setIsProfessionalPickerOpen(true);
+      showSuccess('המכרז נוצר בהצלחה!');
     } catch (error) {
       console.error('Error creating tender:', error);
+      showError('שגיאה ביצירת המכרז. אנא נסה שוב.');
     }
   };
 
@@ -315,7 +319,7 @@ export default function TendersTab({ project }: TendersTabProps) {
       }
     } catch (error) {
       console.error('Upload error:', error);
-      alert('שגיאה בהעלאת הקובץ');
+      showError('שגיאה בהעלאת הקובץ');
     } finally {
       setUploadingFile(false);
     }
@@ -338,8 +342,10 @@ export default function TendersTab({ project }: TendersTabProps) {
       await loadTenders();
       setIsProfessionalPickerOpen(false);
       setSelectedProfessionalIds([]);
+      showSuccess('המועמדים נוספו למכרז בהצלחה!');
     } catch (error) {
       console.error('Error adding participants:', error);
+      showError('שגיאה בהוספת מועמדים. אנא נסה שוב.');
     }
   };
 
@@ -363,8 +369,10 @@ export default function TendersTab({ project }: TendersTabProps) {
       }
 
       await loadTenders();
+      showSuccess('המועמד הוסר מהמכרז בהצלחה');
     } catch (error) {
       console.error('Error removing participant:', error);
+      showError('שגיאה בהסרת מועמד. אנא נסה שוב.');
     }
   };
 
@@ -465,8 +473,10 @@ export default function TendersTab({ project }: TendersTabProps) {
       setSelectedTender(null);
       setSelectedWinnerParticipant(null);
       setWinnerForm({ contract_amount: '', management_remarks: '' });
+      showSuccess('הזוכה נבחר בהצלחה!');
     } catch (error) {
       console.error('Error selecting winner:', error);
+      showError('שגיאה בבחירת זוכה. אנא נסה שוב.');
     }
   };
 
@@ -485,8 +495,10 @@ export default function TendersTab({ project }: TendersTabProps) {
       setIsParticipantDetailsOpen(false);
       setSelectedParticipant(null);
       setParticipantForm({ quote_file: '', total_amount: '', notes: '' });
+      showSuccess('פרטי המועמד עודכנו בהצלחה!');
     } catch (error) {
       console.error('Error updating participant:', error);
+      showError('שגיאה בעדכון פרטי מועמד. אנא נסה שוב.');
     }
   };
 
@@ -510,8 +522,10 @@ export default function TendersTab({ project }: TendersTabProps) {
     try {
       await deleteTender(tender.id);
       await loadTenders();
+      showSuccess('המכרז נמחק בהצלחה');
     } catch (error) {
       console.error('Error deleting tender:', error);
+      showError('שגיאה במחיקת המכרז. אנא נסה שוב.');
     }
   };
 

@@ -10,6 +10,7 @@ import {
   createProjectProfessional,
   removeProjectProfessional,
 } from '../../services/projectProfessionalsService';
+import { useToast } from '../../contexts/ToastContext';
 import type { Professional, ProjectProfessional } from '../../types';
 import type { Project } from '../../types';
 
@@ -21,6 +22,7 @@ type RelatedProject = {
 export default function ProfessionalDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { showSuccess, showError } = useToast();
 
   // Initialize state - will load async
   const [professional, setProfessional] = useState<Professional | null>(null);
@@ -172,8 +174,10 @@ export default function ProfessionalDetailPage() {
       });
 
       setIsEditModalOpen(false);
+      showSuccess('הפרטים עודכנו בהצלחה!');
     } catch (error) {
       console.error('Error updating professional:', error);
+      showError('שגיאה בעדכון הפרטים. אנא נסה שוב.');
     }
   };
 
@@ -183,8 +187,10 @@ export default function ProfessionalDetailPage() {
     try {
       await updateProfessional(professional.id, { is_active: false });
       setProfessional({ ...professional, is_active: false });
+      showSuccess('איש המקצוע הושבת בהצלחה');
     } catch (error) {
       console.error('Error deactivating professional:', error);
+      showError('שגיאה בהשבתת איש המקצוע. אנא נסה שוב.');
     }
   };
 
@@ -206,8 +212,10 @@ export default function ProfessionalDetailPage() {
       setIsAddToProjectOpen(false);
       setFormData({ project_id: '', project_role: '', start_date: '', notes: '' });
       await loadRelatedProjects(professional.id);
+      showSuccess('איש המקצוע נוסף לפרויקט בהצלחה!');
     } catch (error) {
       console.error('Error adding professional to project:', error);
+      showError('שגיאה בהוספה לפרויקט. אנא נסה שוב.');
     }
   };
 
@@ -217,8 +225,10 @@ export default function ProfessionalDetailPage() {
     try {
       await removeProjectProfessional(projectId, professional.id);
       await loadRelatedProjects(professional.id);
+      showSuccess('איש המקצוע הוסר מהפרויקט בהצלחה');
     } catch (error) {
       console.error('Error removing professional from project:', error);
+      showError('שגיאה בהסרה מהפרויקט. אנא נסה שוב.');
     }
   };
 

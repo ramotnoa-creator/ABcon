@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Project, ProjectStatus } from '../../types';
 import { createProject } from '../../services/projectsService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { calculateTargetDate, formatDateForDisplay, formatDateHebrew } from '../../utils/dateUtils';
 
 const statusOptions: { value: ProjectStatus; label: string }[] = [
@@ -15,6 +16,7 @@ const statusOptions: { value: ProjectStatus; label: string }[] = [
 export default function CreateProjectPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { showSuccess, showError } = useToast();
   const [formData, setFormData] = useState({
     project_name: '',
     client_name: '',
@@ -96,10 +98,11 @@ export default function CreateProjectPage() {
 
     try {
       await createProject(projectData, user?.id);
+      showSuccess('הפרויקט נוצר בהצלחה!');
       navigate('/projects');
     } catch (error) {
       console.error('Error creating project:', error);
-      // Could add error handling UI here
+      showError('שגיאה ביצירת הפרויקט. אנא נסה שוב.');
     }
   };
 
