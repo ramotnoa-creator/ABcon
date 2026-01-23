@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import type { TenderEndingSoon } from '../../data/dashboardData';
 
@@ -6,7 +7,7 @@ interface TendersKPICardProps {
   emptyMessage?: string;
 }
 
-export default function TendersKPICard({ tenders, emptyMessage = 'אין מכרזים שמסתיימים בקרוב' }: TendersKPICardProps) {
+const TendersKPICard = memo(function TendersKPICard({ tenders, emptyMessage = 'אין מכרזים שמסתיימים בקרוב' }: TendersKPICardProps) {
   // Get urgency color based on days remaining
   const getUrgencyColor = (daysRemaining: number) => {
     if (daysRemaining <= 3) return 'text-red-600 dark:text-red-400';
@@ -102,4 +103,6 @@ export default function TendersKPICard({ tenders, emptyMessage = 'אין מכר�
       )}
     </div>
   );
-}
+});
+
+export default TendersKPICard;

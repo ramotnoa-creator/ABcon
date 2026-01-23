@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { memo, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { MilestoneWithProject } from '../../data/milestonesQueries';
 import { formatDateForDisplay } from '../../utils/dateUtils';
@@ -42,7 +42,7 @@ const colorClasses = {
   },
 };
 
-export default function MilestonesKPICard({
+const MilestonesKPICard = memo(function MilestonesKPICard({
   title,
   icon,
   color,
@@ -192,4 +192,6 @@ export default function MilestonesKPICard({
       )}
     </>
   );
-}
+});
+
+export default MilestonesKPICard;

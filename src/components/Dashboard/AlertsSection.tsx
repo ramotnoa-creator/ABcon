@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Alert } from '../../types';
 
@@ -20,7 +20,7 @@ const alertTypeIcons = {
   other: 'info',
 };
 
-export default function AlertsSection({ alerts }: AlertsSectionProps) {
+const AlertsSection = memo(function AlertsSection({ alerts }: AlertsSectionProps) {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -89,4 +89,6 @@ export default function AlertsSection({ alerts }: AlertsSectionProps) {
       </div>
     </div>
   );
-}
+});
+
+export default AlertsSection;

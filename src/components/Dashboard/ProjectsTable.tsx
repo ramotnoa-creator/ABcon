@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { ProjectRequiringAttention } from '../../types';
 
@@ -12,7 +12,7 @@ const statusColorClasses = {
   blue: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200',
 };
 
-export default function ProjectsTable({ projects }: ProjectsTableProps) {
+const ProjectsTable = memo(function ProjectsTable({ projects }: ProjectsTableProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [animateProgress, setAnimateProgress] = useState(false);
 
@@ -227,4 +227,6 @@ export default function ProjectsTable({ projects }: ProjectsTableProps) {
       </div>
     </div>
   );
-}
+});
+
+export default ProjectsTable;

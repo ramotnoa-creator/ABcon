@@ -100,16 +100,16 @@ export default function Header() {
         {/* Navigation & User */}
         <div className="flex items-center gap-4 lg:gap-6">
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-1">
+          <nav className="hidden md:flex items-center gap-1">
             {navItems.map((item) => {
               const active = isActive(item.path);
               return (
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`relative px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 group overflow-hidden ${
-                    active 
-                      ? 'text-primary' 
+                  className={`relative px-4 py-2 min-h-11 rounded-lg text-sm font-medium transition-all duration-200 group overflow-hidden flex items-center ${
+                    active
+                      ? 'text-primary'
                       : 'hover:text-primary'
                   }`}
                 >
@@ -135,13 +135,13 @@ export default function Header() {
           </nav>
 
           {/* Divider - Desktop only */}
-          <div className="hidden lg:block w-px h-8 bg-border-light dark:bg-border-dark" />
+          <div className="hidden md:block w-px h-8 bg-border-light dark:bg-border-dark" />
 
           {/* User Profile Section */}
           <div className="relative">
             <button
               onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-              className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-background-light dark:hover:bg-background-dark transition-all duration-200 group"
+              className="flex items-center gap-3 px-2 py-2 min-h-11 rounded-lg hover:bg-background-light dark:hover:bg-background-dark transition-all duration-200 group"
             >
               {/* Avatar */}
               <div className="size-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm transition-transform duration-200 group-hover:scale-105">
@@ -218,7 +218,7 @@ export default function Header() {
 
           {/* Mobile Menu Button */}
           <button
-            className="lg:hidden size-10 flex items-center justify-center rounded-lg hover:bg-background-light dark:hover:bg-background-dark transition-all duration-200 btn-press"
+            className="md:hidden size-11 flex items-center justify-center rounded-lg hover:bg-background-light dark:hover:bg-background-dark transition-all duration-200 btn-press"
             onClick={() => setIsMobileMenuOpen(true)}
             aria-label="תפריט"
           >

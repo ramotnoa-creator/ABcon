@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { memo, useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import type { StatusDistribution } from '../../types';
 
@@ -12,7 +12,7 @@ const colorMap = {
   red: '#ef4444',
 };
 
-export default function StatusChart({ distribution }: StatusChartProps) {
+const StatusChart = memo(function StatusChart({ distribution }: StatusChartProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [animateChart, setAnimateChart] = useState(false);
 
@@ -131,4 +131,6 @@ export default function StatusChart({ distribution }: StatusChartProps) {
       </div>
     </div>
   );
-}
+});
+
+export default StatusChart;

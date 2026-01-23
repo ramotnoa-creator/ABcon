@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import type { KPI } from '../../types';
 
 interface KPICardsProps {
@@ -26,7 +26,7 @@ const hoverColors = {
   blue: 'hover:border-blue-600 hover:shadow-blue-200/50 dark:hover:shadow-blue-900/30',
 };
 
-export default function KPICards({ kpis }: KPICardsProps) {
+const KPICards = memo(function KPICards({ kpis }: KPICardsProps) {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -74,4 +74,6 @@ export default function KPICards({ kpis }: KPICardsProps) {
       ))}
     </div>
   );
-}
+});
+
+export default KPICards;

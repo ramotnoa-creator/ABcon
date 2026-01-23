@@ -238,7 +238,7 @@ export default function ProjectDetailPage() {
               key={tab.id}
               ref={(el) => { tabsRef.current[index] = el; }}
               onClick={() => handleTabChange(tab.id)}
-              className={`flex items-center gap-1.5 pb-3 px-2.5 pt-2 transition-all duration-200 relative group rounded-t-lg overflow-hidden ${
+              className={`flex items-center gap-1.5 pb-3 px-3 pt-3 min-h-11 transition-all duration-200 relative group rounded-t-lg overflow-hidden ${
                 activeTab === tab.id
                   ? 'text-primary'
                   : 'text-text-secondary-light dark:text-text-secondary-dark hover:text-text-main-light dark:hover:text-text-main-dark'
