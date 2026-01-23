@@ -96,9 +96,9 @@ export default function ProjectDetailPage() {
     if (!isLoading && id && (!project || !hasAccess)) {
       navigate('/projects');
     }
-    // Animate header on mount
+    // Show header immediately when project loads
     if (project) {
-      setTimeout(() => setIsHeaderVisible(true), 50);
+      setIsHeaderVisible(true);
     }
   }, [id, navigate, project, hasAccess, isLoading]);
 
@@ -114,17 +114,17 @@ export default function ProjectDetailPage() {
 
   const handleTabChange = (tabId: string) => {
     if (tabId === activeTab) return;
+    // Brief fade for smooth transition
     setTabTransition(true);
-    setTimeout(() => {
-      setActiveTab(tabId);
-      // Update URL with new tab (remove param if overview)
-      if (tabId === 'overview') {
-        setSearchParams({});
-      } else {
-        setSearchParams({ tab: tabId });
-      }
-      setTabTransition(false);
-    }, 150);
+    setActiveTab(tabId);
+    // Update URL with new tab (remove param if overview)
+    if (tabId === 'overview') {
+      setSearchParams({});
+    } else {
+      setSearchParams({ tab: tabId });
+    }
+    // Reset transition state after fade completes
+    setTimeout(() => setTabTransition(false), 200);
   };
 
   // Sync tab from URL when it changes externally (e.g., browser back/forward)
