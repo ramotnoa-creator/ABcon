@@ -265,7 +265,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Send password reset email
-  const resetPassword = async (email: string) => {
+  const resetPassword = async (_email: string) => {
     if (isDemoMode) {
       throw new Error('Password reset not available in demo mode');
     }
