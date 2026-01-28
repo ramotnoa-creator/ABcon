@@ -3,7 +3,6 @@
  * Calculates variance between estimates and budgets
  */
 
-import { executeQuery } from '../lib/neon';
 import type { VarianceData } from '../types';
 import { getBudgetItemById } from './budgetItemsService';
 import { getEstimateItemById } from './estimateItemsService';

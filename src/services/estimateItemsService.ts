@@ -393,7 +393,7 @@ export async function bulkCreateEstimateItems(
 // ============================================================
 
 export async function reorderEstimateItems(
-  estimateId: string,
+  _estimateId: string,
   orderMap: Record<string, number>
 ): Promise<void> {
   for (const [itemId, newOrder] of Object.entries(orderMap)) {
