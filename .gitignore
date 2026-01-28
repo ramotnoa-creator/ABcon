@@ -16,6 +16,9 @@ dist-ssr
 .env
 .env.local
 
+# Test credentials (keep out of repo)
+.dev-credentials.md
+
 # Temporary files
 tmpclaude-*
 src/tmpclaude-*
