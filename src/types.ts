@@ -135,6 +135,9 @@ export interface Tender {
   estimated_budget?: number; // Expected cost before quotes (תקציב משוער)
   contract_amount?: number; // Final negotiated price (סכום חוזה)
   management_remarks?: string; // Admin-only notes (הערות ניהול)
+  // Estimate integration fields (added in Phase 1)
+  estimate_id?: string; // Link to estimates table
+  bom_file_id?: string; // Link to bom_files table
   created_at: string; // ISO date string
   updated_at: string; // ISO date string
 }
@@ -355,6 +358,11 @@ export interface BudgetItem {
   expected_payment_date?: string; // ISO date string - תאריך משוער לתשלום
   order: number;
   notes?: string;
+  // Variance tracking fields (added in Phase 1)
+  estimate_item_id?: string; // Link to estimate_items
+  estimate_amount?: number; // Amount from estimate
+  variance_amount?: number; // budget - estimate
+  variance_percent?: number; // (variance / estimate) * 100
   created_at: string;
   updated_at: string;
 }
