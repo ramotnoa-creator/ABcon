@@ -376,3 +376,63 @@ export interface BudgetPayment {
   created_at: string;
   updated_at: string;
 }
+
+// ============================================================
+// ESTIMATES MODULE
+// ============================================================
+
+export type EstimateType = 'planning' | 'execution';
+export type EstimateStatus = 'draft' | 'active' | 'exported_to_tender';
+
+export interface Estimate {
+  id: string;
+  project_id: string;
+  estimate_type: EstimateType;
+  name: string;
+  description?: string;
+  total_amount: number;
+  status: EstimateStatus;
+  created_by?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EstimateItem {
+  id: string;
+  estimate_id: string;
+  code?: string;
+  description: string;
+  category?: string;
+  subcategory?: string;
+  unit?: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  vat_rate: number;
+  vat_amount: number;
+  total_with_vat: number;
+  notes?: string;
+  order_index: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BOMFile {
+  id: string;
+  tender_id: string;
+  file_name: string;
+  file_path: string;
+  file_size: number;
+  mime_type: string;
+  uploaded_by?: string;
+  uploaded_at: string;
+}
+
+export interface VarianceData {
+  estimate_amount: number;
+  budget_amount: number;
+  variance_amount: number;
+  variance_percent: number;
+  color: 'green' | 'red' | 'gray';
+}
