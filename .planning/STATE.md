@@ -8,22 +8,22 @@
 
 ## Current Position
 
-**Phase:** 2 of 6 (02-cost-control-page)
+**Phase:** 3 of 6 (03-estimates-ui)
 **Plan:** 01 of 01 in phase (COMPLETED ✓)
-**Status:** Phase 2 Complete - Ready for Phase 3
-**Last activity:** 2026-01-29 - Completed 02-01-PLAN.md
+**Status:** Phase 3 Complete - Ready for Phase 4
+**Last activity:** 2026-01-29 - Completed 03-01-PLAN.md
 
 ### Progress Overview
 
 ```
 Phase 1: ████████████████████ 100% Complete (01-database-foundation)
 Phase 2: ████████████████████ 100% Complete (02-cost-control-page)
-Phase 3: ░░░░░░░░░░░░░░░░░░░░   0% (03-estimates-ui)
+Phase 3: ████████████████████ 100% Complete (03-estimates-ui)
 Phase 4: ░░░░░░░░░░░░░░░░░░░░   0% (04-tender-integration)
 Phase 5: ░░░░░░░░░░░░░░░░░░░░   0% (05-budget-auto-update)
 Phase 6: ░░░░░░░░░░░░░░░░░░░░   0% (06-polish-testing)
 
-Overall: ██████░░░░░░░░░░░░░░  33.3% (2 of 6 phases)
+Overall: ██████████░░░░░░░░░░  50% (3 of 6 phases)
 ```
 
 ---
@@ -42,6 +42,10 @@ Decisions made during execution that affect future work:
 | 006 | 02 | Default tab is estimates | Most important for unified page | /cost-control defaults to estimates tab |
 | 007 | 02 | Tab state in URL query params | Shareable links, browser back support | Better UX, bookmarkable tab state |
 | 008 | 02 | Variance shows dash (-) not zero | Accurate representation | Users distinguish no estimate vs. zero estimate |
+| 009 | 03 | Skipped auto-save implementation | Modal-based save is explicit and sufficient | Users must click Save button explicitly |
+| 010 | 03 | Auto-create estimates on first access | Simplifies UX flow | Every project gets planning/execution estimates automatically |
+| 011 | 03 | Export buttons are placeholders | Focus on core CRUD first | Export to Tender/Excel deferred to Phase 4 |
+| 012 | 03 | Unified Financial tab | Consolidate all financial data | Removed separate Budget/Tenders tabs from main navigation |
 
 ---
 
@@ -61,14 +65,14 @@ Decisions made during execution that affect future work:
 
 ## Session Continuity
 
-**Last session:** 2026-01-29 00:35:02
-**Stopped at:** Completed 02-01-PLAN.md
+**Last session:** 2026-01-29 04:44:28
+**Stopped at:** Completed 03-01-PLAN.md
 **Resume file:** None (phase complete)
 
 **Next steps:**
-1. Review Phase 2 completion with team
-2. Begin Phase 3: Estimates UI
-3. Create 03-01-PLAN.md for CRUD operations on estimates
+1. Review Phase 3 completion with team
+2. Begin Phase 4: Tender Integration
+3. Implement BOM upload and tender-estimate linking
 
 ---
 
@@ -104,8 +108,11 @@ Decisions made during execution that affect future work:
 **Types:** `src/types.ts` (Estimate, EstimateItem, BOMFile, VarianceData)
 **Migrations:** `migrations/create-tables.cjs`, `001-create-estimates-schema.sql`, `002-alter-tenders-budget-items.sql`
 **Seed:** `scripts/seed-estimates.cjs`
-**Pages:** `src/pages/CostControl/CostControlPage.tsx` (main page with 3 tabs)
-**Tabs:** `EstimatesTabContent.tsx`, `TendersTabContent.tsx`, `BudgetTabContent.tsx`
+**Pages:**
+- `src/pages/CostControl/CostControlPage.tsx` (global cost control page)
+- `src/pages/Projects/tabs/FinancialTab.tsx` (unified financial tab)
+**Subtabs:** `PlanningEstimateSubTab.tsx`, `ExecutionEstimateSubTab.tsx`, `TendersSubTab.tsx`, `BudgetSubTab.tsx`, `PaymentsSubTab.tsx`
+**Components:** `AddEstimateItemForm.tsx`, `EstimateItemsTable.tsx`, `EstimateSummaryCard.tsx`
 
 ---
 
@@ -115,12 +122,13 @@ Decisions made during execution that affect future work:
 |-------|----------|-------|--------|
 | 01-database-foundation | 11 min | 10/13 | ✓ Complete |
 | 02-cost-control-page | 10 min | 9/9 | ✓ Complete |
+| 03-estimates-ui | 24 min | 12/12 | ✓ Complete |
 
-**Average:** 10.5 min/phase (2 phases completed)
-**Projected remaining:** ~42 min (4 phases × 10.5 min)
-**Total project estimate:** ~63 min (1.05 hours)
+**Average:** 15 min/phase (3 phases completed)
+**Projected remaining:** ~45 min (3 phases × 15 min)
+**Total project estimate:** ~90 min (1.5 hours)
 
 ---
 
 *This file is automatically updated after each plan execution.*
-*Last update: Phase 02-01 completed on 2026-01-29*
+*Last update: Phase 03-01 completed on 2026-01-29*
