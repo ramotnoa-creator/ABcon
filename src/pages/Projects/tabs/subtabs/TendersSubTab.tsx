@@ -23,6 +23,8 @@ import { getMilestones } from '../../../../services/milestonesService';
 import { getBudgetCategories } from '../../../../services/budgetCategoriesService';
 import { getBudgetChapters } from '../../../../services/budgetChaptersService';
 import { createBudgetItem, getNextBudgetItemOrder, calculateBudgetItemTotals } from '../../../../services/budgetItemsService';
+import { getBOMFile } from '../../../../services/bomFilesService';
+import BOMUploader from '../../../../components/Tenders/BOMUploader';
 // File upload functions - TODO: Implement file storage service
 const uploadTenderQuote = async (_tenderId: string, _participantId: string, _file: File): Promise<string> => {
   throw new Error('File upload service not configured');
@@ -33,7 +35,7 @@ const getFileNameFromUrl = (url: string | null | undefined): string => {
   return url.split('/').pop() || '';
 };
 import { findChapterForTender } from '../../../../utils/tenderChapterMapping';
-import type { Project, Tender, TenderStatus, TenderType, TenderParticipant, Professional } from '../../../../types';
+import type { Project, Tender, TenderStatus, TenderType, TenderParticipant, Professional, BOMFile } from '../../../../types';
 import { formatDateForDisplay } from '../../../../utils/dateUtils';
 
 interface TendersSubTabProps {
@@ -119,6 +121,7 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
   const [participantsMap, setParticipantsMap] = useState<Record<string, TenderParticipant[]>>({});
   const [milestones, setMilestones] = useState<any[]>([]);
   const [estimatesMap, setEstimatesMap] = useState<Record<string, any>>({});
+  const [bomFilesMap, setBomFilesMap] = useState<Record<string, BOMFile | null>>({});
   const [isLoading, setIsLoading] = useState(true);
 
   // Modal states
@@ -216,6 +219,7 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
 
         // Load estimates for tenders that have estimate_id
         const estimatesData: Record<string, any> = {};
+        const bomFilesData: Record<string, BOMFile | null> = {};
         await Promise.all(
           loadedTenders.map(async (tender) => {
             if (tender.estimate_id) {
@@ -224,9 +228,14 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                 estimatesData[tender.id] = estimate;
               }
             }
+            if (tender.bom_file_id) {
+              const bomFile = await getBOMFile(tender.bom_file_id);
+              bomFilesData[tender.id] = bomFile;
+            }
           })
         );
         setEstimatesMap(estimatesData);
+        setBomFilesMap(bomFilesData);
       } catch (error: unknown) {
         console.error('Error loading tenders data:', error);
       } finally {
@@ -932,6 +941,23 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                     })()}
                     </div>
                   )}
+                </div>
+
+                {/* BOM Section */}
+                <div className="mt-4 pt-4 border-t border-border-light dark:border-border-dark">
+                  <h5 className="text-sm font-bold mb-3">בל"מ (Bill of Materials)</h5>
+                  <BOMUploader
+                    tenderId={tender.id}
+                    currentBOM={bomFilesMap[tender.id]}
+                    onUploadSuccess={async (bomFile) => {
+                      if (bomFile) {
+                        setBomFilesMap((prev) => ({ ...prev, [tender.id]: bomFile }));
+                      } else {
+                        setBomFilesMap((prev) => ({ ...prev, [tender.id]: null }));
+                      }
+                      await loadTenders();
+                    }}
+                  />
                 </div>
 
                 {/* Notes */}
