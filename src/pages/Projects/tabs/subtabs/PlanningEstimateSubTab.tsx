@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../../../contexts/ToastContext';
-import { getEstimates, createEstimate } from '../../../../services/estimatesService';
+import { getEstimates, createEstimate, updateEstimate } from '../../../../services/estimatesService';
 import { getEstimateItems, deleteEstimateItem } from '../../../../services/estimateItemsService';
+import { createTender } from '../../../../services/tendersService';
 import AddEstimateItemForm from '../../../../components/Estimates/AddEstimateItemForm';
 import EstimateItemsTable from '../../../../components/Estimates/EstimateItemsTable';
 import EstimateSummaryCard from '../../../../components/Estimates/EstimateSummaryCard';
@@ -13,6 +15,7 @@ interface PlanningEstimateSubTabProps {
 }
 
 export default function PlanningEstimateSubTab({ projectId, projectName }: PlanningEstimateSubTabProps) {
+  const navigate = useNavigate();
   const { showToast } = useToast();
   const [estimate, setEstimate] = useState<Estimate | null>(null);
   const [items, setItems] = useState<EstimateItem[]>([]);
@@ -85,8 +88,45 @@ export default function PlanningEstimateSubTab({ projectId, projectName }: Plann
     }
   };
 
-  const handleExportToTender = () => {
-    showToast('ייצוא למכרז - בפיתוח', 'info');
+  const handleExportToTender = async () => {
+    if (!estimate) return;
+
+    try {
+      // Calculate total from items
+      const estimatedBudget = items.reduce(
+        (sum, item) => sum + item.total_with_vat,
+        0
+      );
+
+      // Create tender pre-filled with estimate data
+      const tender = await createTender({
+        project_id: projectId,
+        tender_name: `${estimate.name} - מכרז`,
+        description: estimate.description,
+        estimated_budget: estimatedBudget,
+        estimate_id: estimate.id,
+        status: 'Draft',
+        publish_date: new Date().toISOString(),
+        candidate_professional_ids: [],
+        tender_type: estimate.estimate_type === 'planning' ? 'architect' : 'contractor',
+      });
+
+      // Update estimate status
+      await updateEstimate(estimate.id, {
+        status: 'exported_to_tender'
+      });
+
+      // Update local state
+      setEstimate({ ...estimate, status: 'exported_to_tender' });
+
+      // Navigate to tender
+      navigate(`/projects/${projectId}?tab=financial&subtab=tenders&tender=${tender.id}`);
+
+      showToast('מכרז נוצר מאומדן בהצלחה', 'success');
+    } catch (error) {
+      console.error('Error exporting to tender:', error);
+      showToast('שגיאה ביצירת מכרז', 'error');
+    }
   };
 
   const handleExportToExcel = () => {
