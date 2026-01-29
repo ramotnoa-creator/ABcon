@@ -31,7 +31,7 @@ export async function getBudgetChapters(projectId: string): Promise<BudgetChapte
   }
 
   try {
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM budget_chapters
        WHERE project_id = $1
        ORDER BY "order" ASC`,
@@ -39,7 +39,7 @@ export async function getBudgetChapters(projectId: string): Promise<BudgetChapte
     );
 
     return (data || []).map(transformBudgetChapterFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching budget chapters:', error);
     return getBudgetChaptersLocal(projectId);
   }
@@ -55,7 +55,7 @@ export async function getBudgetChaptersByCategory(projectId: string, categoryId:
   }
 
   try {
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM budget_chapters
        WHERE project_id = $1 AND category_id = $2
        ORDER BY "order" ASC`,
@@ -63,7 +63,7 @@ export async function getBudgetChaptersByCategory(projectId: string, categoryId:
     );
 
     return (data || []).map(transformBudgetChapterFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching budget chapters by category:', error);
     return getBudgetChaptersByCategoryLocal(projectId, categoryId);
   }
@@ -79,12 +79,12 @@ export async function getAllBudgetChapters(): Promise<BudgetChapter[]> {
   }
 
   try {
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM budget_chapters ORDER BY "order" ASC`
     );
 
     return (data || []).map(transformBudgetChapterFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching all budget chapters:', error);
     return getAllBudgetChaptersLocal();
   }
@@ -100,13 +100,13 @@ export async function getBudgetChapterById(id: string): Promise<BudgetChapter | 
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `SELECT * FROM budget_chapters WHERE id = $1`,
       [id]
     );
 
     return data ? transformBudgetChapterFromDB(data) : null;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching budget chapter:', error);
     return getBudgetChapterByIdLocal(id);
   }
@@ -122,15 +122,15 @@ export async function getNextBudgetChapterOrder(projectId: string, categoryId: s
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `SELECT MAX("order") as max_order FROM budget_chapters
        WHERE project_id = $1 AND category_id = $2`,
       [projectId, categoryId]
     );
 
-    const maxOrder = data?.max_order || 0;
+    const maxOrder = (data?.max_order as number) || 0;
     return maxOrder + 1;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error getting next budget chapter order:', error);
     return getNextBudgetChapterOrderLocal(projectId, categoryId);
   }
@@ -154,7 +154,7 @@ export async function getCategoryBudgetSummary(
       budget: chapters.reduce((sum, c) => sum + c.budget_amount, 0),
       contract: chapters.reduce((sum, c) => sum + (c.contract_amount || 0), 0),
     };
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error getting category budget summary:', error);
     return getCategoryBudgetSummaryLocal(projectId, categoryId);
   }
@@ -179,7 +179,7 @@ export async function createBudgetChapter(
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `INSERT INTO budget_chapters (
         project_id, category_id, code, name, budget_amount, contract_amount, "order"
       ) VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -200,7 +200,7 @@ export async function createBudgetChapter(
     }
 
     return transformBudgetChapterFromDB(data);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error creating budget chapter:', error);
     // Fallback to localStorage
     const newChapter: BudgetChapter = {
@@ -230,7 +230,7 @@ export async function updateBudgetChapter(
   try {
     // Build SET clause dynamically
     const setClauses: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
     let paramIndex = 1;
 
     if (updates.project_id !== undefined) {
@@ -275,7 +275,7 @@ export async function updateBudgetChapter(
     const query = `UPDATE budget_chapters SET ${setClauses.join(', ')} WHERE id = $${paramIndex}`;
 
     await executeQuery(query, values);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error updating budget chapter:', error);
     // Fallback to localStorage
     updateBudgetChapterLocal(id, updates);
@@ -295,7 +295,7 @@ export async function deleteBudgetChapter(id: string): Promise<void> {
   try {
     // Note: Cascade delete for budget items is handled by database foreign key constraints
     await executeQuery(`DELETE FROM budget_chapters WHERE id = $1`, [id]);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error deleting budget chapter:', error);
     // Fallback to localStorage
     deleteBudgetChapterLocal(id);

@@ -20,20 +20,18 @@ export const sql = databaseUrl ? neon(databaseUrl) : null;
  * @param params Query parameters (optional)
  * @returns Query results
  */
-export async function executeQuery<T = any>(
+export async function executeQuery<T = unknown>(
   query: string,
-  params?: any[]
+  params?: unknown[]
 ): Promise<T[]> {
   if (!sql) {
     throw new Error('Database not configured - check VITE_NEON_DATABASE_URL');
   }
 
   try {
-    // Neon expects parameterized queries like: SELECT * FROM users WHERE id = $1
-    // Use sql.query() for parameterized queries with placeholders
-    const result = params && params.length > 0
-      ? await (sql as any).query(query, params)
-      : await (sql as any).query(query);
+    // Use sql.query() for all queries (supports parameterized queries with $1, $2, etc.)
+    const result = await sql.query(query, params || []);
+
     return result as T[];
   } catch (error) {
     console.error('Database query error:', error);
@@ -47,9 +45,9 @@ export async function executeQuery<T = any>(
  * @param params Query parameters (optional)
  * @returns Single row or null
  */
-export async function executeQuerySingle<T = any>(
+export async function executeQuerySingle<T = unknown>(
   query: string,
-  params?: any[]
+  params?: unknown[]
 ): Promise<T | null> {
   const result = await executeQuery<T>(query, params);
   return result.length > 0 ? result[0] : null;

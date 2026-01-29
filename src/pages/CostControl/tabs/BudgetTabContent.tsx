@@ -2,8 +2,8 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAllBudgetItems } from '../../../services/budgetItemsService';
 import { getProjects } from '../../../services/projectsService';
-import { getBudgetCategories } from '../../../services/budgetCategoriesService';
-import { getBudgetChapters } from '../../../services/budgetChaptersService';
+import { getAllBudgetCategories } from '../../../services/budgetCategoriesService';
+import { getAllBudgetChapters } from '../../../services/budgetChaptersService';
 import * as XLSX from 'xlsx';
 import type { BudgetItem, Project, BudgetCategory, BudgetChapter } from '../../../types';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -115,8 +115,8 @@ export default function BudgetTabContent() {
         const [allItems, allProjects, allCategories, allChapters] = await Promise.all([
           getAllBudgetItems(),
           getProjects(),
-          getBudgetCategories(),
-          getBudgetChapters(),
+          getAllBudgetCategories(),
+          getAllBudgetChapters(),
         ]);
 
         // Filter budget items based on user permissions

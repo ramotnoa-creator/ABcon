@@ -131,7 +131,7 @@ export async function getNextBudgetItemOrder(projectId: string, chapterId: strin
       [projectId, chapterId]
     );
 
-    const maxOrder = data?.max_order || 0;
+    const maxOrder = (data?.max_order as number) || 0;
     return maxOrder + 1;
   } catch (error: unknown) {
     console.error('Error getting next budget item order:', error);

@@ -4,7 +4,7 @@
  */
 
 import { executeQuery, executeQuerySingle, isDemoMode as isNeonDemoMode } from '../lib/neon';
-import type { BudgetCategory } from '../types';
+import type { BudgetCategory, BudgetCategoryType } from '../types';
 import {
   getBudgetCategories as getBudgetCategoriesLocal,
   getAllBudgetCategories as getAllBudgetCategoriesLocal,
@@ -29,7 +29,7 @@ export async function getBudgetCategories(projectId: string): Promise<BudgetCate
   }
 
   try {
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM budget_categories
        WHERE project_id = $1
        ORDER BY "order" ASC`,
@@ -37,7 +37,7 @@ export async function getBudgetCategories(projectId: string): Promise<BudgetCate
     );
 
     return (data || []).map(transformBudgetCategoryFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching budget categories:', error);
     return getBudgetCategoriesLocal(projectId);
   }
@@ -53,12 +53,12 @@ export async function getAllBudgetCategories(): Promise<BudgetCategory[]> {
   }
 
   try {
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM budget_categories ORDER BY "order" ASC`
     );
 
     return (data || []).map(transformBudgetCategoryFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching all budget categories:', error);
     return getAllBudgetCategoriesLocal();
   }
@@ -74,13 +74,13 @@ export async function getBudgetCategoryById(id: string): Promise<BudgetCategory 
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `SELECT * FROM budget_categories WHERE id = $1`,
       [id]
     );
 
     return data ? transformBudgetCategoryFromDB(data) : null;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching budget category:', error);
     return getBudgetCategoryByIdLocal(id);
   }
@@ -96,14 +96,14 @@ export async function getNextBudgetCategoryOrder(projectId: string): Promise<num
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `SELECT MAX("order") as max_order FROM budget_categories WHERE project_id = $1`,
       [projectId]
     );
 
-    const maxOrder = data?.max_order || 0;
+    const maxOrder = (data?.max_order as number) || 0;
     return maxOrder + 1;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error getting next budget category order:', error);
     return getNextBudgetCategoryOrderLocal(projectId);
   }
@@ -128,7 +128,7 @@ export async function createBudgetCategory(
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `INSERT INTO budget_categories (
         project_id, name, type, icon, color, "order"
       ) VALUES ($1, $2, $3, $4, $5, $6)
@@ -148,7 +148,7 @@ export async function createBudgetCategory(
     }
 
     return transformBudgetCategoryFromDB(data);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error creating budget category:', error);
     // Fallback to localStorage
     const newCategory: BudgetCategory = {
@@ -178,7 +178,7 @@ export async function updateBudgetCategory(
   try {
     // Build SET clause dynamically
     const setClauses: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
     let paramIndex = 1;
 
     if (updates.project_id !== undefined) {
@@ -219,7 +219,7 @@ export async function updateBudgetCategory(
     const query = `UPDATE budget_categories SET ${setClauses.join(', ')} WHERE id = $${paramIndex}`;
 
     await executeQuery(query, values);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error updating budget category:', error);
     // Fallback to localStorage
     updateBudgetCategoryLocal(id, updates);
@@ -239,7 +239,7 @@ export async function deleteBudgetCategory(id: string): Promise<void> {
   try {
     // Note: Cascade delete for chapters/items is handled by database foreign key constraints
     await executeQuery(`DELETE FROM budget_categories WHERE id = $1`, [id]);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error deleting budget category:', error);
     // Fallback to localStorage
     deleteBudgetCategoryLocal(id);
@@ -250,17 +250,17 @@ export async function deleteBudgetCategory(id: string): Promise<void> {
 // HELPER: TRANSFORM DB TO APP FORMAT
 // ============================================================
 
-function transformBudgetCategoryFromDB(dbCategory: any): BudgetCategory {
+function transformBudgetCategoryFromDB(dbCategory: Record<string, unknown>): BudgetCategory {
   return {
-    id: dbCategory.id,
-    project_id: dbCategory.project_id,
-    name: dbCategory.name,
-    type: dbCategory.type,
-    icon: dbCategory.icon,
-    color: dbCategory.color,
-    order: dbCategory.order,
-    created_at: dbCategory.created_at,
-    updated_at: dbCategory.updated_at,
+    id: dbCategory.id as string,
+    project_id: dbCategory.project_id as string,
+    name: dbCategory.name as string,
+    type: dbCategory.type as BudgetCategoryType,
+    icon: dbCategory.icon as string,
+    color: dbCategory.color as string,
+    order: dbCategory.order as number,
+    created_at: dbCategory.created_at as string,
+    updated_at: dbCategory.updated_at as string,
   };
 }
 

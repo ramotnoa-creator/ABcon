@@ -171,9 +171,11 @@ export default function EstimateItemsTable({ items, onEdit, onDelete }: Estimate
                   {item.description}
                 </td>
                 <td className="px-4 py-3 text-sm">
-                  <span className="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700">
-                    {categoryLabels[item.category] || item.category}
-                  </span>
+                  {item.category && (
+                    <span className="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700">
+                      {categoryLabels[item.category] || item.category}
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-sm">
                   {item.quantity} {item.unit}

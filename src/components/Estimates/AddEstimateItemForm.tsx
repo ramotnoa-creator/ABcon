@@ -99,7 +99,7 @@ export default function AddEstimateItemForm({ estimateId, item, onSave, onCancel
         vat_rate: vatRate,
         vat_amount: vatAmount,
         total_with_vat: totalWithVat,
-        notes: notes.trim() || null,
+        notes: notes.trim() || undefined,
         order_index: item?.order_index || 0,
       };
 

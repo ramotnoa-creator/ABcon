@@ -29,7 +29,7 @@ export async function getUnits(projectId: string): Promise<ProjectUnit[]> {
   }
 
   try {
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM project_units
        WHERE project_id = $1
        ORDER BY "order" ASC`,
@@ -37,7 +37,7 @@ export async function getUnits(projectId: string): Promise<ProjectUnit[]> {
     );
 
     return (data || []).map(transformUnitFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching units:', error);
     return getUnitsLocal(projectId);
   }
@@ -53,10 +53,10 @@ export async function getAllUnits(): Promise<ProjectUnit[]> {
   }
 
   try {
-    const data = await executeQuery<any>(`SELECT * FROM project_units`);
+    const data = await executeQuery<Record<string, unknown>>(`SELECT * FROM project_units`);
 
     return (data || []).map(transformUnitFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching all units:', error);
     return getAllUnitsLocal();
   }
@@ -72,13 +72,13 @@ export async function getUnitById(id: string): Promise<ProjectUnit | null> {
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `SELECT * FROM project_units WHERE id = $1`,
       [id]
     );
 
     return data ? transformUnitFromDB(data) : null;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching unit:', error);
     return getUnitByIdLocal(id);
   }
@@ -94,14 +94,14 @@ export async function getNextUnitOrder(projectId: string): Promise<number> {
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `SELECT MAX("order") as max_order FROM project_units WHERE project_id = $1`,
       [projectId]
     );
 
-    const maxOrder = data?.max_order || 0;
+    const maxOrder = (data?.max_order as number) || 0;
     return maxOrder + 1;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error getting next unit order:', error);
     return getNextUnitOrderLocal(projectId);
   }
@@ -126,7 +126,7 @@ export async function createUnit(
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `INSERT INTO project_units (
         project_id, name, type, color, icon, "order"
       ) VALUES ($1, $2, $3, $4, $5, $6)
@@ -146,7 +146,7 @@ export async function createUnit(
     }
 
     return transformUnitFromDB(data);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error creating unit:', error);
     // Fallback to localStorage
     const newUnit: ProjectUnit = {
@@ -176,7 +176,7 @@ export async function updateUnit(
   try {
     // Build SET clause dynamically
     const setClauses: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
     let paramIndex = 1;
 
     if (updates.project_id !== undefined) {
@@ -217,7 +217,7 @@ export async function updateUnit(
     const query = `UPDATE project_units SET ${setClauses.join(', ')} WHERE id = $${paramIndex}`;
 
     await executeQuery(query, values);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error updating unit:', error);
     // Fallback to localStorage
     updateUnitLocal(id, updates);
@@ -237,7 +237,7 @@ export async function deleteUnit(id: string): Promise<void> {
   try {
     // Note: Cascade delete for milestones is handled by database foreign key constraints
     await executeQuery(`DELETE FROM project_units WHERE id = $1`, [id]);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error deleting unit:', error);
     // Fallback to localStorage
     deleteUnitLocal(id);

@@ -31,7 +31,7 @@ export async function getPlanningChanges(projectId: string): Promise<PlanningCha
   }
 
   try {
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM planning_changes
        WHERE project_id = $1
        ORDER BY change_number ASC`,
@@ -39,7 +39,7 @@ export async function getPlanningChanges(projectId: string): Promise<PlanningCha
     );
 
     return (data || []).map(transformPlanningChangeFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching planning changes:', error);
     return getPlanningChangesLocal(projectId);
   }
@@ -55,10 +55,10 @@ export async function getAllPlanningChanges(): Promise<PlanningChange[]> {
   }
 
   try {
-    const data = await executeQuery<any>(`SELECT * FROM planning_changes`);
+    const data = await executeQuery<Record<string, unknown>>(`SELECT * FROM planning_changes`);
 
     return (data || []).map(transformPlanningChangeFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching all planning changes:', error);
     return getAllPlanningChangesLocal();
   }
@@ -87,13 +87,13 @@ export async function getUserPlanningChanges(user: User | null): Promise<Plannin
 
   try {
     const placeholders = assignedProjects.map((_, i) => `$${i + 1}`).join(', ');
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM planning_changes WHERE project_id IN (${placeholders})`,
       assignedProjects
     );
 
     return (data || []).map(transformPlanningChangeFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching user planning changes:', error);
     const allChanges = getAllPlanningChangesLocal();
     return allChanges.filter((change) => assignedProjects.includes(change.project_id));
@@ -110,13 +110,13 @@ export async function getPlanningChangeById(id: string): Promise<PlanningChange 
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `SELECT * FROM planning_changes WHERE id = $1`,
       [id]
     );
 
     return data ? transformPlanningChangeFromDB(data) : null;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching planning change:', error);
     return getPlanningChangeByIdLocal(id);
   }
@@ -132,14 +132,14 @@ export async function getNextChangeNumber(projectId: string): Promise<number> {
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `SELECT MAX(change_number) as max_number FROM planning_changes WHERE project_id = $1`,
       [projectId]
     );
 
-    const maxNumber = data?.max_number || 0;
+    const maxNumber = (data?.max_number as number) || 0;
     return maxNumber + 1;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error getting next change number:', error);
     return getNextChangeNumberLocal(projectId);
   }
@@ -166,7 +166,7 @@ export async function createPlanningChange(
   try {
     const changeNumber = await getNextChangeNumber(change.project_id);
 
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `INSERT INTO planning_changes (
         project_id, change_number, description, schedule_impact, budget_impact,
         decision, image_urls, created_by
@@ -189,7 +189,7 @@ export async function createPlanningChange(
     }
 
     return transformPlanningChangeFromDB(data);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error creating planning change:', error);
     // Fallback to localStorage
     const now = new Date().toISOString();
@@ -219,7 +219,7 @@ export async function updatePlanningChange(
   try {
     // Build SET clause dynamically
     const setClauses: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
     let paramIndex = 1;
 
     if (updates.project_id !== undefined) {
@@ -268,7 +268,7 @@ export async function updatePlanningChange(
     const query = `UPDATE planning_changes SET ${setClauses.join(', ')} WHERE id = $${paramIndex}`;
 
     await executeQuery(query, values);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error updating planning change:', error);
     // Fallback to localStorage
     updatePlanningChangeLocal(id, updates);
@@ -287,7 +287,7 @@ export async function deletePlanningChange(id: string): Promise<void> {
 
   try {
     await executeQuery(`DELETE FROM planning_changes WHERE id = $1`, [id]);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error deleting planning change:', error);
     // Fallback to localStorage
     deletePlanningChangeLocal(id);
