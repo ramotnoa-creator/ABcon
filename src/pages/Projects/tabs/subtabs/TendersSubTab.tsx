@@ -688,37 +688,6 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                   </div>
                 </div>
 
-                {/* Source Estimate Info - Enhanced */}
-                {tender.estimate_id && estimatesMap[tender.id] && (
-                  <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-900/30">
-                    <div className="flex items-start gap-2">
-                      <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 text-[18px] mt-0.5">link</span>
-                      <div className="flex-1 text-sm">
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <button
-                            onClick={() => {
-                              const estimateType = estimatesMap[tender.id].estimate_type;
-                              navigate(`/projects/${project.id}?tab=financial&subtab=${estimateType}-estimate`);
-                            }}
-                            className="font-bold text-blue-800 dark:text-blue-200 hover:underline"
-                          >
-                            מקור: אומדן {estimatesMap[tender.id].estimate_type === 'planning' ? 'תכנון' : 'ביצוע'}
-                          </button>
-                          <span className="text-blue-700 dark:text-blue-300">|</span>
-                          <span className="font-semibold text-blue-700 dark:text-blue-300">
-                            אומד מקורי: {formatCurrency(estimatesMap[tender.id].total_amount)} (כולל מע״ם)
-                          </span>
-                        </div>
-                        {tender.description && (
-                          <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                            <span className="font-semibold">תיאור: </span>
-                            {tender.description}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {/* Tender Dates */}
                 {(tender.publish_date || tender.due_date) && (
@@ -995,6 +964,23 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                     <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                       {tender.notes}
                     </p>
+                  </div>
+                )}
+
+                {/* Small Source Estimate Reference */}
+                {tender.estimate_id && estimatesMap[tender.id] && (
+                  <div className="mt-4 pt-3 border-t border-border-light/50 dark:border-border-dark/50">
+                    <button
+                      onClick={() => {
+                        const estimateType = estimatesMap[tender.id].estimate_type;
+                        navigate(`/projects/${project.id}?tab=financial&subtab=${estimateType}-estimate`);
+                      }}
+                      className="text-xs text-text-secondary-light dark:text-text-secondary-dark hover:text-primary transition-colors flex items-center gap-1"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">link</span>
+                      <span>מקור: אומדן {estimatesMap[tender.id].estimate_type === 'planning' ? 'תכנון' : 'ביצוע'}</span>
+                      <span className="material-symbols-outlined text-[14px]">arrow_back</span>
+                    </button>
                   </div>
                 )}
               </div>
