@@ -22,6 +22,7 @@ import { getMilestones } from '../../../services/milestonesService';
 import { getBudgetCategories } from '../../../services/budgetCategoriesService';
 import { getBudgetChapters } from '../../../services/budgetChaptersService';
 import { createBudgetItem, getNextBudgetItemOrder, calculateBudgetItemTotals } from '../../../services/budgetItemsService';
+import { getEstimates } from '../../../services/estimatesService';
 // File upload functions - TODO: Implement file storage service
 const uploadTenderQuote = async (_tenderId: string, _participantId: string, _file: File): Promise<string> => {
   throw new Error('File upload service not configured');
@@ -32,7 +33,7 @@ const getFileNameFromUrl = (url: string | null | undefined): string => {
   return url.split('/').pop() || '';
 };
 import { findChapterForTender } from '../../../utils/tenderChapterMapping';
-import type { Project, Tender, TenderStatus, TenderType, TenderParticipant, Professional } from '../../../types';
+import type { Project, Tender, TenderStatus, TenderType, TenderParticipant, Professional, Estimate } from '../../../types';
 import { formatDateForDisplay } from '../../../utils/dateUtils';
 
 interface TendersTabProps {
@@ -117,6 +118,7 @@ export default function TendersTab({ project }: TendersTabProps) {
   const [allProfessionals, setAllProfessionals] = useState<Professional[]>([]);
   const [participantsMap, setParticipantsMap] = useState<Record<string, TenderParticipant[]>>({});
   const [milestones, setMilestones] = useState<any[]>([]);
+  const [estimates, setEstimates] = useState<Estimate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Modal states
@@ -178,6 +180,7 @@ export default function TendersTab({ project }: TendersTabProps) {
     due_date: '',
     milestone_id: '',
     estimated_budget: '',
+    estimate_id: '',
   });
 
   const [professionalPickerFilter, setProfessionalPickerFilter] = useState<TenderType | 'all'>('all');
@@ -201,17 +204,19 @@ export default function TendersTab({ project }: TendersTabProps) {
     const loadData = async () => {
       try {
         setIsLoading(true);
-        const [loadedTenders, loadedProfessionals, loadedMilestones] = await Promise.all([
+        const [loadedTenders, loadedProfessionals, loadedMilestones, loadedEstimates] = await Promise.all([
           loadInitialTenders(project.id),
           loadInitialProfessionals(),
           getMilestones(project.id),
+          getEstimates(project.id),
         ]);
         setTenders(loadedTenders);
         setAllProfessionals(loadedProfessionals);
         setMilestones(loadedMilestones);
+        setEstimates(loadedEstimates);
         const participants = await loadParticipantsMap(loadedTenders);
         setParticipantsMap(participants);
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Error loading tenders data:', error);
       } finally {
         setIsLoading(false);
@@ -277,6 +282,7 @@ export default function TendersTab({ project }: TendersTabProps) {
       candidate_professional_ids: [],
       milestone_id: tenderForm.milestone_id || undefined,
       estimated_budget: tenderForm.estimated_budget ? parseFloat(tenderForm.estimated_budget) : undefined,
+      estimate_id: tenderForm.estimate_id || undefined,
     };
 
     try {
@@ -291,6 +297,7 @@ export default function TendersTab({ project }: TendersTabProps) {
         due_date: '',
         milestone_id: '',
         estimated_budget: '',
+        estimate_id: '',
       });
       setIsAddTenderModalOpen(false);
 
@@ -300,7 +307,7 @@ export default function TendersTab({ project }: TendersTabProps) {
       setSelectedProfessionalIds([]);
       setIsProfessionalPickerOpen(true);
       showSuccess('המכרז נוצר בהצלחה!');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error creating tender:', error);
       showError('שגיאה ביצירת המכרז. אנא נסה שוב.');
     }
@@ -317,7 +324,7 @@ export default function TendersTab({ project }: TendersTabProps) {
       if (url) {
         setParticipantForm((prev) => ({ ...prev, quote_file: url }));
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Upload error:', error);
       showError('שגיאה בהעלאת הקובץ');
     } finally {
@@ -343,7 +350,7 @@ export default function TendersTab({ project }: TendersTabProps) {
       setIsProfessionalPickerOpen(false);
       setSelectedProfessionalIds([]);
       showSuccess('המועמדים נוספו למכרז בהצלחה!');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error adding participants:', error);
       showError('שגיאה בהוספת מועמדים. אנא נסה שוב.');
     }
@@ -370,7 +377,7 @@ export default function TendersTab({ project }: TendersTabProps) {
 
       await loadTenders();
       showSuccess('המועמד הוסר מהמכרז בהצלחה');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error removing participant:', error);
       showError('שגיאה בהסרת מועמד. אנא נסה שוב.');
     }
@@ -474,7 +481,7 @@ export default function TendersTab({ project }: TendersTabProps) {
       setSelectedWinnerParticipant(null);
       setWinnerForm({ contract_amount: '', management_remarks: '' });
       showSuccess('הזוכה נבחר בהצלחה!');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error selecting winner:', error);
       showError('שגיאה בבחירת זוכה. אנא נסה שוב.');
     }
@@ -496,7 +503,7 @@ export default function TendersTab({ project }: TendersTabProps) {
       setSelectedParticipant(null);
       setParticipantForm({ quote_file: '', total_amount: '', notes: '' });
       showSuccess('פרטי המועמד עודכנו בהצלחה!');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error updating participant:', error);
       showError('שגיאה בעדכון פרטי מועמד. אנא נסה שוב.');
     }
@@ -523,7 +530,7 @@ export default function TendersTab({ project }: TendersTabProps) {
       await deleteTender(tender.id);
       await loadTenders();
       showSuccess('המכרז נמחק בהצלחה');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error deleting tender:', error);
       showError('שגיאה במחיקת המכרז. אנא נסה שוב.');
     }
@@ -992,6 +999,28 @@ export default function TendersTab({ project }: TendersTabProps) {
                 />
               </div>
               <div>
+                <label className="block text-sm font-bold mb-2">
+                  קישור להערכה <span className="text-red-500">*</span>
+                </label>
+                <select
+                  className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
+                  value={tenderForm.estimate_id}
+                  onChange={(e) => setTenderForm({ ...tenderForm, estimate_id: e.target.value })}
+                >
+                  <option value="">בחר הערכה</option>
+                  {estimates.map((est) => (
+                    <option key={est.id} value={est.id}>
+                      {est.estimate_type === 'planning' ? 'תכנון' : 'ביצוע'} - {est.name || 'ללא שם'} (₪{est.total_amount.toLocaleString('he-IL')})
+                    </option>
+                  ))}
+                </select>
+                {estimates.length === 0 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
+                    לא נמצאו הערכות. צור הערכה תחילה בלשונית פיננסי.
+                  </p>
+                )}
+              </div>
+              <div>
                 <label className="block text-sm font-bold mb-2">קישור לאבן דרך (אופציונלי)</label>
                 <select
                   className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
@@ -1015,7 +1044,7 @@ export default function TendersTab({ project }: TendersTabProps) {
                 </button>
                 <button
                   onClick={handleAddTender}
-                  disabled={!tenderForm.tender_name.trim() || !tenderForm.due_date}
+                  disabled={!tenderForm.tender_name.trim() || !tenderForm.due_date || !tenderForm.estimate_id}
                   className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   צור מכרז והוסף משתתפים
