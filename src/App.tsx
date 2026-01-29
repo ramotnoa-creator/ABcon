@@ -19,8 +19,7 @@ const ProfessionalsListPage = lazy(() => import('./pages/Professionals/Professio
 const ProfessionalDetailPage = lazy(() => import('./pages/Professionals/ProfessionalDetailPage'));
 const CreateProfessionalPage = lazy(() => import('./pages/Professionals/CreateProfessionalPage'));
 const GlobalFilesPage = lazy(() => import('./pages/Files/GlobalFilesPage'));
-const GlobalBudgetPage = lazy(() => import('./pages/Budget/GlobalBudgetPage'));
-const GlobalTendersPage = lazy(() => import('./pages/Tenders/GlobalTendersPage'));
+const CostControlPage = lazy(() => import('./pages/CostControl/CostControlPage'));
 const UsersPage = lazy(() => import('./pages/Admin/UsersPage'));
 
 // Loading fallback component
@@ -69,12 +68,14 @@ function App() {
                   <Route path="/projects/new" element={<CreateProjectPage />} />
                   <Route path="/projects/:id" element={<ProjectDetailPage />} />
                   <Route path="/projects/:id/edit" element={<EditProjectPage />} />
-                  <Route path="/tenders" element={<GlobalTendersPage />} />
+                  <Route path="/cost-control" element={<CostControlPage />} />
                   <Route path="/professionals" element={<ProfessionalsListPage />} />
                   <Route path="/professionals/:id" element={<ProfessionalDetailPage />} />
                   <Route path="/professionals/new" element={<CreateProfessionalPage />} />
                   <Route path="/files" element={<GlobalFilesPage />} />
-                  <Route path="/budget" element={<GlobalBudgetPage />} />
+                  {/* Redirects for old URLs (bookmarks) */}
+                  <Route path="/budget" element={<Navigate to="/cost-control?tab=budget" replace />} />
+                  <Route path="/tenders" element={<Navigate to="/cost-control?tab=tenders" replace />} />
                   <Route path="/admin/users" element={<UsersPage />} />
                 </Route>
               </Route>
