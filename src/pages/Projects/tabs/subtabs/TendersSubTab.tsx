@@ -8,6 +8,7 @@ import {
   createTender,
   deleteTender,
 } from '../../../../services/tendersService';
+import { getEstimate } from '../../../../services/estimatesService';
 import {
   getTenderParticipants,
   addTenderParticipants,
@@ -117,6 +118,7 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
   const [allProfessionals, setAllProfessionals] = useState<Professional[]>([]);
   const [participantsMap, setParticipantsMap] = useState<Record<string, TenderParticipant[]>>({});
   const [milestones, setMilestones] = useState<any[]>([]);
+  const [estimatesMap, setEstimatesMap] = useState<Record<string, any>>({});
   const [isLoading, setIsLoading] = useState(true);
 
   // Modal states
@@ -211,6 +213,20 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
         setMilestones(loadedMilestones);
         const participants = await loadParticipantsMap(loadedTenders);
         setParticipantsMap(participants);
+
+        // Load estimates for tenders that have estimate_id
+        const estimatesData: Record<string, any> = {};
+        await Promise.all(
+          loadedTenders.map(async (tender) => {
+            if (tender.estimate_id) {
+              const estimate = await getEstimate(tender.estimate_id);
+              if (estimate) {
+                estimatesData[tender.id] = estimate;
+              }
+            }
+          })
+        );
+        setEstimatesMap(estimatesData);
       } catch (error: unknown) {
         console.error('Error loading tenders data:', error);
       } finally {
@@ -658,6 +674,30 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                     </button>
                   </div>
                 </div>
+
+                {/* Source Estimate (if tender was created from estimate) */}
+                {tender.estimate_id && estimatesMap[tender.id] && (
+                  <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-900/30">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 text-[16px]">
+                        link
+                      </span>
+                      <span className="text-blue-700 dark:text-blue-300">נוצר מאומדן:</span>
+                      <button
+                        onClick={() => {
+                          const estimateType = estimatesMap[tender.id].estimate_type;
+                          navigate(`/projects/${project.id}?tab=financial&subtab=${estimateType}-estimate`);
+                        }}
+                        className="font-bold text-primary hover:underline"
+                      >
+                        {estimatesMap[tender.id].name}
+                      </button>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                        {formatCurrency(tender.estimated_budget)}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Tender Dates */}
                 {(tender.publish_date || tender.due_date) && (
