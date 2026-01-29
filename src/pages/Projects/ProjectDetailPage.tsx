@@ -7,9 +7,8 @@ import { canEditProject, canAccessProject } from '../../utils/permissions';
 import type { Project } from '../../types';
 import OverviewTab from './tabs/OverviewTab';
 import ProfessionalsTab from './tabs/ProfessionalsTab';
-import TendersTab from './tabs/TendersTab';
 import FilesTab from './tabs/FilesTab';
-import BudgetTab from './tabs/BudgetTab';
+import FinancialTab from './tabs/FinancialTab';
 import TasksMilestonesTab from './tabs/TasksMilestonesTab';
 import PlanningChangesTab from './tabs/PlanningChangesTab';
 import SpecialIssuesTab from './tabs/SpecialIssuesTab';
@@ -18,10 +17,9 @@ import DeveloperApprovalTab from './tabs/DeveloperApprovalTab';
 const tabs = [
   { id: 'overview', label: 'סקירה', icon: 'visibility', path: '' },
   { id: 'tasks-milestones', label: 'משימות וציוני דרך', icon: 'flag', path: '/tasks' },
-  { id: 'budget', label: 'תקציב', icon: 'payments', path: '/budget' },
+  { id: 'financial', label: 'ניהול פיננסי', icon: 'account_balance', path: '/financial' },
   { id: 'planning-changes', label: 'שינויים בתכנון', icon: 'change_circle', path: '/planning-changes' },
   { id: 'special-issues', label: 'בעיות מיוחדות', icon: 'error', path: '/special-issues' },
-  { id: 'tenders', label: 'מכרזים', icon: 'gavel', path: '/tenders' },
   { id: 'professionals', label: 'בעלי מקצוע', icon: 'people', path: '/professionals' },
   { id: 'files', label: 'קבצים', icon: 'folder', path: '/files' },
   { id: 'developer-approval', label: 'אישור יזם', icon: 'verified_user', path: '/developer-approval' },
@@ -169,18 +167,20 @@ export default function ProjectDetailPage() {
           return <ProfessionalsTab project={project} />;
         case 'tasks-milestones':
           return <TasksMilestonesTab project={project} />;
+        case 'financial':
+          return <FinancialTab project={project} />;
         case 'planning-changes':
           return <PlanningChangesTab project={project} />;
         case 'special-issues':
           return <SpecialIssuesTab project={project} />;
-        case 'tenders':
-          return <TendersTab project={project} />;
         case 'files':
           return <FilesTab project={project} />;
-        case 'budget':
-          return <BudgetTab project={project} />;
         case 'developer-approval':
           return <DeveloperApprovalTab project={project} />;
+        // Legacy redirects for bookmarked URLs
+        case 'budget':
+        case 'tenders':
+          return <FinancialTab project={project} />;
         default:
           return null;
       }
