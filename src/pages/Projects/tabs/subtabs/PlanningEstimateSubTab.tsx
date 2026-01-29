@@ -7,7 +7,7 @@ import { createTender } from '../../../../services/tendersService';
 import AddEstimateItemForm from '../../../../components/Estimates/AddEstimateItemForm';
 import EstimateItemsTable from '../../../../components/Estimates/EstimateItemsTable';
 import EstimateSummaryCard from '../../../../components/Estimates/EstimateSummaryCard';
-import type { Estimate, EstimateItem } from '../../../../types';
+import type { Estimate, EstimateItem, TenderType } from '../../../../types';
 
 interface PlanningEstimateSubTabProps {
   projectId: string;
@@ -111,7 +111,7 @@ export default function PlanningEstimateSubTab({ projectId, projectName }: Plann
         status: 'Draft',
         publish_date: new Date().toISOString(),
         candidate_professional_ids: [],
-        tender_type: estimate.estimate_type === 'planning' ? 'architect' : 'project-manager',
+        tender_type: 'contractor' as TenderType, // Default to contractor, can be changed after creation
       });
 
       console.log('DEBUG: Tender created:', tender);

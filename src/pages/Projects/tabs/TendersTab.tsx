@@ -5,7 +5,6 @@ import { useToast } from '../../../contexts/ToastContext';
 import {
   getTenders,
   updateTender,
-  createTender,
   deleteTender,
 } from '../../../services/tendersService';
 import {
@@ -18,7 +17,6 @@ import {
 } from '../../../services/tenderParticipantsService';
 import { getProfessionals } from '../../../services/professionalsService';
 import { createProjectProfessional } from '../../../services/projectProfessionalsService';
-import { getMilestones } from '../../../services/milestonesService';
 import { getBudgetCategories } from '../../../services/budgetCategoriesService';
 import { getBudgetChapters } from '../../../services/budgetChaptersService';
 import { createBudgetItem, getNextBudgetItemOrder, calculateBudgetItemTotals } from '../../../services/budgetItemsService';
@@ -86,9 +84,7 @@ const formatCurrency = (amount?: number): string => {
   }).format(amount);
 };
 
-const getTodayISO = (): string => {
-  return new Date().toISOString().split('T')[0];
-};
+// Removed unused function getTodayISO
 
 // Async data loading functions
 async function loadInitialTenders(projectId: string): Promise<Tender[]> {
@@ -118,14 +114,12 @@ export default function TendersTab({ project }: TendersTabProps) {
   const [tenders, setTenders] = useState<Tender[]>([]);
   const [allProfessionals, setAllProfessionals] = useState<Professional[]>([]);
   const [participantsMap, setParticipantsMap] = useState<Record<string, TenderParticipant[]>>({});
-  const [milestones, setMilestones] = useState<any[]>([]);
   const [estimates, setEstimates] = useState<Estimate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedEstimates, setExpandedEstimates] = useState<Set<string>>(new Set());
   const [estimateItems, setEstimateItems] = useState<Record<string, any[]>>({});
 
   // Modal states
-  const [isAddTenderModalOpen, setIsAddTenderModalOpen] = useState(false);
   const [isProfessionalPickerOpen, setIsProfessionalPickerOpen] = useState(false);
   const [isSelectWinnerModalOpen, setIsSelectWinnerModalOpen] = useState(false);
   const [isParticipantDetailsOpen, setIsParticipantDetailsOpen] = useState(false);
@@ -175,16 +169,7 @@ export default function TendersTab({ project }: TendersTabProps) {
   // File upload state
   const [uploadingFile, setUploadingFile] = useState(false);
 
-  // Form states
-  const [tenderForm, setTenderForm] = useState({
-    tender_name: '',
-    tender_type: 'contractor' as TenderType,
-    description: '',
-    due_date: '',
-    milestone_id: '',
-    estimated_budget: '',
-    estimate_id: '',
-  });
+  // Removed unused tenderForm state and handleAddTender function
 
   const [professionalPickerFilter, setProfessionalPickerFilter] = useState<TenderType | 'all'>('all');
   const [selectedProfessionalIds, setSelectedProfessionalIds] = useState<string[]>([]);
@@ -207,15 +192,13 @@ export default function TendersTab({ project }: TendersTabProps) {
     const loadData = async () => {
       try {
         setIsLoading(true);
-        const [loadedTenders, loadedProfessionals, loadedMilestones, loadedEstimates] = await Promise.all([
+        const [loadedTenders, loadedProfessionals, loadedEstimates] = await Promise.all([
           loadInitialTenders(project.id),
           loadInitialProfessionals(),
-          getMilestones(project.id),
           getEstimates(project.id),
         ]);
         setTenders(loadedTenders);
         setAllProfessionals(loadedProfessionals);
-        setMilestones(loadedMilestones);
         setEstimates(loadedEstimates);
         const participants = await loadParticipantsMap(loadedTenders);
         setParticipantsMap(participants);
@@ -270,55 +253,7 @@ export default function TendersTab({ project }: TendersTabProps) {
     return new Date(tender.due_date) < new Date();
   };
 
-  // Handle add tender
-  const handleAddTender = async () => {
-    if (!tenderForm.tender_name.trim()) return;
-    if (!tenderForm.estimate_id) {
-      showError('יש לבחור הערכה. כל מכרז חייב להיות מקושר להערכה.');
-      return;
-    }
-
-    const tenderData: Omit<Tender, 'id' | 'created_at' | 'updated_at'> = {
-      project_id: project.id,
-      tender_name: tenderForm.tender_name.trim(),
-      tender_type: tenderForm.tender_type,
-      description: tenderForm.description.trim() || undefined,
-      status: 'Open',
-      publish_date: new Date().toISOString(),
-      due_date: tenderForm.due_date || undefined,
-      candidate_professional_ids: [],
-      milestone_id: tenderForm.milestone_id || undefined,
-      estimated_budget: tenderForm.estimated_budget ? parseFloat(tenderForm.estimated_budget) : undefined,
-      estimate_id: tenderForm.estimate_id || undefined,
-    };
-
-    try {
-      const newTender = await createTender(tenderData);
-      await loadTenders();
-
-      // Reset form and open professional picker
-      setTenderForm({
-        tender_name: '',
-        tender_type: 'contractor',
-        description: '',
-        due_date: '',
-        milestone_id: '',
-        estimated_budget: '',
-        estimate_id: '',
-      });
-      setIsAddTenderModalOpen(false);
-
-      // Open professional picker for the new tender
-      setSelectedTender(newTender);
-      setProfessionalPickerFilter(newTender.tender_type);
-      setSelectedProfessionalIds([]);
-      setIsProfessionalPickerOpen(true);
-      showSuccess('המכרז נוצר בהצלחה!');
-    } catch (error: unknown) {
-      console.error('Error creating tender:', error);
-      showError('שגיאה ביצירת המכרז. אנא נסה שוב.');
-    }
-  };
+  // handleAddTender removed - tenders now created only via "Export to Tender" from estimates
 
   // Handle file upload for participant quote
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -449,13 +384,13 @@ export default function TendersTab({ project }: TendersTabProps) {
 
         if (chapters.length === 0) {
           console.warn('Cannot create budget item: No budget chapters found');
-          showToast('לא ניתן ליצור פריט תקציב - לא קיימים פרקים בתקציב', 'warning');
+          showError('לא ניתן ליצור פריט תקציב - לא קיימים פרקים בתקציב');
         } else {
           const chapterId = findChapterForTender(tender.tender_type, chapters, categories);
 
           if (!chapterId) {
             console.warn(`Cannot create budget item: No matching chapter found for tender type ${tender.tender_type}`);
-            showToast(`לא ניתן ליצור פריט תקציב - לא נמצא פרק מתאים לסוג ${tenderTypeLabels[tender.tender_type]}`, 'warning');
+            showError(`לא ניתן ליצור פריט תקציב - לא נמצא פרק מתאים לסוג ${tenderTypeLabels[tender.tender_type]}`);
           } else {
             const vatRate = 0.17;
             const totals = calculateBudgetItemTotals({
@@ -503,7 +438,7 @@ export default function TendersTab({ project }: TendersTabProps) {
         }
       } catch (budgetError) {
         console.error('Error creating budget item:', budgetError);
-        showToast('שגיאה ביצירת פריט תקציב', 'error');
+        showError('שגיאה ביצירת פריט תקציב');
       }
     }
 
@@ -673,7 +608,7 @@ export default function TendersTab({ project }: TendersTabProps) {
                     {tender.estimate_id && (() => {
                       const estimate = estimates.find(e => e.id === tender.estimate_id);
                       const isExpanded = expandedEstimates.has(tender.id);
-                      const items = estimateItems[tender.estimate_id] || [];
+                      const items = tender.estimate_id ? (estimateItems[tender.estimate_id] || []) : [];
 
                       return estimate && (
                         <div className="mt-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-900/30">
@@ -709,9 +644,10 @@ export default function TendersTab({ project }: TendersTabProps) {
                               } else {
                                 newExpanded.add(tender.id);
                                 // Load estimate items if not loaded
-                                if (!estimateItems[tender.estimate_id]) {
-                                  const items = await getEstimateItems(tender.estimate_id);
-                                  setEstimateItems(prev => ({ ...prev, [tender.estimate_id!]: items }));
+                                if (tender.estimate_id && !estimateItems[tender.estimate_id]) {
+                                  const estimateId = tender.estimate_id;
+                                  const items = await getEstimateItems(estimateId);
+                                  setEstimateItems(prev => ({ ...prev, [estimateId]: items }));
                                 }
                               }
                               setExpandedEstimates(newExpanded);
