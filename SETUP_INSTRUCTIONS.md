@@ -61,7 +61,7 @@
    ```sql
    INSERT INTO user_profiles (id, email, full_name, phone, role, is_active)
    VALUES
-     ('YOUR-ADMIN-UUID', 'admin@anproyektim.com', 'יוסי כהן', '050-1234567', 'admin', true),
+     ('YOUR-ADMIN-UUID', 'admin@anproyektim.com', 'ניב חפץ', '050-1234567', 'admin', true),
      ('YOUR-PM-UUID', 'pm@anproyektim.com', 'מיכל לוי', '052-9876543', 'project_manager', true),
      ('YOUR-ENT-UUID', 'entrepreneur@client.com', 'דוד שרון', '054-5551234', 'entrepreneur', true),
      ('YOUR-ACC-UUID', 'accountant@office.com', 'רונית אברהם', '050-7778888', 'accountant', true);

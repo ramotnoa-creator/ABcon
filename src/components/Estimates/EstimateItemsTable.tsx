@@ -102,14 +102,6 @@ export default function EstimateItemsTable({ items, onEdit, onDelete }: Estimate
           <thead className="bg-gray-50 dark:bg-gray-800">
             <tr>
               <th
-                onClick={() => handleSort('code')}
-                className="px-4 py-3 text-right text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <div className="flex items-center gap-1">
-                  קוד {getSortIcon('code')}
-                </div>
-              </th>
-              <th
                 onClick={() => handleSort('description')}
                 className="px-4 py-3 text-right text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
               >

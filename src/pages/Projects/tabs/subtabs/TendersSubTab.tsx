@@ -688,26 +688,34 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                   </div>
                 </div>
 
-                {/* Source Estimate (if tender was created from estimate) */}
+                {/* Source Estimate Info - Enhanced */}
                 {tender.estimate_id && estimatesMap[tender.id] && (
                   <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-900/30">
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 text-[16px]">
-                        link
-                      </span>
-                      <span className="text-blue-700 dark:text-blue-300">נוצר מאומדן:</span>
-                      <button
-                        onClick={() => {
-                          const estimateType = estimatesMap[tender.id].estimate_type;
-                          navigate(`/projects/${project.id}?tab=financial&subtab=${estimateType}-estimate`);
-                        }}
-                        className="font-bold text-primary hover:underline"
-                      >
-                        {estimatesMap[tender.id].name}
-                      </button>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                        {formatCurrency(tender.estimated_budget)}
-                      </span>
+                    <div className="flex items-start gap-2">
+                      <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 text-[18px] mt-0.5">link</span>
+                      <div className="flex-1 text-sm">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <button
+                            onClick={() => {
+                              const estimateType = estimatesMap[tender.id].estimate_type;
+                              navigate(`/projects/${project.id}?tab=financial&subtab=${estimateType}-estimate`);
+                            }}
+                            className="font-bold text-blue-800 dark:text-blue-200 hover:underline"
+                          >
+                            מקור: אומדן {estimatesMap[tender.id].estimate_type === 'planning' ? 'תכנון' : 'ביצוע'}
+                          </button>
+                          <span className="text-blue-700 dark:text-blue-300">|</span>
+                          <span className="font-semibold text-blue-700 dark:text-blue-300">
+                            אומד מקורי: {formatCurrency(estimatesMap[tender.id].total_amount)} (כולל מע״ם)
+                          </span>
+                        </div>
+                        {tender.description && (
+                          <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                            <span className="font-semibold">תיאור: </span>
+                            {tender.description}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}

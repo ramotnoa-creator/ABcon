@@ -20,7 +20,14 @@
       "Bash(git rm:*)",
       "Bash(npx tsc:*)",
       "Bash(git reset:*)",
-      "Bash(node hash-password.js:*)"
+      "Bash(node hash-password.js:*)",
+      "Bash(node:*)",
+      "Bash(psql:*)",
+      "Bash(powershell:*)",
+      "Bash(if [ -f \"C:/Users/ester/ABcon/tests/tender-integration.spec.ts\" ])",
+      "Bash(then wc -l \"C:/Users/ester/ABcon/tests/tender-integration.spec.ts\")",
+      "Bash(else echo \"File not found\")",
+      "Bash(fi:*)"
     ]
   }
 }
