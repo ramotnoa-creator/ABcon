@@ -99,6 +99,7 @@ export default function ExecutionEstimateSubTab({ projectId, projectName }: Exec
       );
 
       // Create tender pre-filled with estimate data
+      // Note: Execution estimates typically need contractors or project managers
       const tender = await createTender({
         project_id: projectId,
         tender_name: `${estimate.name} - מכרז`,
@@ -108,7 +109,7 @@ export default function ExecutionEstimateSubTab({ projectId, projectName }: Exec
         status: 'Draft',
         publish_date: new Date().toISOString(),
         candidate_professional_ids: [],
-        tender_type: estimate.estimate_type === 'planning' ? 'architect' : 'contractor',
+        tender_type: 'contractor', // Execution work is typically for contractors
       });
 
       // Update estimate status
@@ -151,7 +152,7 @@ export default function ExecutionEstimateSubTab({ projectId, projectName }: Exec
       <div className="flex gap-3 mb-6">
         <button
           onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-semibold"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover active:bg-primary/80 focus:outline-none transition-colors font-semibold"
         >
           <span className="material-symbols-outlined text-[20px]">add</span>
           הוסף פריט

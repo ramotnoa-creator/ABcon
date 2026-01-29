@@ -27,12 +27,12 @@ export async function getProfessionals(): Promise<Professional[]> {
   }
 
   try {
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM professionals ORDER BY professional_name ASC`
     );
 
     return (data || []).map(transformProfessionalFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching professionals:', error);
     // Fallback to localStorage on error
     return getProfessionalsLocal();
@@ -50,13 +50,13 @@ export async function getProfessionalById(id: string): Promise<Professional | nu
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `SELECT * FROM professionals WHERE id = $1`,
       [id]
     );
 
     return data ? transformProfessionalFromDB(data) : null;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching professional:', error);
     const professionals = getProfessionalsLocal();
     return professionals.find((p) => p.id === id) || null;
@@ -74,7 +74,7 @@ export async function getProfessionalsByField(field: string): Promise<Profession
   }
 
   try {
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM professionals
        WHERE field = $1
        ORDER BY professional_name ASC`,
@@ -82,7 +82,7 @@ export async function getProfessionalsByField(field: string): Promise<Profession
     );
 
     return (data || []).map(transformProfessionalFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching professionals by field:', error);
     const professionals = getProfessionalsLocal();
     return professionals.filter((p) => p.field === field);
@@ -100,14 +100,14 @@ export async function getActiveProfessionals(): Promise<Professional[]> {
   }
 
   try {
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM professionals
        WHERE is_active = true
        ORDER BY professional_name ASC`
     );
 
     return (data || []).map(transformProfessionalFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching active professionals:', error);
     const professionals = getProfessionalsLocal();
     return professionals.filter((p) => p.is_active);
@@ -131,7 +131,7 @@ export async function createProfessional(
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `INSERT INTO professionals (
         professional_name, company_name, field, phone, email, rating, notes, is_active
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -153,7 +153,7 @@ export async function createProfessional(
     }
 
     return transformProfessionalFromDB(data);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error creating professional:', error);
     // Fallback to localStorage
     const newProfessional: Professional = {
@@ -181,7 +181,7 @@ export async function updateProfessional(
   try {
     // Build SET clause dynamically
     const setClauses: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
     let paramIndex = 1;
 
     if (updates.professional_name !== undefined) {
@@ -230,7 +230,7 @@ export async function updateProfessional(
     const query = `UPDATE professionals SET ${setClauses.join(', ')} WHERE id = $${paramIndex}`;
 
     await executeQuery(query, values);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error updating professional:', error);
     // Fallback to localStorage
     updateProfessionalLocal(id, updates);
@@ -249,7 +249,7 @@ export async function deleteProfessional(id: string): Promise<void> {
 
   try {
     await executeQuery(`DELETE FROM professionals WHERE id = $1`, [id]);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error deleting professional:', error);
     // Fallback to localStorage
     deleteProfessionalLocal(id);

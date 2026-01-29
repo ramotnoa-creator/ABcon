@@ -92,12 +92,16 @@ export async function getTenderById(id: string): Promise<Tender | null> {
 export async function createTender(
   tender: Omit<Tender, 'id' | 'created_at' | 'updated_at'>
 ): Promise<Tender> {
-  // Validate required estimate_id (all tenders must be linked to an estimate)
+  console.log('DEBUG createTender: isDemoMode=', isDemoMode, 'estimate_id=', tender.estimate_id);
+
+  // Enforce business rule: All tenders must be linked to an estimate
   if (!tender.estimate_id) {
     throw new Error('Cannot create tender without estimate_id. All tenders must be linked to an estimate.');
   }
 
   if (isDemoMode) {
+    console.log('DEBUG: Using demo mode (localStorage)');
+
     const newTender: Tender = {
       ...tender,
       id: `tender-${Date.now()}`,
@@ -109,6 +113,7 @@ export async function createTender(
   }
 
   try {
+    console.log('DEBUG: Inserting into database with estimate_id:', tender.estimate_id);
     const data = await executeQuerySingle<Record<string, unknown>>(
       `INSERT INTO tenders (
         project_id, tender_name, tender_type, category, description,
@@ -127,7 +132,7 @@ export async function createTender(
         tender.status,
         tender.publish_date || null,
         tender.due_date || null,
-        JSON.stringify(tender.candidate_professional_ids || []),
+        tender.candidate_professional_ids || [],
         tender.winner_professional_id || null,
         tender.winner_professional_name || null,
         tender.milestone_id || null,
@@ -212,7 +217,7 @@ export async function updateTender(
     }
     if (updates.candidate_professional_ids !== undefined) {
       setClauses.push(`candidate_professional_ids = $${paramIndex++}`);
-      values.push(JSON.stringify(updates.candidate_professional_ids));
+      values.push(updates.candidate_professional_ids);
     }
     if (updates.winner_professional_id !== undefined) {
       setClauses.push(`winner_professional_id = $${paramIndex++}`);

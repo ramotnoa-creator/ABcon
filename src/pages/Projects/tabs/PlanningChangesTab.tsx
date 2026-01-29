@@ -199,7 +199,7 @@ export default function PlanningChangesTab({ project }: PlanningChangesTabProps)
 
   // Sort: pending first, then in_progress, then approved at bottom
   const sortedAndFilteredChanges = useMemo(() => {
-    let filtered = decisionFilter === 'all' ? changes : changes.filter((c) => c.decision === decisionFilter);
+    const filtered = decisionFilter === 'all' ? changes : changes.filter((c) => c.decision === decisionFilter);
 
     // Separate by decision status
     const pending = filtered.filter(c => c.decision === 'pending');

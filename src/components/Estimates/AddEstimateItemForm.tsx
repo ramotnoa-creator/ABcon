@@ -231,10 +231,14 @@ export default function AddEstimateItemForm({ estimateId, item, onSave, onCancel
                 type="number"
                 step="0.01"
                 min="0.01"
-                value={quantity}
-                onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)}
+                value={quantity === 0 ? '' : quantity}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setQuantity(val === '' ? 0 : parseFloat(val) || 0);
+                }}
                 className="w-full px-3 py-2 border border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-800"
                 required
+                placeholder="0"
               />
             </div>
 
@@ -247,10 +251,14 @@ export default function AddEstimateItemForm({ estimateId, item, onSave, onCancel
                 type="number"
                 step="0.01"
                 min="0"
-                value={unitPrice}
-                onChange={(e) => setUnitPrice(parseFloat(e.target.value) || 0)}
+                value={unitPrice === 0 ? '' : unitPrice}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setUnitPrice(val === '' ? 0 : parseFloat(val) || 0);
+                }}
                 className="w-full px-3 py-2 border border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-800"
                 required
+                placeholder="0"
               />
             </div>
 

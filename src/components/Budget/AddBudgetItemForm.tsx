@@ -157,7 +157,7 @@ export default function AddBudgetItemForm({ projectId: initialProjectId, onSucce
       await createBudgetItem(newItemData);
       showSuccess('פריט התקציב נוסף בהצלחה!');
       onSuccess?.();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error creating budget item:', error);
       showError('שגיאה ביצירת פריט תקציב. אנא נסה שוב.');
     }
@@ -262,10 +262,14 @@ export default function AddBudgetItemForm({ projectId: initialProjectId, onSucce
           <input
             type="number"
             className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
-            value={form.quantity}
-            onChange={(e) => setForm((prev) => ({ ...prev, quantity: parseFloat(e.target.value) || 0 }))}
+            value={form.quantity === 0 ? '' : form.quantity}
+            onChange={(e) => {
+              const val = e.target.value;
+              setForm((prev) => ({ ...prev, quantity: val === '' ? 0 : parseFloat(val) || 0 }));
+            }}
             min="0"
             step="0.01"
+            placeholder="0"
           />
         </div>
         <div>
@@ -291,9 +295,13 @@ export default function AddBudgetItemForm({ projectId: initialProjectId, onSucce
           <input
             type="number"
             className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
-            value={form.unit_price}
-            onChange={(e) => setForm((prev) => ({ ...prev, unit_price: parseFloat(e.target.value) || 0 }))}
+            value={form.unit_price === 0 ? '' : form.unit_price}
+            onChange={(e) => {
+              const val = e.target.value;
+              setForm((prev) => ({ ...prev, unit_price: val === '' ? 0 : parseFloat(val) || 0 }));
+            }}
             min="0"
+            placeholder="0"
           />
         </div>
         <div>

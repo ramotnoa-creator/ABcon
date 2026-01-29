@@ -31,7 +31,7 @@ export async function getSpecialIssues(projectId: string): Promise<SpecialIssue[
   }
 
   try {
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM special_issues
        WHERE project_id = $1
        ORDER BY date DESC`,
@@ -39,7 +39,7 @@ export async function getSpecialIssues(projectId: string): Promise<SpecialIssue[
     );
 
     return (data || []).map(transformSpecialIssueFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching special issues:', error);
     return getSpecialIssuesLocal(projectId);
   }
@@ -55,10 +55,10 @@ export async function getAllSpecialIssues(): Promise<SpecialIssue[]> {
   }
 
   try {
-    const data = await executeQuery<any>(`SELECT * FROM special_issues`);
+    const data = await executeQuery<Record<string, unknown>>(`SELECT * FROM special_issues`);
 
     return (data || []).map(transformSpecialIssueFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching all special issues:', error);
     return getAllSpecialIssuesLocal();
   }
@@ -87,13 +87,13 @@ export async function getUserSpecialIssues(user: User | null): Promise<SpecialIs
 
   try {
     const placeholders = assignedProjects.map((_, i) => `$${i + 1}`).join(', ');
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM special_issues WHERE project_id IN (${placeholders})`,
       assignedProjects
     );
 
     return (data || []).map(transformSpecialIssueFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching user special issues:', error);
     const allIssues = getAllSpecialIssuesLocal();
     return allIssues.filter((issue) => assignedProjects.includes(issue.project_id));
@@ -110,13 +110,13 @@ export async function getSpecialIssueById(id: string): Promise<SpecialIssue | nu
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `SELECT * FROM special_issues WHERE id = $1`,
       [id]
     );
 
     return data ? transformSpecialIssueFromDB(data) : null;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching special issue:', error);
     return getSpecialIssueByIdLocal(id);
   }
@@ -134,7 +134,7 @@ export async function getOpenIssuesCount(projectId: string): Promise<number> {
   try {
     const issues = await getSpecialIssues(projectId);
     return issues.filter((issue) => issue.status === 'open').length;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error getting open issues count:', error);
     return getOpenIssuesCountLocal(projectId);
   }
@@ -159,7 +159,7 @@ export async function createSpecialIssue(
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `INSERT INTO special_issues (
         project_id, date, description, status, priority, category,
         responsible, image_urls, resolution, created_by
@@ -184,7 +184,7 @@ export async function createSpecialIssue(
     }
 
     return transformSpecialIssueFromDB(data);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error creating special issue:', error);
     // Fallback to localStorage
     const newIssue: SpecialIssue = {
@@ -214,7 +214,7 @@ export async function updateSpecialIssue(
   try {
     // Build SET clause dynamically
     const setClauses: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
     let paramIndex = 1;
 
     if (updates.project_id !== undefined) {
@@ -271,7 +271,7 @@ export async function updateSpecialIssue(
     const query = `UPDATE special_issues SET ${setClauses.join(', ')} WHERE id = $${paramIndex}`;
 
     await executeQuery(query, values);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error updating special issue:', error);
     // Fallback to localStorage
     updateSpecialIssueLocal(id, updates);
@@ -290,7 +290,7 @@ export async function deleteSpecialIssue(id: string): Promise<void> {
 
   try {
     await executeQuery(`DELETE FROM special_issues WHERE id = $1`, [id]);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error deleting special issue:', error);
     // Fallback to localStorage
     deleteSpecialIssueLocal(id);

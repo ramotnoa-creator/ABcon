@@ -21,13 +21,13 @@ export async function getProjects(): Promise<Project[]> {
   }
 
   try {
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM projects ORDER BY created_at DESC`
     );
 
     // Transform database format to Project type
     return (data || []).map(transformProjectFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching projects:', error);
     // Fallback to localStorage on error
     return getProjectsLocal();
@@ -45,13 +45,13 @@ export async function getProjectById(id: string): Promise<Project | null> {
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `SELECT * FROM projects WHERE id = $1`,
       [id]
     );
 
     return data ? transformProjectFromDB(data) : null;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching project:', error);
     const projects = getProjectsLocal();
     return projects.find(p => p.id === id) || null;
@@ -85,7 +85,7 @@ export async function createProject(
       permitTargetDate = startDate.toISOString().split('T')[0];
     }
 
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `INSERT INTO projects (
         project_name, client_name, address, status,
         permit_start_date, permit_duration_months, permit_target_date,
@@ -117,7 +117,7 @@ export async function createProject(
     }
 
     return createdProject;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error creating project:', error);
     // Fallback to localStorage
     const newProject: Project = {
@@ -151,7 +151,7 @@ export async function updateProject(id: string, updates: Partial<Project>): Prom
 
     // Build SET clause dynamically based on what's being updated
     const setClauses: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
     let paramIndex = 1;
 
     if (updates.project_name !== undefined) {
@@ -204,7 +204,7 @@ export async function updateProject(id: string, updates: Partial<Project>): Prom
     const query = `UPDATE projects SET ${setClauses.join(', ')} WHERE id = $${paramIndex}`;
 
     await executeQuery(query, values);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error updating project:', error);
     // Fallback to localStorage
     updateProjectLocal(id, updates);
@@ -226,7 +226,7 @@ export async function deleteProject(id: string): Promise<void> {
       `DELETE FROM projects WHERE id = $1`,
       [id]
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error deleting project:', error);
     // Fallback to localStorage
     deleteProjectLocal(id);
@@ -249,7 +249,7 @@ export async function assignUserToProject(userId: string, projectId: string): Pr
        ON CONFLICT (user_id, project_id) DO NOTHING`,
       [userId, projectId]
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error assigning user to project:', error);
   }
 }
@@ -264,7 +264,7 @@ export async function getUserProjects(userId: string): Promise<Project[]> {
   }
 
   try {
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT p.* FROM projects p
        INNER JOIN project_assignments pa ON p.id = pa.project_id
        WHERE pa.user_id = $1
@@ -273,7 +273,7 @@ export async function getUserProjects(userId: string): Promise<Project[]> {
     );
 
     return (data || []).map(transformProjectFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching user projects:', error);
     return getProjectsLocal();
   }

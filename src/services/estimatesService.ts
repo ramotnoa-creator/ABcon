@@ -30,9 +30,9 @@ function saveEstimatesToStorage(estimates: Estimate[]): void {
 export async function getEstimates(projectId: string, type?: 'planning' | 'execution'): Promise<Estimate[]> {
   if (isDemoMode) {
     const estimates = getEstimatesFromStorage();
-    return estimates.filter(
-      (e) => e.project_id === projectId && (!type || e.estimate_type === type)
-    );
+    return estimates
+      .filter((e) => e.project_id === projectId && (!type || e.estimate_type === type))
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }
 
   try {
@@ -83,7 +83,8 @@ export async function getEstimate(estimateId: string): Promise<Estimate | null> 
 
 export async function getAllEstimates(): Promise<Estimate[]> {
   if (isDemoMode) {
-    return getEstimatesFromStorage();
+    return getEstimatesFromStorage()
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }
 
   try {

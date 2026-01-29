@@ -167,7 +167,7 @@ export default function EstimateItemsTable({ items, onEdit, onDelete }: Estimate
                 <td className="px-4 py-3 text-sm font-mono text-text-secondary-light dark:text-text-secondary-dark">
                   {item.code}
                 </td>
-                <td className="px-4 py-3 text-sm font-semibold">
+                <td className="px-4 py-3 text-sm font-semibold max-w-xs break-words">
                   {item.description}
                 </td>
                 <td className="px-4 py-3 text-sm">

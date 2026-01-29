@@ -33,12 +33,12 @@ export async function getBudgetPayments(): Promise<BudgetPayment[]> {
   }
 
   try {
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM budget_payments ORDER BY invoice_date DESC`
     );
 
     return (data || []).map(transformBudgetPaymentFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching budget payments:', error);
     return getBudgetPaymentsLocal();
   }
@@ -54,7 +54,7 @@ export async function getBudgetPaymentsByItem(budgetItemId: string): Promise<Bud
   }
 
   try {
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM budget_payments
        WHERE budget_item_id = $1
        ORDER BY invoice_date DESC`,
@@ -62,7 +62,7 @@ export async function getBudgetPaymentsByItem(budgetItemId: string): Promise<Bud
     );
 
     return (data || []).map(transformBudgetPaymentFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching budget payments by item:', error);
     return getBudgetPaymentsByItemLocal(budgetItemId);
   }
@@ -78,10 +78,10 @@ export async function getAllBudgetPayments(): Promise<BudgetPayment[]> {
   }
 
   try {
-    const data = await executeQuery<any>(`SELECT * FROM budget_payments`);
+    const data = await executeQuery<Record<string, unknown>>(`SELECT * FROM budget_payments`);
 
     return (data || []).map(transformBudgetPaymentFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching all budget payments:', error);
     return getAllBudgetPaymentsLocal();
   }
@@ -97,13 +97,13 @@ export async function getBudgetPaymentById(id: string): Promise<BudgetPayment | 
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `SELECT * FROM budget_payments WHERE id = $1`,
       [id]
     );
 
     return data ? transformBudgetPaymentFromDB(data) : null;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching budget payment:', error);
     return getBudgetPaymentByIdLocal(id);
   }
@@ -132,7 +132,7 @@ export async function getItemPaymentSummary(budgetItemId: string): Promise<{
       pendingAmount: pendingPayments.reduce((sum, p) => sum + p.total_amount, 0),
       paymentCount: payments.length,
     };
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error getting item payment summary:', error);
     return getItemPaymentSummaryLocal(budgetItemId);
   }
@@ -153,7 +153,7 @@ export async function getPaymentsByMonth(year: number, month: number): Promise<B
       const date = new Date(payment.invoice_date);
       return date.getFullYear() === year && date.getMonth() === month;
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error getting payments by month:', error);
     return getPaymentsByMonthLocal(year, month);
   }
@@ -178,7 +178,7 @@ export async function createBudgetPayment(
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `INSERT INTO budget_payments (
         budget_item_id, invoice_number, invoice_date, amount, vat_amount,
         total_amount, status, payment_date, milestone_id, notes
@@ -203,7 +203,7 @@ export async function createBudgetPayment(
     }
 
     return transformBudgetPaymentFromDB(data);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error creating budget payment:', error);
     // Fallback to localStorage
     const newPayment: BudgetPayment = {
@@ -233,7 +233,7 @@ export async function updateBudgetPayment(
   try {
     // Build SET clause dynamically
     const setClauses: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
     let paramIndex = 1;
 
     if (updates.budget_item_id !== undefined) {
@@ -290,7 +290,7 @@ export async function updateBudgetPayment(
     const query = `UPDATE budget_payments SET ${setClauses.join(', ')} WHERE id = $${paramIndex}`;
 
     await executeQuery(query, values);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error updating budget payment:', error);
     // Fallback to localStorage
     updateBudgetPaymentLocal(id, updates);
@@ -309,7 +309,7 @@ export async function deleteBudgetPayment(id: string): Promise<void> {
 
   try {
     await executeQuery(`DELETE FROM budget_payments WHERE id = $1`, [id]);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error deleting budget payment:', error);
     // Fallback to localStorage
     deleteBudgetPaymentLocal(id);
@@ -331,7 +331,7 @@ export async function deletePaymentsByBudgetItem(budgetItemId: string): Promise<
       `DELETE FROM budget_payments WHERE budget_item_id = $1`,
       [budgetItemId]
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error deleting payments by budget item:', error);
     // Fallback to localStorage
     deletePaymentsByBudgetItemLocal(budgetItemId);

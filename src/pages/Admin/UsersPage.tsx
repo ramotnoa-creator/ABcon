@@ -137,19 +137,6 @@ export default function UsersPage() {
   const [selectedUserForAssignment, setSelectedUserForAssignment] = useState<User | null>(null);
   const [resetPasswordInfo, setResetPasswordInfo] = useState<{ user: User; tempPassword: string } | null>(null);
 
-  // Check permission
-  if (!canManageUsers(currentUser)) {
-    return (
-      <div className="flex-1 px-4 lg:px-10 py-6 max-w-[1400px] mx-auto w-full">
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6 text-center">
-          <span className="material-symbols-outlined text-red-500 text-4xl mb-2">block</span>
-          <h2 className="text-xl font-bold text-red-700 dark:text-red-300 mb-2">אין הרשאה</h2>
-          <p className="text-red-600 dark:text-red-400">רק מנהל ראשי יכול לגשת לדף זה</p>
-        </div>
-      </div>
-    );
-  }
-
   // Load users on mount
   useEffect(() => {
     setUsers(getUsers());
@@ -183,6 +170,19 @@ export default function UsersPage() {
 
     return filtered;
   }, [users, searchQuery, roleFilter, activeFilter]);
+
+  // Check permission
+  if (!canManageUsers(currentUser)) {
+    return (
+      <div className="flex-1 px-4 lg:px-10 py-6 max-w-[1400px] mx-auto w-full">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6 text-center">
+          <span className="material-symbols-outlined text-red-500 text-4xl mb-2">block</span>
+          <h2 className="text-xl font-bold text-red-700 dark:text-red-300 mb-2">אין הרשאה</h2>
+          <p className="text-red-600 dark:text-red-400">רק מנהל ראשי יכול לגשת לדף זה</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleToggleActive = (userId: string) => {
     const updatedUsers = users.map((u) =>
@@ -725,7 +725,7 @@ function UserFormModal({
     }
 
     // Pass password for new users or when changing password
-    const { confirmPassword, ...dataToSave } = formData;
+    const { confirmPassword: _confirmPassword, ...dataToSave } = formData;
     const dataWithProjects = {
       ...dataToSave,
       assignedProjects: showProjectAssignment ? selectedProjects : [],

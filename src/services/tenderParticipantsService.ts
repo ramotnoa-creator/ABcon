@@ -33,7 +33,7 @@ export async function getTenderParticipants(tenderId: string): Promise<TenderPar
   }
 
   try {
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM tender_participants
        WHERE tender_id = $1
        ORDER BY created_at ASC`,
@@ -41,7 +41,7 @@ export async function getTenderParticipants(tenderId: string): Promise<TenderPar
     );
 
     return (data || []).map(transformTenderParticipantFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching tender participants:', error);
     return getTenderParticipantsLocal(tenderId);
   }
@@ -57,12 +57,12 @@ export async function getAllTenderParticipants(): Promise<TenderParticipant[]> {
   }
 
   try {
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM tender_participants ORDER BY created_at ASC`
     );
 
     return (data || []).map(transformTenderParticipantFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching all tender participants:', error);
     return getAllTenderParticipantsLocal();
   }
@@ -78,13 +78,13 @@ export async function getTenderParticipantById(id: string): Promise<TenderPartic
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `SELECT * FROM tender_participants WHERE id = $1`,
       [id]
     );
 
     return data ? transformTenderParticipantFromDB(data) : null;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching tender participant:', error);
     return getTenderParticipantByIdLocal(id);
   }
@@ -103,14 +103,14 @@ export async function getParticipantByProfessional(
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `SELECT * FROM tender_participants
        WHERE tender_id = $1 AND professional_id = $2`,
       [tenderId, professionalId]
     );
 
     return data ? transformTenderParticipantFromDB(data) : null;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching participant by professional:', error);
     return getParticipantByProfessionalLocal(tenderId, professionalId);
   }
@@ -144,7 +144,7 @@ export async function createTenderParticipant(
       return existing; // Already exists, return it
     }
 
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `INSERT INTO tender_participants (
         tender_id, professional_id, quote_file, total_amount, notes, is_winner
       ) VALUES ($1, $2, $3, $4, $5, $6)
@@ -164,7 +164,7 @@ export async function createTenderParticipant(
     }
 
     return transformTenderParticipantFromDB(data);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error creating tender participant:', error);
     // Fallback to localStorage
     const newParticipant: TenderParticipant = {
@@ -205,7 +205,7 @@ export async function addTenderParticipants(
         );
       }
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error adding tender participants:', error);
     // Fallback to localStorage
     addTenderParticipantsLocal(tenderId, professionalIds);
@@ -228,7 +228,7 @@ export async function updateTenderParticipant(
   try {
     // Build SET clause dynamically
     const setClauses: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
     let paramIndex = 1;
 
     if (updates.quote_file !== undefined) {
@@ -258,7 +258,7 @@ export async function updateTenderParticipant(
     const query = `UPDATE tender_participants SET ${setClauses.join(', ')} WHERE id = $${paramIndex}`;
 
     await executeQuery(query, values);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error updating tender participant:', error);
     // Fallback to localStorage
     updateTenderParticipantLocal(id, updates);
@@ -277,7 +277,7 @@ export async function deleteTenderParticipant(id: string): Promise<void> {
 
   try {
     await executeQuery(`DELETE FROM tender_participants WHERE id = $1`, [id]);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error deleting tender participant:', error);
     // Fallback to localStorage
     deleteTenderParticipantLocal(id);
@@ -303,7 +303,7 @@ export async function removeTenderParticipant(
        WHERE tender_id = $1 AND professional_id = $2`,
       [tenderId, professionalId]
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error removing tender participant:', error);
     // Fallback to localStorage
     removeTenderParticipantLocal(tenderId, professionalId);
@@ -336,7 +336,7 @@ export async function setTenderWinner(tenderId: string, participantId: string): 
        WHERE id = $1`,
       [participantId]
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error setting tender winner:', error);
     // Fallback to localStorage
     setTenderWinnerLocal(tenderId, participantId);
@@ -360,7 +360,7 @@ export async function clearTenderWinner(tenderId: string): Promise<void> {
        WHERE tender_id = $1`,
       [tenderId]
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error clearing tender winner:', error);
     // Fallback to localStorage
     clearTenderWinnerLocal(tenderId);

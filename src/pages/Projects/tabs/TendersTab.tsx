@@ -23,6 +23,7 @@ import { getBudgetCategories } from '../../../services/budgetCategoriesService';
 import { getBudgetChapters } from '../../../services/budgetChaptersService';
 import { createBudgetItem, getNextBudgetItemOrder, calculateBudgetItemTotals } from '../../../services/budgetItemsService';
 import { getEstimates } from '../../../services/estimatesService';
+import { getEstimateItems } from '../../../services/estimateItemsService';
 // File upload functions - TODO: Implement file storage service
 const uploadTenderQuote = async (_tenderId: string, _participantId: string, _file: File): Promise<string> => {
   throw new Error('File upload service not configured');
@@ -120,6 +121,8 @@ export default function TendersTab({ project }: TendersTabProps) {
   const [milestones, setMilestones] = useState<any[]>([]);
   const [estimates, setEstimates] = useState<Estimate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [expandedEstimates, setExpandedEstimates] = useState<Set<string>>(new Set());
+  const [estimateItems, setEstimateItems] = useState<Record<string, any[]>>({});
 
   // Modal states
   const [isAddTenderModalOpen, setIsAddTenderModalOpen] = useState(false);
@@ -270,6 +273,10 @@ export default function TendersTab({ project }: TendersTabProps) {
   // Handle add tender
   const handleAddTender = async () => {
     if (!tenderForm.tender_name.trim()) return;
+    if (!tenderForm.estimate_id) {
+      showError('יש לבחור הערכה. כל מכרז חייב להיות מקושר להערכה.');
+      return;
+    }
 
     const tenderData: Omit<Tender, 'id' | 'created_at' | 'updated_at'> = {
       project_id: project.id,
@@ -434,44 +441,69 @@ export default function TendersTab({ project }: TendersTabProps) {
     // Auto-create budget item if we have a contract amount
     const budgetAmount = contractAmount || participant.total_amount;
     if (budgetAmount && budgetAmount > 0) {
-      const [chapters, categories] = await Promise.all([
-        getBudgetChapters(project.id),
-        getBudgetCategories(project.id),
-      ]);
+      try {
+        const [chapters, categories] = await Promise.all([
+          getBudgetChapters(project.id),
+          getBudgetCategories(project.id),
+        ]);
 
-      if (chapters.length > 0) {
-        const chapterId = findChapterForTender(tender.tender_type, chapters, categories);
+        if (chapters.length === 0) {
+          console.warn('Cannot create budget item: No budget chapters found');
+          showToast('לא ניתן ליצור פריט תקציב - לא קיימים פרקים בתקציב', 'warning');
+        } else {
+          const chapterId = findChapterForTender(tender.tender_type, chapters, categories);
 
-        if (chapterId) {
-          const vatRate = 0.17;
-          const totals = calculateBudgetItemTotals({
-            quantity: 1,
-            unit_price: budgetAmount,
-            vat_rate: vatRate,
-          });
+          if (!chapterId) {
+            console.warn(`Cannot create budget item: No matching chapter found for tender type ${tender.tender_type}`);
+            showToast(`לא ניתן ליצור פריט תקציב - לא נמצא פרק מתאים לסוג ${tenderTypeLabels[tender.tender_type]}`, 'warning');
+          } else {
+            const vatRate = 0.17;
+            const totals = calculateBudgetItemTotals({
+              quantity: 1,
+              unit_price: budgetAmount,
+              vat_rate: vatRate,
+            });
 
-          const order = await getNextBudgetItemOrder(project.id, chapterId);
+            const order = await getNextBudgetItemOrder(project.id, chapterId);
 
-          await createBudgetItem({
-            project_id: project.id,
-            chapter_id: chapterId,
-            code: undefined,
-            description: `${tender.tender_name} - ${professional.professional_name}`,
-            unit: 'קומפלט',
-            quantity: 1,
-            unit_price: budgetAmount,
-            total_price: totals.total_price,
-            vat_rate: vatRate,
-            vat_amount: totals.vat_amount,
-            total_with_vat: totals.total_with_vat,
-            status: 'contracted',
-            supplier_id: professional.id,
-            supplier_name: professional.professional_name,
-            tender_id: tender.id,
-            paid_amount: 0,
-            order,
-          });
+            // Get estimate amount if tender is linked to estimate
+            let estimateAmount = undefined;
+            let estimateItemId = undefined;
+            if (tender.estimate_id) {
+              const estimate = estimates.find(e => e.id === tender.estimate_id);
+              if (estimate) {
+                estimateAmount = estimate.total_amount;
+              }
+            }
+
+            await createBudgetItem({
+              project_id: project.id,
+              chapter_id: chapterId,
+              code: undefined,
+              description: `${tender.tender_name} - ${professional.professional_name}`,
+              unit: 'קומפלט',
+              quantity: 1,
+              unit_price: budgetAmount,
+              total_price: totals.total_price,
+              vat_rate: vatRate,
+              vat_amount: totals.vat_amount,
+              total_with_vat: totals.total_with_vat,
+              status: 'contracted',
+              supplier_id: professional.id,
+              supplier_name: professional.professional_name,
+              tender_id: tender.id,
+              estimate_item_id: estimateItemId,
+              estimate_amount: estimateAmount,
+              paid_amount: 0,
+              order,
+            });
+
+            console.log('✓ Budget item created successfully');
+          }
         }
+      } catch (budgetError) {
+        console.error('Error creating budget item:', budgetError);
+        showToast('שגיאה ביצירת פריט תקציב', 'error');
       }
     }
 
@@ -582,24 +614,12 @@ export default function TendersTab({ project }: TendersTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-end">
-        <button
-          onClick={(e) => openModalNearButton(e, setIsAddTenderModalOpen)}
-          className="flex items-center justify-center h-10 px-5 rounded-lg bg-primary text-white hover:bg-primary-hover transition text-sm font-bold tracking-[0.015em] shadow-sm"
-          aria-label="הוסף מכרז חדש"
-        >
-          <span className="material-symbols-outlined me-2 text-[20px]" aria-hidden="true">add</span>
-          הוסף מכרז
-        </button>
-      </div>
-
       {/* Tenders List */}
       {tenders.length === 0 ? (
         <div className="text-center py-12 text-text-secondary-light dark:text-text-secondary-dark">
           <span className="material-symbols-outlined text-[48px] mb-4 opacity-50">gavel</span>
           <p>אין מכרזים</p>
-          <p className="text-sm mt-2">לחץ על "הוסף מכרז" כדי להתחיל</p>
+          <p className="text-sm mt-2">ליצירת מכרז, עבור ללשונית התקציר והשתמש ב"ייצוא למכרז"</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -607,6 +627,17 @@ export default function TendersTab({ project }: TendersTabProps) {
             const participantsWithProf = getParticipantsWithProfessionals(tender);
             const winner = participantsWithProf.find((p) => p.is_winner);
             const deadlinePassed = isDeadlinePassed(tender);
+
+            // DEBUG: Log tender and estimate info
+            console.log('=== TENDER DEBUG ===');
+            console.log('Tender:', tender.tender_name);
+            console.log('Tender estimate_id:', tender.estimate_id);
+            console.log('Estimates array length:', estimates.length);
+            if (tender.estimate_id) {
+              const foundEstimate = estimates.find(e => e.id === tender.estimate_id);
+              console.log('Found estimate:', foundEstimate);
+            }
+            console.log('==================');
 
             return (
               <div
@@ -638,6 +669,84 @@ export default function TendersTab({ project }: TendersTabProps) {
                         {tender.description}
                       </p>
                     )}
+                    {/* Estimate Info - Compact with Tender Details */}
+                    {tender.estimate_id && (() => {
+                      const estimate = estimates.find(e => e.id === tender.estimate_id);
+                      const isExpanded = expandedEstimates.has(tender.id);
+                      const items = estimateItems[tender.estimate_id] || [];
+
+                      return estimate && (
+                        <div className="mt-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-900/30">
+                          <div className="flex items-start gap-2 mb-2">
+                            <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 text-[18px] mt-0.5">link</span>
+                            <div className="flex-1 text-sm">
+                              <div className="flex flex-wrap items-center gap-2 mb-1">
+                                <span className="font-bold text-blue-800 dark:text-blue-200">
+                                  מקור: אומדן {estimate.estimate_type === 'planning' ? 'תכנון' : 'ביצוע'}
+                                </span>
+                                <span className="text-blue-700 dark:text-blue-300">|</span>
+                                <span className="font-semibold text-blue-700 dark:text-blue-300">
+                                  אומד מקורי: ₪{estimate.total_amount.toLocaleString('he-IL')} (כולל מע״ם)
+                                </span>
+                                <span className="text-blue-700 dark:text-blue-300">|</span>
+                                <span className="text-blue-600 dark:text-blue-400">
+                                  {items.length > 0 ? `${items.length} פריטים` : 'טוען...'}
+                                </span>
+                              </div>
+                              {tender.description && (
+                                <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                                  <span className="font-semibold">תיאור: </span>
+                                  {tender.description}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            onClick={async () => {
+                              const newExpanded = new Set(expandedEstimates);
+                              if (isExpanded) {
+                                newExpanded.delete(tender.id);
+                              } else {
+                                newExpanded.add(tender.id);
+                                // Load estimate items if not loaded
+                                if (!estimateItems[tender.estimate_id]) {
+                                  const items = await getEstimateItems(tender.estimate_id);
+                                  setEstimateItems(prev => ({ ...prev, [tender.estimate_id!]: items }));
+                                }
+                              }
+                              setExpandedEstimates(newExpanded);
+                            }}
+                            className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-[14px]">
+                              {isExpanded ? 'expand_less' : 'expand_more'}
+                            </span>
+                            <span className="font-medium">
+                              {isExpanded ? 'הסתר פירוט פריטים' : 'הצג פירוט פריטים'}
+                            </span>
+                          </button>
+
+                          {isExpanded && items.length > 0 && (
+                            <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                              <div className="text-xs font-bold text-gray-600 dark:text-gray-400 mb-2">פירוט פריטי אומדן:</div>
+                              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                                {items.map((item: any) => (
+                                  <div key={item.id} className="flex justify-between text-xs bg-white dark:bg-gray-900/50 p-2 rounded">
+                                    <span className="text-gray-700 dark:text-gray-300 flex-1">{item.description}</span>
+                                    <span className="text-gray-500 dark:text-gray-400 mx-3">{item.quantity} {item.unit}</span>
+                                    <span className="font-semibold text-gray-900 dark:text-gray-100">₪{item.total_with_vat.toLocaleString('he-IL')}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="mt-2 pt-2 border-t border-gray-300 dark:border-gray-600 flex justify-between text-sm font-bold">
+                                <span className="text-gray-700 dark:text-gray-300">סה"כ:</span>
+                                <span className="text-primary">₪{estimate.total_amount.toLocaleString('he-IL')}</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div className="flex items-center gap-2">
                     {tender.status !== 'WinnerSelected' && tender.status !== 'Canceled' && (
@@ -918,143 +1027,8 @@ export default function TendersTab({ project }: TendersTabProps) {
         </div>
       )}
 
-      {/* Add Tender Modal */}
-      {isAddTenderModalOpen && createPortal(
-        <>
-          <div className="fixed inset-0 z-50 bg-black/20" onClick={() => setIsAddTenderModalOpen(false)} />
-          <div
-            className="fixed z-50 bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl border border-border-light dark:border-border-dark w-[90vw] max-w-md max-h-[70vh] overflow-y-auto"
-            style={{ top: modalPosition.top, left: modalPosition.left }}
-          >
-            <div className="flex items-center justify-between p-6 border-b border-border-light dark:border-border-dark sticky top-0 bg-surface-light dark:bg-surface-dark">
-              <h3 className="text-lg font-bold">הוספת מכרז חדש</h3>
-              <button
-                onClick={() => setIsAddTenderModalOpen(false)}
-                className="size-8 flex items-center justify-center hover:bg-background-light dark:hover:bg-background-dark rounded transition-colors"
-              >
-                <span className="material-symbols-outlined text-[24px]">close</span>
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-bold mb-2">
-                  שם המכרז <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
-                  placeholder="לדוגמה: מכרז קבלן שלד"
-                  value={tenderForm.tender_name}
-                  onChange={(e) => setTenderForm({ ...tenderForm, tender_name: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold mb-2">
-                  סוג מכרז <span className="text-red-500">*</span>
-                </label>
-                <select
-                  className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
-                  value={tenderForm.tender_type}
-                  onChange={(e) => setTenderForm({ ...tenderForm, tender_type: e.target.value as TenderType })}
-                >
-                  {Object.entries(tenderTypeLabels).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-bold mb-2">
-                  דדליין <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
-                  min={getTodayISO()}
-                  value={tenderForm.due_date}
-                  onChange={(e) => setTenderForm({ ...tenderForm, due_date: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold mb-2">תקציב משוער (₪)</label>
-                <input
-                  type="number"
-                  className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
-                  placeholder="לדוגמה: 500000"
-                  value={tenderForm.estimated_budget}
-                  onChange={(e) => setTenderForm({ ...tenderForm, estimated_budget: e.target.value })}
-                />
-                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
-                  הערכת עלות לפני קבלת הצעות
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-bold mb-2">תיאור</label>
-                <textarea
-                  className="w-full p-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary resize-none h-20"
-                  placeholder="תיאור המכרז..."
-                  value={tenderForm.description}
-                  onChange={(e) => setTenderForm({ ...tenderForm, description: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold mb-2">
-                  קישור להערכה <span className="text-red-500">*</span>
-                </label>
-                <select
-                  className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
-                  value={tenderForm.estimate_id}
-                  onChange={(e) => setTenderForm({ ...tenderForm, estimate_id: e.target.value })}
-                >
-                  <option value="">בחר הערכה</option>
-                  {estimates.map((est) => (
-                    <option key={est.id} value={est.id}>
-                      {est.estimate_type === 'planning' ? 'תכנון' : 'ביצוע'} - {est.name || 'ללא שם'} (₪{est.total_amount.toLocaleString('he-IL')})
-                    </option>
-                  ))}
-                </select>
-                {estimates.length === 0 && (
-                  <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
-                    לא נמצאו הערכות. צור הערכה תחילה בלשונית פיננסי.
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-bold mb-2">קישור לאבן דרך (אופציונלי)</label>
-                <select
-                  className="w-full h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
-                  value={tenderForm.milestone_id}
-                  onChange={(e) => setTenderForm({ ...tenderForm, milestone_id: e.target.value })}
-                >
-                  <option value="">ללא קישור</option>
-                  {milestones.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} ({formatDateForDisplay(m.date)})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex justify-end gap-3 pt-4">
-                <button
-                  onClick={() => setIsAddTenderModalOpen(false)}
-                  className="px-4 py-2 rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold text-sm transition-colors"
-                >
-                  ביטול
-                </button>
-                <button
-                  onClick={handleAddTender}
-                  disabled={!tenderForm.tender_name.trim() || !tenderForm.due_date || !tenderForm.estimate_id}
-                  className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  צור מכרז והוסף משתתפים
-                </button>
-              </div>
-            </div>
-          </div>
-        </>,
-        document.body
-      )}
+      {/* Add Tender Modal - REMOVED: Tenders can only be created via "Export to Tender" from Estimates */}
+      {/* This ensures all tenders are properly documented and linked to estimates */}
 
       {/* Professional Picker Modal */}
       {isProfessionalPickerOpen && selectedTender && createPortal(

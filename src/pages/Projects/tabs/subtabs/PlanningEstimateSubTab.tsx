@@ -98,7 +98,10 @@ export default function PlanningEstimateSubTab({ projectId, projectName }: Plann
         0
       );
 
+      console.log('DEBUG: Exporting to tender with estimate_id:', estimate.id);
+
       // Create tender pre-filled with estimate data
+      // Note: Planning estimates typically need architects/designers, execution needs contractors/project managers
       const tender = await createTender({
         project_id: projectId,
         tender_name: `${estimate.name} - מכרז`,
@@ -108,8 +111,10 @@ export default function PlanningEstimateSubTab({ projectId, projectName }: Plann
         status: 'Draft',
         publish_date: new Date().toISOString(),
         candidate_professional_ids: [],
-        tender_type: estimate.estimate_type === 'planning' ? 'architect' : 'contractor',
+        tender_type: estimate.estimate_type === 'planning' ? 'architect' : 'project-manager',
       });
+
+      console.log('DEBUG: Tender created:', tender);
 
       // Update estimate status
       await updateEstimate(estimate.id, {
@@ -151,7 +156,7 @@ export default function PlanningEstimateSubTab({ projectId, projectName }: Plann
       <div className="flex gap-3 mb-6">
         <button
           onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-semibold"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover active:bg-primary/80 focus:outline-none transition-colors font-semibold"
         >
           <span className="material-symbols-outlined text-[20px]">add</span>
           הוסף פריט

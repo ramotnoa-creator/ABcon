@@ -29,7 +29,7 @@ export async function getTasks(projectId: string): Promise<Task[]> {
   }
 
   try {
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM tasks
        WHERE project_id = $1
        ORDER BY created_at DESC`,
@@ -37,7 +37,7 @@ export async function getTasks(projectId: string): Promise<Task[]> {
     );
 
     return (data || []).map(transformTaskFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching tasks:', error);
     return getTasksLocal(projectId);
   }
@@ -53,12 +53,12 @@ export async function getAllTasks(): Promise<Task[]> {
   }
 
   try {
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM tasks ORDER BY created_at DESC`
     );
 
     return (data || []).map(transformTaskFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching all tasks:', error);
     return getAllTasksLocal();
   }
@@ -87,13 +87,13 @@ export async function getUserTasks(user: User | null): Promise<Task[]> {
 
   try {
     const placeholders = assignedProjects.map((_, i) => `$${i + 1}`).join(', ');
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM tasks WHERE project_id IN (${placeholders}) ORDER BY created_at DESC`,
       assignedProjects
     );
 
     return (data || []).map(transformTaskFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching user tasks:', error);
     const allTasks = getAllTasksLocal();
     return allTasks.filter((task) => assignedProjects.includes(task.project_id));
@@ -111,13 +111,13 @@ export async function getTaskById(id: string): Promise<Task | null> {
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `SELECT * FROM tasks WHERE id = $1`,
       [id]
     );
 
     return data ? transformTaskFromDB(data) : null;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching task:', error);
     const all = getAllTasksLocal();
     return all.find((t) => t.id === id) || null;
@@ -143,7 +143,7 @@ export async function createTask(
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `INSERT INTO tasks (
         project_id, title, description, status, priority,
         assignee_professional_id, assignee_name, due_date, start_date,
@@ -174,7 +174,7 @@ export async function createTask(
     }
 
     return transformTaskFromDB(data);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error creating task:', error);
     // Fallback to localStorage
     const newTask: Task = {
@@ -204,7 +204,7 @@ export async function updateTask(
   try {
     // Build SET clause dynamically
     const setClauses: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
     let paramIndex = 1;
 
     if (updates.project_id !== undefined) {
@@ -277,7 +277,7 @@ export async function updateTask(
     const query = `UPDATE tasks SET ${setClauses.join(', ')} WHERE id = $${paramIndex}`;
 
     await executeQuery(query, values);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error updating task:', error);
     // Fallback to localStorage
     updateTaskLocal(id, updates);
@@ -296,7 +296,7 @@ export async function deleteTask(id: string): Promise<void> {
 
   try {
     await executeQuery(`DELETE FROM tasks WHERE id = $1`, [id]);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error deleting task:', error);
     // Fallback to localStorage
     deleteTaskLocal(id);

@@ -251,7 +251,7 @@ export default function SpecialIssuesTab({ project }: SpecialIssuesTabProps) {
 
   // Sort: non-resolved first (by date desc), then resolved at the bottom (by date desc)
   const sortedAndFilteredIssues = useMemo(() => {
-    let filtered = statusFilter === 'all' ? issues : issues.filter((issue) => issue.status === statusFilter);
+    const filtered = statusFilter === 'all' ? issues : issues.filter((issue) => issue.status === statusFilter);
 
     // Separate resolved and non-resolved
     const nonResolved = filtered.filter(i => i.status !== 'resolved');

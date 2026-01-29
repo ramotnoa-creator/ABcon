@@ -27,7 +27,7 @@ export async function getProjectProfessionalsByProjectId(
   }
 
   try {
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM project_professionals
        WHERE project_id = $1 AND is_active = true
        ORDER BY start_date DESC`,
@@ -35,7 +35,7 @@ export async function getProjectProfessionalsByProjectId(
     );
 
     return (data || []).map(transformProjectProfessionalFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching project professionals:', error);
     const all = getProjectProfessionalsLocal();
     return all.filter((pp) => pp.project_id === projectId && pp.is_active);
@@ -55,7 +55,7 @@ export async function getProjectProfessionalsByProfessionalId(
   }
 
   try {
-    const data = await executeQuery<any>(
+    const data = await executeQuery<Record<string, unknown>>(
       `SELECT * FROM project_professionals
        WHERE professional_id = $1 AND is_active = true
        ORDER BY start_date DESC`,
@@ -63,7 +63,7 @@ export async function getProjectProfessionalsByProfessionalId(
     );
 
     return (data || []).map(transformProjectProfessionalFromDB);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching project professionals:', error);
     const all = getProjectProfessionalsLocal();
     return all.filter((pp) => pp.professional_id === professionalId && pp.is_active);
@@ -87,7 +87,7 @@ export async function createProjectProfessional(
   }
 
   try {
-    const data = await executeQuerySingle<any>(
+    const data = await executeQuerySingle<Record<string, unknown>>(
       `INSERT INTO project_professionals (
         project_id, professional_id, project_role, source, start_date, is_active, notes
       ) VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -108,7 +108,7 @@ export async function createProjectProfessional(
     }
 
     return transformProjectProfessionalFromDB(data);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error creating project professional:', error);
     // Fallback to localStorage
     const newPP: ProjectProfessional = {
@@ -140,7 +140,7 @@ export async function removeProjectProfessional(
        WHERE project_id = $1 AND professional_id = $2`,
       [projectId, professionalId]
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error removing project professional:', error);
     // Fallback to localStorage
     removeProjectProfessionalLocal(projectId, professionalId);
