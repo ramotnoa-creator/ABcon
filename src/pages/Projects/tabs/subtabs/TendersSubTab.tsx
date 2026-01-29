@@ -26,6 +26,7 @@ import { createBudgetItem, getNextBudgetItemOrder, calculateBudgetItemTotals } f
 import { getBOMFile } from '../../../../services/bomFilesService';
 import BOMUploader from '../../../../components/Tenders/BOMUploader';
 import SendBOMEmailModal from '../../../../components/Tenders/SendBOMEmailModal';
+import WinnerSelectionModal from '../../../../components/Tenders/WinnerSelectionModal';
 // File upload functions - TODO: Implement file storage service
 const uploadTenderQuote = async (_tenderId: string, _participantId: string, _file: File): Promise<string> => {
   throw new Error('File upload service not configured');
@@ -131,6 +132,7 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
   const [isSelectWinnerModalOpen, setIsSelectWinnerModalOpen] = useState(false);
   const [isParticipantDetailsOpen, setIsParticipantDetailsOpen] = useState(false);
   const [isSendBOMModalOpen, setIsSendBOMModalOpen] = useState(false);
+  const [isVariancePreviewModalOpen, setIsVariancePreviewModalOpen] = useState(false);
   const [modalPosition, setModalPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
   // Open modal near the clicked button
@@ -1393,11 +1395,15 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                         חזרה
                       </button>
                       <button
-                        onClick={handleSelectWinnerConfirm}
+                        onClick={() => {
+                          // Close the current modal and show variance preview
+                          setIsSelectWinnerModalOpen(false);
+                          setIsVariancePreviewModalOpen(true);
+                        }}
                         className="flex-1 px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 font-bold text-sm transition-colors"
                       >
-                        <span className="material-symbols-outlined text-[18px] align-middle me-1">check</span>
-                        אשר זוכה
+                        <span className="material-symbols-outlined text-[18px] align-middle me-1">arrow_forward</span>
+                        המשך
                       </button>
                     </div>
                   </>
@@ -1421,6 +1427,41 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
           }}
         />
       )}
+
+      {/* Variance Preview Modal */}
+      {isVariancePreviewModalOpen && selectedTender && selectedWinnerParticipant && (() => {
+        const prof = allProfessionals.find(p => p.id === selectedWinnerParticipant.professional_id);
+        if (!prof) return null;
+
+        // Prepare tender with updated contract amount for variance calculation
+        const tenderWithContractAmount = {
+          ...selectedTender,
+          contract_amount: winnerForm.contract_amount ? parseFloat(winnerForm.contract_amount) : selectedWinnerParticipant.total_amount,
+        };
+
+        // Prepare participant with contract amount
+        const participantWithContractAmount = {
+          ...selectedWinnerParticipant,
+          total_amount: winnerForm.contract_amount ? parseFloat(winnerForm.contract_amount) : selectedWinnerParticipant.total_amount,
+        };
+
+        return (
+          <WinnerSelectionModal
+            tender={tenderWithContractAmount}
+            winnerParticipant={participantWithContractAmount}
+            winnerProfessional={prof}
+            onConfirm={async () => {
+              setIsVariancePreviewModalOpen(false);
+              await handleSelectWinnerConfirm();
+            }}
+            onCancel={() => {
+              // Go back to the contract amount modal
+              setIsVariancePreviewModalOpen(false);
+              setIsSelectWinnerModalOpen(true);
+            }}
+          />
+        );
+      })()}
 
       {/* Participant Details Modal */}
       {isParticipantDetailsOpen && selectedParticipant && selectedTender && createPortal(
