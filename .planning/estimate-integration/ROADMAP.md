@@ -62,17 +62,17 @@ Single Cost Control page that replaces separate Budget and Tenders pages. All fi
 - Lazy loading works (tabs only load when active)
 
 ### Deliverables
-- [ ] `CostControlPage.tsx` with 3-tab structure
-- [ ] Estimates tab - basic list view with filters
-- [ ] Tenders tab - migrate GlobalTendersPage content
-- [ ] Budget tab - migrate GlobalBudgetPage content + add variance columns
-- [ ] Add variance columns to Budget tab: Estimate, Variance ₪, Variance %
-- [ ] Add "Show items with variance only" filter
-- [ ] Lazy loading implementation per tab
-- [ ] Update navigation menu (remove תקציב, מכרזים - add בקרת עלויות)
-- [ ] URL routing with query params (?tab=estimates)
-- [ ] Responsive design (mobile/tablet/desktop)
-- [ ] E2E tests for tab navigation and switching
+- [x] `CostControlPage.tsx` with 3-tab structure
+- [x] Estimates tab - basic list view with filters
+- [x] Tenders tab - migrate GlobalTendersPage content
+- [x] Budget tab - migrate GlobalBudgetPage content + add variance columns
+- [x] Add variance columns to Budget tab: Estimate, Variance ₪, Variance %
+- [x] Add "Show items with variance only" filter
+- [x] Lazy loading implementation per tab
+- [x] Update navigation menu (remove תקציב, מכרזים - add בקרת עלויות)
+- [x] URL routing with query params (?tab=estimates)
+- [x] Responsive design (mobile/tablet/desktop)
+- [x] E2E tests for tab navigation and switching
 
 ### Dependencies
 - Phase 1 complete (database and services exist)
