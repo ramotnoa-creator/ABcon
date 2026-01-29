@@ -8,10 +8,9 @@ import MobileMenu from './MobileMenu';
 const navItems = [
   { label: 'לוח בקרה', path: '/dashboard', icon: 'dashboard' },
   { label: 'פרויקטים', path: '/projects', icon: 'folder' },
-  { label: 'מכרזים', path: '/tenders', icon: 'gavel' },
+  { label: 'בקרת עלויות', path: '/cost-control', icon: 'assessment' },
   { label: 'אנשי מקצוע', path: '/professionals', icon: 'people' },
   { label: 'קבצים', path: '/files', icon: 'description' },
-  { label: 'תקציב', path: '/budget', icon: 'payments' },
 ];
 
 // Helper to get user initials from full name
