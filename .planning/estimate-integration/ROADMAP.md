@@ -101,17 +101,17 @@ User interface to create planning and execution estimates with line items. Repla
 - Form validation prevents errors
 
 ### Deliverables
-- [ ] `FinancialTab.tsx` for project detail page (5 sub-tabs)
-- [ ] Planning Estimate sub-tab with item table
-- [ ] Execution Estimate sub-tab with item table
-- [ ] `AddEstimateItemForm.tsx` component with validation
-- [ ] `EstimateItemsTable.tsx` with sorting, filtering, inline edit
-- [ ] Summary cards showing totals (with VAT calculation)
-- [ ] Migrate BudgetTab content to Financial/Budget sub-tab
-- [ ] Migrate TendersTab content to Financial/Tenders sub-tab
-- [ ] Update ProjectDetailPage to use Financial tab
-- [ ] Auto-save functionality (prevent data loss)
-- [ ] E2E tests for estimate creation workflow
+- [x] `FinancialTab.tsx` for project detail page (5 sub-tabs)
+- [x] Planning Estimate sub-tab with item table
+- [x] Execution Estimate sub-tab with item table
+- [x] `AddEstimateItemForm.tsx` component with validation
+- [x] `EstimateItemsTable.tsx` with sorting, filtering, inline edit
+- [x] Summary cards showing totals (with VAT calculation)
+- [x] Migrate BudgetTab content to Financial/Budget sub-tab
+- [x] Migrate TendersTab content to Financial/Tenders sub-tab
+- [x] Update ProjectDetailPage to use Financial tab
+- [x] Auto-save functionality (skipped - modal-based save sufficient per Decision D009)
+- [x] E2E tests for estimate creation workflow
 
 ### Dependencies
 - Phase 1 complete (services)
