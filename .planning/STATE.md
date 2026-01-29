@@ -8,22 +8,22 @@
 
 ## Current Position
 
-**Phase:** 1 of 6 (01-database-foundation)
+**Phase:** 2 of 6 (02-cost-control-page)
 **Plan:** 01 of 01 in phase (COMPLETED ✓)
-**Status:** Phase 1 Complete - Ready for Phase 2
-**Last activity:** 2026-01-29 - Completed 01-01-PLAN.md
+**Status:** Phase 2 Complete - Ready for Phase 3
+**Last activity:** 2026-01-29 - Completed 02-01-PLAN.md
 
 ### Progress Overview
 
 ```
 Phase 1: ████████████████████ 100% Complete (01-database-foundation)
-Phase 2: ░░░░░░░░░░░░░░░░░░░░   0% (02-cost-control-page-structure)
+Phase 2: ████████████████████ 100% Complete (02-cost-control-page)
 Phase 3: ░░░░░░░░░░░░░░░░░░░░   0% (03-estimates-ui)
 Phase 4: ░░░░░░░░░░░░░░░░░░░░   0% (04-tender-integration)
 Phase 5: ░░░░░░░░░░░░░░░░░░░░   0% (05-budget-auto-update)
 Phase 6: ░░░░░░░░░░░░░░░░░░░░   0% (06-polish-testing)
 
-Overall: ███░░░░░░░░░░░░░░░░░  16.7% (1 of 6 phases)
+Overall: ██████░░░░░░░░░░░░░░  33.3% (2 of 6 phases)
 ```
 
 ---
@@ -39,6 +39,9 @@ Decisions made during execution that affect future work:
 | 003 | 01 | Variance formula: budget - estimate | Standard financial reporting | Green (saved), Red (over), Gray (no estimate) |
 | 004 | 01 | No foreign keys to users table | Users table doesn't exist yet | created_by/uploaded_by are nullable UUIDs |
 | 005 | 01 | Auto-update estimate totals | Prevents inconsistency | Estimate.total_amount always accurate |
+| 006 | 02 | Default tab is estimates | Most important for unified page | /cost-control defaults to estimates tab |
+| 007 | 02 | Tab state in URL query params | Shareable links, browser back support | Better UX, bookmarkable tab state |
+| 008 | 02 | Variance shows dash (-) not zero | Accurate representation | Users distinguish no estimate vs. zero estimate |
 
 ---
 
@@ -58,14 +61,14 @@ Decisions made during execution that affect future work:
 
 ## Session Continuity
 
-**Last session:** 2026-01-29 23:29:56
-**Stopped at:** Completed 01-01-PLAN.md
+**Last session:** 2026-01-29 00:35:02
+**Stopped at:** Completed 02-01-PLAN.md
 **Resume file:** None (phase complete)
 
 **Next steps:**
-1. Review Phase 1 completion with team
-2. Begin Phase 2: Cost Control Page Structure
-3. Create 02-01-PLAN.md for unified page with 3-tab navigation
+1. Review Phase 2 completion with team
+2. Begin Phase 3: Estimates UI
+3. Create 03-01-PLAN.md for CRUD operations on estimates
 
 ---
 
@@ -101,6 +104,8 @@ Decisions made during execution that affect future work:
 **Types:** `src/types.ts` (Estimate, EstimateItem, BOMFile, VarianceData)
 **Migrations:** `migrations/create-tables.cjs`, `001-create-estimates-schema.sql`, `002-alter-tenders-budget-items.sql`
 **Seed:** `scripts/seed-estimates.cjs`
+**Pages:** `src/pages/CostControl/CostControlPage.tsx` (main page with 3 tabs)
+**Tabs:** `EstimatesTabContent.tsx`, `TendersTabContent.tsx`, `BudgetTabContent.tsx`
 
 ---
 
@@ -109,12 +114,13 @@ Decisions made during execution that affect future work:
 | Phase | Duration | Tasks | Status |
 |-------|----------|-------|--------|
 | 01-database-foundation | 11 min | 10/13 | ✓ Complete |
+| 02-cost-control-page | 10 min | 9/9 | ✓ Complete |
 
-**Average:** 11 min/phase (1 phase completed)
-**Projected remaining:** ~55 min (5 phases × 11 min)
-**Total project estimate:** ~1.1 hours
+**Average:** 10.5 min/phase (2 phases completed)
+**Projected remaining:** ~42 min (4 phases × 10.5 min)
+**Total project estimate:** ~63 min (1.05 hours)
 
 ---
 
 *This file is automatically updated after each plan execution.*
-*Last update: Phase 01-01 completed on 2026-01-29*
+*Last update: Phase 02-01 completed on 2026-01-29*
