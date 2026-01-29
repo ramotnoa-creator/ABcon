@@ -92,6 +92,11 @@ export async function getTenderById(id: string): Promise<Tender | null> {
 export async function createTender(
   tender: Omit<Tender, 'id' | 'created_at' | 'updated_at'>
 ): Promise<Tender> {
+  // Validate required estimate_id (all tenders must be linked to an estimate)
+  if (!tender.estimate_id) {
+    throw new Error('Cannot create tender without estimate_id. All tenders must be linked to an estimate.');
+  }
+
   if (isDemoMode) {
     const newTender: Tender = {
       ...tender,
