@@ -25,6 +25,7 @@ import { getBudgetChapters } from '../../../../services/budgetChaptersService';
 import { createBudgetItem, getNextBudgetItemOrder, calculateBudgetItemTotals } from '../../../../services/budgetItemsService';
 import { getBOMFile } from '../../../../services/bomFilesService';
 import BOMUploader from '../../../../components/Tenders/BOMUploader';
+import SendBOMEmailModal from '../../../../components/Tenders/SendBOMEmailModal';
 // File upload functions - TODO: Implement file storage service
 const uploadTenderQuote = async (_tenderId: string, _participantId: string, _file: File): Promise<string> => {
   throw new Error('File upload service not configured');
@@ -129,6 +130,7 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
   const [isProfessionalPickerOpen, setIsProfessionalPickerOpen] = useState(false);
   const [isSelectWinnerModalOpen, setIsSelectWinnerModalOpen] = useState(false);
   const [isParticipantDetailsOpen, setIsParticipantDetailsOpen] = useState(false);
+  const [isSendBOMModalOpen, setIsSendBOMModalOpen] = useState(false);
   const [modalPosition, setModalPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
   // Open modal near the clicked button
@@ -945,7 +947,21 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
 
                 {/* BOM Section */}
                 <div className="mt-4 pt-4 border-t border-border-light dark:border-border-dark">
-                  <h5 className="text-sm font-bold mb-3">בל"מ (Bill of Materials)</h5>
+                  <div className="flex items-center justify-between mb-3">
+                    <h5 className="text-sm font-bold">בל"מ (Bill of Materials)</h5>
+                    {bomFilesMap[tender.id] && participantsWithProf.length > 0 && (
+                      <button
+                        onClick={() => {
+                          setSelectedTender(tender);
+                          setIsSendBOMModalOpen(true);
+                        }}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors text-sm font-bold"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">mail</span>
+                        שלח בל"מ למשתתפים
+                      </button>
+                    )}
+                  </div>
                   <BOMUploader
                     tenderId={tender.id}
                     currentBOM={bomFilesMap[tender.id]}
@@ -1391,6 +1407,19 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
           </div>
         </>,
         document.body
+      )}
+
+      {/* Send BOM Email Modal */}
+      {isSendBOMModalOpen && selectedTender && bomFilesMap[selectedTender.id] && (
+        <SendBOMEmailModal
+          tender={selectedTender}
+          participants={getParticipantsWithProfessionals(selectedTender)}
+          bomFile={bomFilesMap[selectedTender.id]!}
+          onClose={() => {
+            setIsSendBOMModalOpen(false);
+            setSelectedTender(null);
+          }}
+        />
       )}
 
       {/* Participant Details Modal */}
