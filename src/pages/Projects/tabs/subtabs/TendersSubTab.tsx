@@ -7,8 +7,9 @@ import {
   updateTender,
   createTender,
   deleteTender,
+  updateTenderFromEstimate,
 } from '../../../../services/tendersService';
-import { getEstimate } from '../../../../services/estimatesService';
+import { getEstimate, lockEstimate } from '../../../../services/estimatesService';
 import {
   getTenderParticipants,
   addTenderParticipants,
@@ -27,6 +28,7 @@ import { getBOMFile } from '../../../../services/bomFilesService';
 import BOMUploader from '../../../../components/Tenders/BOMUploader';
 import SendBOMEmailModal from '../../../../components/Tenders/SendBOMEmailModal';
 import WinnerSelectionModal from '../../../../components/Tenders/WinnerSelectionModal';
+import SourceEstimateCard from '../../../../components/Tenders/SourceEstimateCard';
 // File upload functions - TODO: Implement file storage service
 const uploadTenderQuote = async (_tenderId: string, _participantId: string, _file: File): Promise<string> => {
   throw new Error('File upload service not configured');
@@ -229,7 +231,7 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
             if (tender.estimate_id) {
               const estimate = await getEstimate(tender.estimate_id);
               if (estimate) {
-                estimatesData[tender.id] = estimate;
+                estimatesData[tender.estimate_id] = estimate; // FIX: Use estimate_id as key, not tender.id
               }
             }
             if (tender.bom_file_id) {
@@ -492,10 +494,22 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
             tender_id: tender.id,
             paid_amount: 0,
             order,
+            // Add source estimate for traceability
+            source_estimate_id: tender.estimate_id || undefined,
           });
         }
       }
     }
+
+      // Lock the source estimate (prevent further edits after winner selection)
+      if (selectedTender.estimate_id) {
+        try {
+          await lockEstimate(selectedTender.estimate_id);
+        } catch (error) {
+          console.error('Error locking estimate:', error);
+          // Don't fail the whole operation if locking fails
+        }
+      }
 
       await loadTenders();
       setIsSelectWinnerModalOpen(false);
@@ -506,6 +520,23 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
     } catch (error: unknown) {
       console.error('Error selecting winner:', error);
       showError('שגיאה בבחירת זוכה. אנא נסה שוב.');
+    }
+  };
+
+  // Handle update tender from estimate
+  const handleUpdateTenderFromEstimate = async (tenderId: string, estimateId: string) => {
+    try {
+      const { oldBudget, newBudget } = await updateTenderFromEstimate(tenderId, estimateId);
+
+      // Reload tenders to show updated data
+      await loadTenders();
+
+      showSuccess(
+        `מכרז עודכן מהאומדן (תקציב: ${oldBudget.toLocaleString()} ← ${newBudget.toLocaleString()})`
+      );
+    } catch (error: any) {
+      console.error('Error updating tender from estimate:', error);
+      showError(error.message || 'שגיאה בעדכון מכרז מאומדן');
     }
   };
 
@@ -630,11 +661,32 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
             const winner = participantsWithProf.find((p) => p.is_winner);
             const deadlinePassed = isDeadlinePassed(tender);
 
+            // Get source estimate for this tender
+            const sourceEstimate = tender.estimate_id ? estimatesMap[tender.estimate_id] : null;
+            const canUpdateFromEstimate = (tender.status === 'Draft' || tender.status === 'Open') && tender.is_estimate_outdated;
+
             return (
               <div
                 key={tender.id}
                 className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark p-6"
               >
+                {/* Source Estimate Card */}
+                {sourceEstimate && (
+                  <SourceEstimateCard
+                    estimate={sourceEstimate}
+                    projectId={project.id}
+                    tenderId={tender.id}
+                    isOutdated={tender.is_estimate_outdated}
+                    exportedAt={sourceEstimate.exported_at}
+                    onUpdateFromEstimate={
+                      canUpdateFromEstimate && tender.estimate_id
+                        ? () => handleUpdateTenderFromEstimate(tender.id, tender.estimate_id!)
+                        : undefined
+                    }
+                    canUpdate={canUpdateFromEstimate}
+                  />
+                )}
+
                 {/* Tender Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
                   <div className="flex-1">
@@ -968,17 +1020,17 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                 )}
 
                 {/* Small Source Estimate Reference */}
-                {tender.estimate_id && estimatesMap[tender.id] && (
+                {tender.estimate_id && estimatesMap[tender.estimate_id] && (
                   <div className="mt-4 pt-3 border-t border-border-light/50 dark:border-border-dark/50">
                     <button
                       onClick={() => {
-                        const estimateType = estimatesMap[tender.id].estimate_type;
+                        const estimateType = estimatesMap[tender.estimate_id!].estimate_type;
                         navigate(`/projects/${project.id}?tab=financial&subtab=${estimateType}-estimate`);
                       }}
                       className="text-xs text-text-secondary-light dark:text-text-secondary-dark hover:text-primary transition-colors flex items-center gap-1"
                     >
                       <span className="material-symbols-outlined text-[14px]">link</span>
-                      <span>מקור: אומדן {estimatesMap[tender.id].estimate_type === 'planning' ? 'תכנון' : 'ביצוע'}</span>
+                      <span>מקור: אומדן {estimatesMap[tender.estimate_id!].estimate_type === 'planning' ? 'תכנון' : 'ביצוע'}</span>
                       <span className="material-symbols-outlined text-[14px]">arrow_back</span>
                     </button>
                   </div>
