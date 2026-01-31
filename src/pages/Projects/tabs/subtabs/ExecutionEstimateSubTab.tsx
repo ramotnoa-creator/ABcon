@@ -22,6 +22,7 @@ export default function ExecutionEstimateSubTab({ projectId, projectName }: Exec
   const [isLoading, setIsLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingItem, setEditingItem] = useState<ProjectItem | null>(null);
+  const [viewingItem, setViewingItem] = useState<any | null>(null);
 
   // Load execution items
   useEffect(() => {
@@ -274,6 +275,13 @@ export default function ExecutionEstimateSubTab({ projectId, projectName }: Exec
                           </button>
                         )}
                         <button
+                          onClick={() => setViewingItem(item)}
+                          className="px-3 py-1 bg-primary text-white rounded hover:bg-primary/90 transition-colors"
+                          title="צפה בפרטים"
+                        >
+                          צפה
+                        </button>
+                        <button
                           onClick={() => setEditingItem(item)}
                           className="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
                           disabled={item.current_status === 'locked'}
@@ -309,6 +317,170 @@ export default function ExecutionEstimateSubTab({ projectId, projectName }: Exec
             setEditingItem(null);
           }}
         />
+      )}
+
+      {/* View Details Modal */}
+      {viewingItem && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-surface-dark rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white dark:bg-surface-dark border-b border-border-light dark:border-border-dark px-6 py-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold">{viewingItem.name}</h2>
+                <button
+                  onClick={() => setViewingItem(null)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                >
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Basic Information */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">info</span>
+                  מידע כללי
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+                  <div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">שם הפריט</div>
+                    <div className="text-base font-medium">{viewingItem.name}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">קטגוריה</div>
+                    <div className="text-base font-medium">{viewingItem.category || '—'}</div>
+                  </div>
+                  {viewingItem.description && (
+                    <div className="md:col-span-2">
+                      <div className="text-sm text-gray-600 dark:text-gray-400">תיאור</div>
+                      <div className="text-base">{viewingItem.description}</div>
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">סטטוס</div>
+                    <div className="mt-1">
+                      <StatusBadge status={viewingItem.current_status} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">סוג</div>
+                    <div className="text-base font-medium">{viewingItem.type === 'planning' ? 'תכנון' : 'ביצוע'}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Current Estimate */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">calculate</span>
+                  אומדן נוכחי
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                    <div className="text-sm text-blue-600 dark:text-blue-400 mb-1">לפני מע"מ</div>
+                    <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                      ₪{parseFloat(viewingItem.estimated_cost || 0).toLocaleString('he-IL', { minimumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">מע"מ ({viewingItem.vat_rate || 17}%)</div>
+                    <div className="text-2xl font-bold">
+                      ₪{parseFloat(viewingItem.vat_amount || 0).toLocaleString('he-IL', { minimumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                  <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+                    <div className="text-sm text-green-600 dark:text-green-400 mb-1">סה"כ כולל מע"מ</div>
+                    <div className="text-2xl font-bold text-green-700 dark:text-green-300">
+                      ₪{parseFloat(viewingItem.total_with_vat || 0).toLocaleString('he-IL', { minimumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                </div>
+                {viewingItem.estimate_notes && (
+                  <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">הערות</div>
+                    <div className="text-sm">{viewingItem.estimate_notes}</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Linked Tender */}
+              {viewingItem.active_tender_id && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary">gavel</span>
+                    מכרז מקושר
+                  </h3>
+                  <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm text-amber-600 dark:text-amber-400">פריט זה מקושר למכרז</div>
+                        <div className="text-base font-medium mt-1">מזהה מכרז: {viewingItem.active_tender_id}</div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setViewingItem(null);
+                          navigate(`/projects/${projectId}?tab=financial&subtab=tenders`);
+                        }}
+                        className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+                      >
+                        עבור למכרז
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Timestamps */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">schedule</span>
+                  היסטוריה
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+                  <div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">נוצר בתאריך</div>
+                    <div className="text-base">{new Date(viewingItem.created_at).toLocaleString('he-IL')}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">עודכן לאחרונה</div>
+                    <div className="text-base">{new Date(viewingItem.updated_at).toLocaleString('he-IL')}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">גרסת אומדן</div>
+                    <div className="text-base font-medium">גרסה {viewingItem.estimate_version || 1}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">גרסת פריט</div>
+                    <div className="text-base font-medium">גרסה {viewingItem.version || 1}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 bg-white dark:bg-surface-dark border-t border-border-light dark:border-border-dark px-6 py-4">
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setViewingItem(null)}
+                  className="px-6 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  סגור
+                </button>
+                {viewingItem.current_status !== 'locked' && (
+                  <button
+                    onClick={() => {
+                      setEditingItem(viewingItem);
+                      setViewingItem(null);
+                    }}
+                    className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                  >
+                    עבור לעריכה
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
