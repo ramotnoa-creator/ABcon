@@ -55,12 +55,27 @@ export default function ExecutionEstimateSubTab({ projectId, projectName }: Exec
   };
 
   const handleDeleteItem = async (itemId: string) => {
-    if (!confirm('האם אתה בטוח שברצונך למחוק פריט זה?')) return;
+    // Find the item to check if it has a tender
+    const item = itemsWithEstimates.find(i => i.id === itemId);
+    const hasTender = item?.active_tender_id;
+
+    const confirmMessage = hasTender
+      ? 'פריט זה מקושר למכרז. מחיקת הפריט תמחק גם את המכרז. האם להמשיך?'
+      : 'האם אתה בטוח שברצונך למחוק פריט זה?';
+
+    if (!confirm(confirmMessage)) return;
 
     try {
+      // Delete the tender first if it exists
+      if (hasTender) {
+        const { deleteTender } = await import('../../../../services/tendersService');
+        await deleteTender(item.active_tender_id);
+      }
+
+      // Then delete the project item
       await softDeleteProjectItem(itemId, 'current-user', 'Deleted by user');
       await loadItems();
-      showToast('פריט נמחק בהצלחה', 'success');
+      showToast(hasTender ? 'פריט ומכרז נמחקו בהצלחה' : 'פריט נמחק בהצלחה', 'success');
     } catch (error) {
       console.error('Error deleting item:', error);
       showToast('שגיאה במחיקת פריט', 'error');
