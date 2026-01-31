@@ -68,8 +68,9 @@ export default function PlanningEstimateSubTab({ projectId, projectName }: Plann
   };
 
   const handleExportToTender = async (itemId: string) => {
-    // TODO: Implement tender export for specific item
-    navigate(`/projects/${projectId}/tenders/new?itemId=${itemId}`);
+    // Show message and scroll to tenders tab
+    showToast('עבור ללשונית "מכרזים" כדי ליצור מכרז עבור הפריט', 'info');
+    // TODO: Pre-populate tender form with item data from itemId
   };
 
   const calculateTotals = () => {
