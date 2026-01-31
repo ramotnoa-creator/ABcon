@@ -283,6 +283,7 @@ export default function ExecutionEstimateSubTab({ projectId, projectName }: Exec
       {(showAddForm || editingItem) && (
         <AddProjectItemForm
           projectId={projectId}
+          itemType="execution"
           item={editingItem || undefined}
           onSave={handleItemSaved}
           onCancel={() => {

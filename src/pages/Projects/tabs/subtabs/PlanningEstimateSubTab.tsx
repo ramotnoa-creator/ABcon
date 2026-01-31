@@ -283,6 +283,7 @@ export default function PlanningEstimateSubTab({ projectId, projectName }: Plann
       {(showAddForm || editingItem) && (
         <AddProjectItemForm
           projectId={projectId}
+          itemType="planning"
           item={editingItem || undefined}
           onSave={handleItemSaved}
           onCancel={() => {
