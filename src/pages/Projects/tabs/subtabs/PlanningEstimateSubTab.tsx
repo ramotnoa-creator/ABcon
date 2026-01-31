@@ -129,8 +129,8 @@ export default function PlanningEstimateSubTab({ projectId, projectName }: Plann
       await loadItems();
       showToast(`מכרז "${tender.tender_name}" נוצר בהצלחה!`, 'success');
 
-      // Navigate to tenders tab
-      navigate(`/projects/${projectId}?tab=tenders`);
+      // Navigate to tenders subtab in financial tab
+      navigate(`/projects/${projectId}?tab=financial&subtab=tenders`);
     } catch (error) {
       console.error('Error creating tender:', error);
       showToast('שגיאה ביצירת מכרז', 'error');
