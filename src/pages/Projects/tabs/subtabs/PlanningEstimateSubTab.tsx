@@ -40,6 +40,13 @@ export default function PlanningEstimateSubTab({ projectId, projectName }: Plann
       // Also load plain items for other operations
       const plainItems = await getProjectItems(projectId, 'planning');
       setItems(plainItems);
+
+      // Check for locked estimates (Phase 2: UI indicators)
+      for (const item of itemsData) {
+        if (item.estimate_status === 'locked') {
+          console.log(`Item ${item.name} has locked estimate`);
+        }
+      }
     } catch (error) {
       console.error('Error loading planning items:', error);
       showToast('שגיאה בטעינת פריטי תכנון', 'error');
@@ -196,6 +203,54 @@ export default function PlanningEstimateSubTab({ projectId, projectName }: Plann
         </div>
       </div>
 
+      {/* Locked Items Warning Banner */}
+      {itemsWithEstimates.some(item => item.estimate_status === 'locked') && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-r-4 border-yellow-400 p-4 rounded">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <span className="text-2xl">🔒</span>
+            </div>
+            <div className="mr-3">
+              <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                אומדנים נעולים
+              </h3>
+              <div className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
+                <p>
+                  חלק מהאומדנים נעולים מכיוון שזוכה נבחר במכרז המקושר.
+                  לא ניתן לערוך או למחוק פריטים אלו.
+                  {itemsWithEstimates.filter(item => item.estimate_status === 'locked').length > 0 && (
+                    <span className="font-semibold">
+                      {' '}({itemsWithEstimates.filter(item => item.estimate_status === 'locked').length} פריטים נעולים)
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Exported Items Info Banner */}
+      {itemsWithEstimates.some(item => item.estimate_status === 'exported' && !item.estimate_locked_at) && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border-r-4 border-blue-400 p-4 rounded">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <span className="text-2xl">📤</span>
+            </div>
+            <div className="mr-3">
+              <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                אומדנים שיוצאו למכרז
+              </h3>
+              <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
+                <p>
+                  חלק מהאומדנים כבר יוצאו למכרז. שינויים באומדנים אלו לא יתעדכנו אוטומטית במכרז.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Items Table */}
       <div className="bg-white dark:bg-surface-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark overflow-hidden">
         <div className="overflow-x-auto">
@@ -265,17 +320,44 @@ export default function PlanningEstimateSubTab({ projectId, projectName }: Plann
                       ₪{parseFloat(item.total_with_vat || 0).toLocaleString('he-IL', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <StatusBadge status={item.current_status} />
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={item.current_status} />
+                        {item.estimate_status === 'locked' && (
+                          <span
+                            className="text-yellow-600 dark:text-yellow-400"
+                            title={`נעול: ${item.estimate_locked_reason || 'זוכה נבחר במכרז'}`}
+                          >
+                            🔒
+                          </span>
+                        )}
+                        {item.estimate_status === 'exported' && !item.estimate_locked_at && (
+                          <span
+                            className="text-blue-600 dark:text-blue-400 text-xs"
+                            title="יוצא למכרז"
+                          >
+                            📤
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex items-center gap-2">
-                        {item.current_status === 'estimation' && (
+                        {item.current_status === 'estimation' && !item.estimate_status && (
                           <button
                             onClick={() => handleExportToTender(item.id)}
                             className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
                             title="ייצוא למכרז"
                           >
                             ייצוא למכרז
+                          </button>
+                        )}
+                        {item.estimate_tender_id && (
+                          <button
+                            onClick={() => navigate(`/projects/${projectId}?tab=financial&subtab=tenders`)}
+                            className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-xs"
+                            title="עבור למכרז המקושר"
+                          >
+                            מכרז ▼
                           </button>
                         )}
                         <button
@@ -287,15 +369,25 @@ export default function PlanningEstimateSubTab({ projectId, projectName }: Plann
                         </button>
                         <button
                           onClick={() => setEditingItem(item)}
-                          className="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
-                          disabled={item.current_status === 'locked'}
+                          className={`px-3 py-1 rounded transition-colors ${
+                            item.estimate_status === 'locked'
+                              ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                              : 'bg-gray-600 text-white hover:bg-gray-700'
+                          }`}
+                          disabled={item.estimate_status === 'locked'}
+                          title={item.estimate_status === 'locked' ? 'לא ניתן לערוך - אומדן נעול' : 'ערוך פריט'}
                         >
                           ערוך
                         </button>
                         <button
                           onClick={() => handleDeleteItem(item.id)}
-                          className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                          disabled={item.current_status === 'locked'}
+                          className={`px-3 py-1 rounded transition-colors ${
+                            item.estimate_status === 'locked'
+                              ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                              : 'bg-red-600 text-white hover:bg-red-700'
+                          }`}
+                          disabled={item.estimate_status === 'locked'}
+                          title={item.estimate_status === 'locked' ? 'לא ניתן למחוק - אומדן נעול' : 'מחק פריט'}
                         >
                           מחק
                         </button>
