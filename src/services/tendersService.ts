@@ -92,11 +92,11 @@ export async function getTenderById(id: string): Promise<Tender | null> {
 export async function createTender(
   tender: Omit<Tender, 'id' | 'created_at' | 'updated_at'>
 ): Promise<Tender> {
-  console.log('DEBUG createTender: isDemoMode=', isDemoMode, 'estimate_id=', tender.estimate_id);
+  console.log('DEBUG createTender: isDemoMode=', isDemoMode, 'estimate_id=', tender.estimate_id, 'project_item_id=', (tender as any).project_item_id);
 
-  // Enforce business rule: All tenders must be linked to an estimate
-  if (!tender.estimate_id) {
-    throw new Error('Cannot create tender without estimate_id. All tenders must be linked to an estimate.');
+  // Enforce business rule: All tenders must be linked to an estimate OR project item
+  if (!tender.estimate_id && !(tender as any).project_item_id) {
+    throw new Error('Cannot create tender without estimate_id or project_item_id. All tenders must be linked to an estimate or project item.');
   }
 
   if (isDemoMode) {
@@ -120,8 +120,9 @@ export async function createTender(
         status, publish_date, due_date, candidate_professional_ids,
         winner_professional_id, winner_professional_name, milestone_id,
         notes, estimated_budget, contract_amount, management_remarks,
-        estimate_id, bom_file_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+        estimate_id, bom_file_id, project_item_id, attempt_number,
+        previous_tender_id, retry_reason
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
       RETURNING *`,
       [
         tender.project_id,
@@ -142,6 +143,10 @@ export async function createTender(
         tender.management_remarks || null,
         tender.estimate_id || null,
         tender.bom_file_id || null,
+        (tender as any).project_item_id || null,
+        (tender as any).attempt_number || 1,
+        (tender as any).previous_tender_id || null,
+        (tender as any).retry_reason || null,
       ]
     );
 
@@ -255,6 +260,18 @@ export async function updateTender(
       setClauses.push(`bom_file_id = $${paramIndex++}`);
       values.push(updates.bom_file_id);
     }
+    if (updates.estimate_snapshot !== undefined) {
+      setClauses.push(`estimate_snapshot = $${paramIndex++}`);
+      values.push(JSON.stringify(updates.estimate_snapshot));
+    }
+    if (updates.estimate_version !== undefined) {
+      setClauses.push(`estimate_version = $${paramIndex++}`);
+      values.push(updates.estimate_version);
+    }
+    if (updates.is_estimate_outdated !== undefined) {
+      setClauses.push(`is_estimate_outdated = $${paramIndex++}`);
+      values.push(updates.is_estimate_outdated);
+    }
 
     if (setClauses.length === 0) {
       return; // Nothing to update
@@ -322,6 +339,9 @@ function transformTenderFromDB(dbTender: any): Tender {
     management_remarks: dbTender.management_remarks || undefined,
     estimate_id: dbTender.estimate_id || undefined,
     bom_file_id: dbTender.bom_file_id || undefined,
+    estimate_snapshot: dbTender.estimate_snapshot || undefined,
+    estimate_version: dbTender.estimate_version || undefined,
+    is_estimate_outdated: dbTender.is_estimate_outdated || undefined,
     created_at: dbTender.created_at,
     updated_at: dbTender.updated_at,
   };
@@ -334,4 +354,85 @@ function transformTenderFromDB(dbTender: any): Tender {
 export async function syncTendersToLocalStorage(projectId?: string): Promise<void> {
   const tenders = projectId ? await getTenders(projectId) : await getAllTenders();
   saveTenders(tenders);
+}
+
+// ============================================================
+// GET TENDER BY ESTIMATE ID (PHASE 1.1)
+// ============================================================
+
+export async function getTenderByEstimateId(estimateId: string): Promise<Tender | null> {
+  if (isDemoMode) {
+    const tenders = getAllTendersLocal();
+    return tenders.find((t) => t.estimate_id === estimateId) || null;
+  }
+
+  try {
+    const data = await executeQuerySingle<Record<string, unknown>>(
+      `SELECT * FROM tenders WHERE estimate_id = $1`,
+      [estimateId]
+    );
+
+    return data ? transformTenderFromDB(data) : null;
+  } catch (error: unknown) {
+    console.error('Error fetching tender by estimate ID:', error);
+    const tenders = getAllTendersLocal();
+    return tenders.find((t) => t.estimate_id === estimateId) || null;
+  }
+}
+
+// ============================================================
+// UPDATE TENDER FROM ESTIMATE (PHASE 1.1)
+// ============================================================
+
+export async function updateTenderFromEstimate(
+  tenderId: string,
+  estimateId: string
+): Promise<{ oldBudget: number; newBudget: number }> {
+  // This function pulls the latest estimate data into the tender
+  // Only allowed if tender status is Draft or Open (not after winner selected)
+
+  // Import required services
+  const { getEstimate } = await import('./estimatesService');
+  const { getEstimateItems } = await import('./estimateItemsService');
+
+  // 1. Get current tender
+  const tender = await getTenderById(tenderId);
+  if (!tender) {
+    throw new Error('Tender not found');
+  }
+
+  // 2. Verify tender status allows updates
+  if (tender.status === 'WinnerSelected') {
+    throw new Error('Cannot update tender from estimate after winner has been selected');
+  }
+
+  // 3. Fetch current estimate data
+  const estimate = await getEstimate(estimateId);
+  if (!estimate) {
+    throw new Error('Estimate not found');
+  }
+
+  const items = await getEstimateItems(estimateId);
+
+  // 4. Calculate new budget
+  const newBudget = items.reduce((sum, item) => sum + item.total_with_vat, 0);
+  const oldBudget = tender.estimated_budget || 0;
+
+  // 5. Create new snapshot
+  const newSnapshot = {
+    estimate,
+    items,
+    snapshot_date: new Date().toISOString(),
+    total_with_vat: newBudget,
+  };
+
+  // 6. Update tender
+  await updateTender(tenderId, {
+    estimated_budget: newBudget,
+    estimate_snapshot: newSnapshot as any,
+    estimate_version: (tender.estimate_version || 1) + 1,
+    is_estimate_outdated: false,
+  });
+
+  return { oldBudget, newBudget };
 }

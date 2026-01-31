@@ -68,9 +68,55 @@ export default function ExecutionEstimateSubTab({ projectId, projectName }: Exec
   };
 
   const handleExportToTender = async (itemId: string) => {
-    // Show message and guide to tenders tab
-    showToast('עבור ללשונית "מכרזים" כדי ליצור מכרז עבור הפריט', 'info');
-    // TODO: Pre-populate tender form with item data from itemId
+    try {
+      // Find the item
+      const item = itemsWithEstimates.find(i => i.id === itemId);
+      if (!item) {
+        showToast('שגיאה: פריט לא נמצא', 'error');
+        return;
+      }
+
+      // Create tender draft from item
+      const { createTender } = await import('../../../../services/tendersService');
+      const { updateProjectItem } = await import('../../../../services/projectItemsService');
+
+      const tender = await createTender({
+        project_id: projectId,
+        tender_name: `מכרז ${item.name}`,
+        tender_type: 'contractor' as any,
+        category: item.category || '',
+        description: item.description || '',
+        status: 'Draft' as any,
+        publish_date: null,
+        due_date: null,
+        candidate_professional_ids: [],
+        winner_professional_id: null,
+        winner_professional_name: null,
+        milestone_id: null,
+        notes: `נוצר אוטומטית מפריט: ${item.name}`,
+        estimated_budget: parseFloat(item.total_with_vat) || 0,
+        contract_amount: null,
+        management_remarks: null,
+        estimate_id: null,
+        project_item_id: itemId, // Link to project item
+        attempt_number: 1,
+        previous_tender_id: null,
+        retry_reason: null,
+      });
+
+      // Update item status to tender_draft
+      await updateProjectItem(itemId, {
+        current_status: 'tender_draft',
+        active_tender_id: tender.id,
+        updated_by: 'current-user',
+      });
+
+      await loadItems();
+      showToast(`מכרז "${tender.tender_name}" נוצר בהצלחה! עבור ללשונית מכרזים`, 'success');
+    } catch (error) {
+      console.error('Error creating tender:', error);
+      showToast('שגיאה ביצירת מכרז', 'error');
+    }
   };
 
   const calculateTotals = () => {
