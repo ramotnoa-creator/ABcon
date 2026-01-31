@@ -22,6 +22,13 @@ export interface ProjectItemEstimate {
   created_by: string;
   superseded_at?: string;
   superseded_by?: string;
+  // New fields for Phase 1
+  status?: 'active' | 'exported' | 'locked';
+  locked_at?: string;
+  locked_by?: string;
+  locked_reason?: string;
+  exported_at?: string;
+  tender_id?: string;
 }
 
 export interface CreateEstimateInput {
@@ -142,5 +149,102 @@ function transformFromDB(dbEstimate: any): ProjectItemEstimate {
     created_by: dbEstimate.created_by,
     superseded_at: dbEstimate.superseded_at || undefined,
     superseded_by: dbEstimate.superseded_by || undefined,
+    // New fields
+    status: dbEstimate.status || undefined,
+    locked_at: dbEstimate.locked_at || undefined,
+    locked_by: dbEstimate.locked_by || undefined,
+    locked_reason: dbEstimate.locked_reason || undefined,
+    exported_at: dbEstimate.exported_at || undefined,
+    tender_id: dbEstimate.tender_id || undefined,
   };
+}
+
+// ============================================================
+// PHASE 1: ESTIMATE LOCKING & CHANGE DETECTION
+// ============================================================
+
+/**
+ * Lock an estimate (called when tender winner is selected)
+ */
+export async function lockEstimate(
+  projectItemId: string,
+  lockedBy: string,
+  reason: string
+): Promise<void> {
+  try {
+    await executeQuery(
+      `UPDATE project_item_estimates
+       SET
+         status = 'locked',
+         locked_at = NOW(),
+         locked_by = $2,
+         locked_reason = $3
+       WHERE project_item_id = $1
+         AND is_current = true`,
+      [projectItemId, lockedBy, reason]
+    );
+  } catch (error) {
+    console.error('Error locking estimate:', error);
+    throw error;
+  }
+}
+
+/**
+ * Check if estimate is locked
+ */
+export async function isEstimateLocked(projectItemId: string): Promise<boolean> {
+  try {
+    const data = await executeQuerySingle<{ status: string }>(
+      `SELECT status FROM project_item_estimates
+       WHERE project_item_id = $1
+         AND is_current = true`,
+      [projectItemId]
+    );
+
+    return data?.status === 'locked';
+  } catch (error) {
+    console.error('Error checking estimate lock:', error);
+    return false;
+  }
+}
+
+/**
+ * Mark estimate as exported to tender
+ */
+export async function markEstimateAsExported(
+  projectItemId: string,
+  tenderId: string
+): Promise<void> {
+  try {
+    await executeQuery(
+      `UPDATE project_item_estimates
+       SET
+         status = 'exported',
+         exported_at = NOW(),
+         tender_id = $2
+       WHERE project_item_id = $1
+         AND is_current = true`,
+      [projectItemId, tenderId]
+    );
+  } catch (error) {
+    console.error('Error marking estimate as exported:', error);
+    throw error;
+  }
+}
+
+/**
+ * Mark tender as outdated when estimate changes
+ */
+export async function markTenderAsOutdated(tenderId: string): Promise<void> {
+  try {
+    await executeQuery(
+      `UPDATE tenders
+       SET is_estimate_outdated = true
+       WHERE id = $1`,
+      [tenderId]
+    );
+  } catch (error) {
+    console.error('Error marking tender as outdated:', error);
+    throw error;
+  }
 }
