@@ -502,12 +502,26 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
     }
 
       // Lock the source estimate (prevent further edits after winner selection)
+      // Phase 1: Lock project item estimate when winner selected
+      if (selectedTender.project_item_id) {
+        try {
+          const { lockEstimate: lockProjectItemEstimate } = await import('../../../../services/projectItemEstimatesService');
+          await lockProjectItemEstimate(
+            selectedTender.project_item_id,
+            'current-user', // TODO: Get from auth context
+            'Tender winner selected - estimate locked automatically'
+          );
+        } catch (error) {
+          console.error('Error locking project item estimate:', error);
+          // Don't fail the whole operation if locking fails
+        }
+      }
+      // Also lock old estimate system (for backwards compatibility)
       if (selectedTender.estimate_id) {
         try {
           await lockEstimate(selectedTender.estimate_id);
         } catch (error) {
-          console.error('Error locking estimate:', error);
-          // Don't fail the whole operation if locking fails
+          console.error('Error locking old estimate:', error);
         }
       }
 

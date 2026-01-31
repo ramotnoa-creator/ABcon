@@ -95,6 +95,7 @@ export default function PlanningEstimateSubTab({ projectId, projectName }: Plann
       // Create tender draft from item
       const { createTender } = await import('../../../../services/tendersService');
       const { updateProjectItem } = await import('../../../../services/projectItemsService');
+      const { markEstimateAsExported } = await import('../../../../services/projectItemEstimatesService');
 
       const tender = await createTender({
         project_id: projectId,
@@ -119,6 +120,9 @@ export default function PlanningEstimateSubTab({ projectId, projectName }: Plann
         previous_tender_id: null,
         retry_reason: null,
       });
+
+      // Mark estimate as exported (Phase 1: Change tracking)
+      await markEstimateAsExported(itemId, tender.id);
 
       // Update item status to tender_draft
       await updateProjectItem(itemId, {
