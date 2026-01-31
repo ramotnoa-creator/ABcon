@@ -691,7 +691,12 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2 flex-wrap">
-                      <h4 className="text-lg font-bold">{tender.tender_name}</h4>
+                      <h4 className="text-2xl font-bold">{tender.tender_name}</h4>
+                      {tender.estimated_budget && (
+                        <span className="text-lg font-semibold text-green-600 dark:text-green-400">
+                          {formatCurrency(tender.estimated_budget)}
+                        </span>
+                      )}
                       <span
                         className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${statusColors[tender.status]}`}
                       >
