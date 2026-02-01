@@ -4,7 +4,7 @@ import { getAllBudgetItems } from '../../../services/budgetItemsService';
 import { getProjects } from '../../../services/projectsService';
 import { getAllBudgetCategories } from '../../../services/budgetCategoriesService';
 import { getAllBudgetChapters } from '../../../services/budgetChaptersService';
-import * as XLSX from 'xlsx';
+import * as ExcelJS from 'exceljs';
 import type { BudgetItem, Project, BudgetCategory, BudgetChapter } from '../../../types';
 import { useAuth } from '../../../contexts/AuthContext';
 import { canAccessProject, canViewAllProjects } from '../../../utils/permissions';
@@ -208,30 +208,122 @@ export default function BudgetTabContent() {
 
   const totalPages = Math.ceil(filteredBudgetItems.length / itemsPerPage);
 
-  // Export to Excel
-  const handleExport = useCallback(() => {
-    const data = filteredBudgetItems.map((item) => ({
-      'פרויקט': item.project?.project_name || '',
-      'קטגוריה': item.category?.name || '',
-      'פרק': item.chapter?.name || '',
-      'קוד': item.code || '',
-      'תיאור': item.description,
-      'אומדן': item.estimate_amount || 0,
-      'תקציב': item.total_with_vat,
-      'שולם': item.paid_amount,
-      'יתרה': item.total_with_vat - item.paid_amount,
-      'חריגה ₪': item.variance_amount || 0,
-      'חריגה %': item.variance_percent || 0,
-      'הערות': item.notes || '',
-    }));
+  // Export to Excel with conditional formatting
+  const handleExport = useCallback(async () => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('תקציב');
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'תקציב');
+    // RTL direction
+    sheet.views = [{ rightToLeft: true }];
 
-    ws['!dir'] = 'rtl';
+    // Define columns with headers
+    sheet.columns = [
+      { header: 'פרויקט', key: 'project', width: 20 },
+      { header: 'קטגוריה', key: 'category', width: 15 },
+      { header: 'פרק', key: 'chapter', width: 15 },
+      { header: 'קוד', key: 'code', width: 10 },
+      { header: 'תיאור', key: 'description', width: 30 },
+      { header: 'אומדן', key: 'estimate', width: 15 },
+      { header: 'תקציב', key: 'budget', width: 15 },
+      { header: 'שולם', key: 'paid', width: 15 },
+      { header: 'יתרה', key: 'balance', width: 15 },
+      { header: 'חריגה ₪', key: 'variance_amount', width: 15 },
+      { header: 'חריגה %', key: 'variance_percent', width: 12 },
+      { header: 'סטטוס', key: 'status', width: 12 },
+    ];
 
-    XLSX.writeFile(wb, `budget-${new Date().toISOString().split('T')[0]}.xlsx`);
+    // Add data rows
+    filteredBudgetItems.forEach(item => {
+      const hasEstimate = item.estimate_amount && item.estimate_amount > 0;
+
+      sheet.addRow({
+        project: item.project?.project_name || '',
+        category: item.category?.name || '',
+        chapter: item.chapter?.name || '',
+        code: item.code || '',
+        description: item.description,
+        estimate: hasEstimate ? item.estimate_amount : '-',
+        budget: item.total_with_vat,
+        paid: item.paid_amount || 0,
+        balance: item.total_with_vat - (item.paid_amount || 0),
+        variance_amount: hasEstimate ? item.variance_amount : '-',
+        variance_percent: hasEstimate ? `${item.variance_percent?.toFixed(1)}%` : '-',
+        status: item.status,
+      });
+    });
+
+    // Apply conditional formatting to variance columns (column 10 = variance_amount)
+    sheet.getColumn(10).eachCell((cell, rowNumber) => {
+      if (rowNumber === 1) return; // Skip header
+
+      const item = filteredBudgetItems[rowNumber - 2];
+      const hasEstimate = item.estimate_amount && item.estimate_amount > 0;
+
+      if (!hasEstimate) {
+        // Gray for no estimate
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFE5E7EB' } // gray-200
+        };
+        cell.font = { color: { argb: 'FF9CA3AF' } }; // gray-400
+      } else if ((item.variance_amount || 0) < 0) {
+        // Green for savings
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFD1FAE5' } // green-100
+        };
+        cell.font = { color: { argb: 'FF059669' }, bold: true }; // green-600
+      } else if ((item.variance_amount || 0) > 0) {
+        // Red for overrun
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFFEE2E2' } // red-100
+        };
+        cell.font = { color: { argb: 'FFDC2626' }, bold: true }; // red-600
+      }
+    });
+
+    // Apply same formatting to variance percent column (column 11)
+    sheet.getColumn(11).eachCell((cell, rowNumber) => {
+      if (rowNumber === 1) return;
+
+      const item = filteredBudgetItems[rowNumber - 2];
+      const hasEstimate = item.estimate_amount && item.estimate_amount > 0;
+
+      if (!hasEstimate) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE5E7EB' } };
+        cell.font = { color: { argb: 'FF9CA3AF' } };
+      } else if ((item.variance_amount || 0) < 0) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
+        cell.font = { color: { argb: 'FF059669' }, bold: true };
+      } else if ((item.variance_amount || 0) > 0) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+        cell.font = { color: { argb: 'FFDC2626' }, bold: true };
+      }
+    });
+
+    // Style header row
+    sheet.getRow(1).font = { bold: true };
+    sheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFF3F4F6' } // gray-100
+    };
+
+    // Export file
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `budget-variance-${new Date().toISOString().split('T')[0]}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   }, [filteredBudgetItems]);
 
   // Navigate to project budget tab
