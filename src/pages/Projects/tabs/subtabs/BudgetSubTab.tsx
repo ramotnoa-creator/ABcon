@@ -9,6 +9,7 @@ import { saveBudgetItems } from '../../../../data/budgetItemsStorage';
 import { saveBudgetPayments } from '../../../../data/budgetPaymentsStorage';
 import { seedBudgetCategories, seedBudgetChapters, seedBudgetItems, seedBudgetPayments } from '../../../../data/budgetData';
 import AddBudgetItemForm from '../../../../components/Budget/AddBudgetItemForm';
+import VarianceCell from '../../../../components/Budget/VarianceCell';
 import type { Project, BudgetCategory, BudgetChapter, BudgetItem, BudgetPayment, BudgetItemStatus } from '../../../../types';
 
 interface BudgetSubTabProps {
@@ -385,12 +386,15 @@ const TableView = ({ items, chapters }: { items: BudgetItem[]; chapters: BudgetC
               <th className="px-4 py-3 text-right font-bold text-gray-600 dark:text-gray-300">פרק</th>
               <th className="px-4 py-3 text-right font-bold text-gray-600 dark:text-gray-300">כמות</th>
               <th className="px-4 py-3 text-right font-bold text-gray-600 dark:text-gray-300">מחיר ליח'</th>
+              <th className="px-4 py-3 text-right font-bold text-gray-600 dark:text-gray-300">אומדן</th>
               <th
                 className="px-4 py-3 text-right font-bold text-gray-600 dark:text-gray-300 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
                 onClick={() => handleSort('total')}
               >
-                סה"כ כולל מע"מ {sortBy === 'total' && (sortAsc ? '↑' : '↓')}
+                תקציב {sortBy === 'total' && (sortAsc ? '↑' : '↓')}
               </th>
+              <th className="px-4 py-3 text-right font-bold text-gray-600 dark:text-gray-300">חריגה ₪</th>
+              <th className="px-4 py-3 text-right font-bold text-gray-600 dark:text-gray-300">חריגה %</th>
               <th
                 className="px-4 py-3 text-right font-bold text-gray-600 dark:text-gray-300 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
                 onClick={() => handleSort('paid')}
@@ -413,7 +417,25 @@ const TableView = ({ items, chapters }: { items: BudgetItem[]; chapters: BudgetC
                 <td className="px-4 py-3 text-gray-500 text-xs">{getChapterName(item.chapter_id)}</td>
                 <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{item.quantity} {item.unit}</td>
                 <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{item.unit_price ? formatCurrency(item.unit_price) : '-'}</td>
+                <td className="px-4 py-3 text-blue-600 dark:text-blue-400 font-medium">
+                  {item.estimate_amount ? formatCurrency(item.estimate_amount) : '-'}
+                </td>
                 <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-200">{formatCurrency(item.total_with_vat)}</td>
+                <td className="px-4 py-3">
+                  <VarianceCell
+                    estimateAmount={item.estimate_amount}
+                    varianceAmount={item.variance_amount}
+                    variancePercent={item.variance_percent}
+                  />
+                </td>
+                <td className="px-4 py-3">
+                  <VarianceCell
+                    estimateAmount={item.estimate_amount}
+                    varianceAmount={item.variance_amount}
+                    variancePercent={item.variance_percent}
+                    showPercent
+                  />
+                </td>
                 <td className="px-4 py-3 text-green-600 font-medium">{formatCurrency(item.paid_amount)}</td>
                 <td className="px-4 py-3">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(item.status)}`}>
@@ -426,7 +448,12 @@ const TableView = ({ items, chapters }: { items: BudgetItem[]; chapters: BudgetC
           <tfoot className="bg-gray-100 dark:bg-background-dark font-bold">
             <tr>
               <td colSpan={5} className="px-4 py-3 text-gray-700 dark:text-gray-200">סה"כ</td>
+              <td className="px-4 py-3 text-blue-600 dark:text-blue-400">
+                {formatCurrency(items.reduce((s, i) => s + (i.estimate_amount || 0), 0))}
+              </td>
               <td className="px-4 py-3 text-gray-800 dark:text-gray-200">{formatCurrency(items.reduce((s, i) => s + i.total_with_vat, 0))}</td>
+              <td className="px-4 py-3"></td>
+              <td className="px-4 py-3"></td>
               <td className="px-4 py-3 text-green-600">{formatCurrency(items.reduce((s, i) => s + i.paid_amount, 0))}</td>
               <td className="px-4 py-3"></td>
             </tr>
@@ -616,8 +643,17 @@ export default function BudgetSubTab({ project }: BudgetSubTabProps) {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [showAddItemModal, setShowAddItemModal] = useState(false);
+  const [varianceOnlyFilter, setVarianceOnlyFilter] = useState(false);
 
   const { categories, chapters, items, payments } = budgetData;
+
+  // Filter items based on variance filter
+  const filteredItems = useMemo(() => {
+    if (varianceOnlyFilter) {
+      return items.filter((item) => item.estimate_amount && item.estimate_amount > 0);
+    }
+    return items;
+  }, [items, varianceOnlyFilter]);
 
   // Load budget data on mount
   useEffect(() => {
@@ -669,8 +705,8 @@ export default function BudgetSubTab({ project }: BudgetSubTabProps) {
           </button>
         </div>
 
-        {/* View Toggle */}
-        <div className="flex items-center gap-3">
+        {/* View Toggle and Filter */}
+        <div className="flex items-center justify-between gap-3">
           <div className="flex bg-gray-100 dark:bg-background-dark rounded-lg p-1">
             {[
               { id: 'tree' as const, icon: 'account_tree', label: 'עץ' },
@@ -693,21 +729,32 @@ export default function BudgetSubTab({ project }: BudgetSubTabProps) {
               </button>
             ))}
           </div>
+
+          {/* Variance Filter */}
+          <label className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-border-dark bg-white dark:bg-surface-dark text-sm cursor-pointer hover:border-primary transition-colors">
+            <input
+              type="checkbox"
+              checked={varianceOnlyFilter}
+              onChange={(e) => setVarianceOnlyFilter(e.target.checked)}
+              className="size-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <span className="whitespace-nowrap">רק עם חריגה</span>
+          </label>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <SummaryCards chapters={chapters} items={items} />
+      <SummaryCards chapters={chapters} items={filteredItems} />
 
       {/* Views */}
       {view === 'tree' && (
-        <TreeView categories={categories} chapters={chapters} items={items} />
+        <TreeView categories={categories} chapters={chapters} items={filteredItems} />
       )}
       {view === 'table' && (
-        <TableView items={items} chapters={chapters} />
+        <TableView items={filteredItems} chapters={chapters} />
       )}
       {view === 'cashflow' && (
-        <CashFlowView payments={payments} items={items} />
+        <CashFlowView payments={payments} items={filteredItems} />
       )}
 
       {/* Add Budget Item Modal */}
