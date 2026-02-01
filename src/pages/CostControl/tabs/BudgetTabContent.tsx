@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx';
 import type { BudgetItem, Project, BudgetCategory, BudgetChapter } from '../../../types';
 import { useAuth } from '../../../contexts/AuthContext';
 import { canAccessProject, canViewAllProjects } from '../../../utils/permissions';
+import VarianceCell from '../../../components/Budget/VarianceCell';
 
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('he-IL', {
@@ -16,18 +17,6 @@ const formatCurrency = (amount: number): string => {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
-};
-
-const formatVariance = (variance: number): string => {
-  const sign = variance >= 0 ? '+' : '';
-  return `${sign}${variance.toFixed(1)}%`;
-};
-
-const getVarianceColor = (varianceAmount: number, hasEstimate: boolean): string => {
-  if (!hasEstimate) return 'text-gray-400 dark:text-gray-500'; // Gray for no estimate
-  if (varianceAmount < 0) return 'text-green-600 dark:text-green-400'; // Green for saved
-  if (varianceAmount > 0) return 'text-red-600 dark:text-red-400'; // Red for over
-  return 'text-gray-600 dark:text-gray-400'; // Gray for exact match
 };
 
 interface KPICardProps {
@@ -392,6 +381,9 @@ export default function BudgetTabContent() {
                   פרק
                 </th>
                 <th className="px-4 py-3 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                  מקור
+                </th>
+                <th className="px-4 py-3 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
                   תיאור
                 </th>
                 <th className="px-4 py-3 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
@@ -415,7 +407,7 @@ export default function BudgetTabContent() {
               {paginatedItems.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={10}
                     className="px-6 py-12 text-center text-text-secondary-light dark:text-text-secondary-dark"
                   >
                     <span className="material-symbols-outlined text-[48px] mb-4 opacity-50 block">payments</span>
@@ -440,6 +432,33 @@ export default function BudgetTabContent() {
                       <td className="px-4 py-3 align-middle text-xs text-text-secondary-light dark:text-text-secondary-dark">
                         {item.chapter?.name || '-'}
                       </td>
+                      <td className="px-4 py-3 align-middle text-xs">
+                        {item.tender_id ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/projects/${item.project_id}?tab=tenders`);
+                            }}
+                            className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
+                          >
+                            <span className="material-symbols-outlined text-[14px]">gavel</span>
+                            מכרז
+                          </button>
+                        ) : item.source_estimate_id ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/projects/${item.project_id}?tab=planning-estimate`);
+                            }}
+                            className="flex items-center gap-1 text-purple-600 dark:text-purple-400 hover:underline"
+                          >
+                            <span className="material-symbols-outlined text-[14px]">assessment</span>
+                            אומדן
+                          </button>
+                        ) : (
+                          <span className="text-text-secondary-light dark:text-text-secondary-dark">הזנה ידנית</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 align-middle">
                         <div className="font-medium text-text-main-light dark:text-text-main-dark">
                           {item.code && <span className="text-xs text-text-secondary-light mr-2">{item.code}</span>}
@@ -455,11 +474,20 @@ export default function BudgetTabContent() {
                       <td className="px-4 py-3 align-middle font-medium text-orange-600 dark:text-orange-400">
                         {formatCurrency(item.paid_amount)}
                       </td>
-                      <td className={`px-4 py-3 align-middle font-bold ${getVarianceColor(item.variance_amount || 0, hasEstimate)}`}>
-                        {hasEstimate ? formatCurrency(item.variance_amount || 0) : '-'}
+                      <td className="px-4 py-3 align-middle">
+                        <VarianceCell
+                          estimateAmount={item.estimate_amount}
+                          varianceAmount={item.variance_amount}
+                          variancePercent={item.variance_percent}
+                        />
                       </td>
-                      <td className={`px-4 py-3 align-middle font-bold ${getVarianceColor(item.variance_amount || 0, hasEstimate)}`}>
-                        {hasEstimate ? formatVariance(item.variance_percent || 0) : '-'}
+                      <td className="px-4 py-3 align-middle">
+                        <VarianceCell
+                          estimateAmount={item.estimate_amount}
+                          varianceAmount={item.variance_amount}
+                          variancePercent={item.variance_percent}
+                          showPercent
+                        />
                       </td>
                     </tr>
                   );
@@ -490,6 +518,33 @@ export default function BudgetTabContent() {
                       {item.description}
                     </h3>
                     <p className="text-xs text-text-secondary-light">{item.project?.project_name}</p>
+                    <div className="text-xs mt-1">
+                      {item.tender_id ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/projects/${item.project_id}?tab=tenders`);
+                          }}
+                          className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          <span className="material-symbols-outlined text-[12px]">gavel</span>
+                          מקור: מכרז
+                        </button>
+                      ) : item.source_estimate_id ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/projects/${item.project_id}?tab=planning-estimate`);
+                          }}
+                          className="flex items-center gap-1 text-purple-600 dark:text-purple-400 hover:underline"
+                        >
+                          <span className="material-symbols-outlined text-[12px]">assessment</span>
+                          מקור: אומדן
+                        </button>
+                      ) : (
+                        <span className="text-text-secondary-light dark:text-text-secondary-dark">מקור: הזנה ידנית</span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 text-sm">
@@ -505,14 +560,23 @@ export default function BudgetTabContent() {
                     </div>
                     <div>
                       <p className="text-xs text-text-secondary-light mb-1">חריגה ₪</p>
-                      <p className={`font-bold ${getVarianceColor(item.variance_amount || 0, hasEstimate)}`}>
-                        {hasEstimate ? formatCurrency(item.variance_amount || 0) : '-'}
+                      <p className="font-bold">
+                        <VarianceCell
+                          estimateAmount={item.estimate_amount}
+                          varianceAmount={item.variance_amount}
+                          variancePercent={item.variance_percent}
+                        />
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-text-secondary-light mb-1">חריגה %</p>
-                      <p className={`font-bold ${getVarianceColor(item.variance_amount || 0, hasEstimate)}`}>
-                        {hasEstimate ? formatVariance(item.variance_percent || 0) : '-'}
+                      <p className="font-bold">
+                        <VarianceCell
+                          estimateAmount={item.estimate_amount}
+                          varianceAmount={item.variance_amount}
+                          variancePercent={item.variance_percent}
+                          showPercent
+                        />
                       </p>
                     </div>
                   </div>
