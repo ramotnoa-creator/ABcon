@@ -4,7 +4,7 @@
  */
 
 import { executeQuery, executeQuerySingle, isDemoMode as isNeonDemoMode } from '../lib/neon';
-import type { Estimate } from '../types';
+import type { Estimate, Tender } from '../types';
 
 // Check if we're in demo mode
 const isDemoMode = isNeonDemoMode;
@@ -166,6 +166,12 @@ export async function updateEstimate(
   estimateId: string,
   updates: Partial<Estimate>
 ): Promise<void> {
+  // Check if estimate is locked before allowing edits
+  const estimate = await getEstimate(estimateId);
+  if (estimate && estimate.status === 'locked') {
+    throw new Error('Cannot edit estimate. A tender winner has been selected and the estimate is locked.');
+  }
+
   if (isDemoMode) {
     const estimates = getEstimatesFromStorage();
     const index = estimates.findIndex((e) => e.id === estimateId);
@@ -217,6 +223,18 @@ export async function updateEstimate(
     if (updates.notes !== undefined) {
       setClauses.push(`notes = $${paramIndex++}`);
       values.push(updates.notes);
+    }
+    if (updates.tender_id !== undefined) {
+      setClauses.push(`tender_id = $${paramIndex++}`);
+      values.push(updates.tender_id);
+    }
+    if (updates.exported_at !== undefined) {
+      setClauses.push(`exported_at = $${paramIndex++}`);
+      values.push(updates.exported_at);
+    }
+    if (updates.locked_at !== undefined) {
+      setClauses.push(`locked_at = $${paramIndex++}`);
+      values.push(updates.locked_at);
     }
 
     if (setClauses.length === 0) {
@@ -312,7 +330,173 @@ function transformEstimateFromDB(dbEstimate: any): Estimate {
     status: dbEstimate.status,
     created_by: dbEstimate.created_by || undefined,
     notes: dbEstimate.notes || undefined,
+    tender_id: dbEstimate.tender_id || undefined,
+    exported_at: dbEstimate.exported_at || undefined,
+    locked_at: dbEstimate.locked_at || undefined,
     created_at: dbEstimate.created_at,
     updated_at: dbEstimate.updated_at,
   };
+}
+
+// ============================================================
+// MARK ESTIMATE AS MODIFIED (PHASE 1.1)
+// ============================================================
+
+export async function markEstimateAsModified(estimateId: string): Promise<void> {
+  // This function is called when estimate items are added/edited/deleted
+  // It marks all tenders linked to this estimate as outdated
+
+  if (isDemoMode) {
+    // In demo mode, update localStorage for both estimates and tenders
+    const estimates = getEstimatesFromStorage();
+    const estimateIndex = estimates.findIndex((e) => e.id === estimateId);
+    if (estimateIndex !== -1) {
+      estimates[estimateIndex].updated_at = new Date().toISOString();
+      saveEstimatesToStorage(estimates);
+    }
+
+    // Update related tenders
+    const { getAllTenders, saveTenders } = await import('../data/tendersStorage');
+    const tenders = getAllTenders();
+    const updatedTenders = tenders.map((t: Tender) =>
+      t.estimate_id === estimateId
+        ? { ...t, is_estimate_outdated: true }
+        : t
+    );
+    saveTenders(updatedTenders);
+    return;
+  }
+
+  try {
+    // 1. Update estimate's updated_at timestamp
+    await executeQuery(
+      `UPDATE estimates SET updated_at = NOW() WHERE id = $1`,
+      [estimateId]
+    );
+
+    // 2. Mark all tenders with this estimate_id as outdated
+    await executeQuery(
+      `UPDATE tenders
+       SET is_estimate_outdated = TRUE
+       WHERE estimate_id = $1`,
+      [estimateId]
+    );
+  } catch (error: unknown) {
+    console.error('Error marking estimate as modified:', error);
+    throw error;
+  }
+}
+
+// ============================================================
+// LOCK ESTIMATE (PHASE 1.1)
+// ============================================================
+
+export async function lockEstimate(estimateId: string): Promise<void> {
+  // This function is called when a tender winner is selected
+  // It locks the estimate to prevent further edits
+
+  if (isDemoMode) {
+    const estimates = getEstimatesFromStorage();
+    const index = estimates.findIndex((e) => e.id === estimateId);
+    if (index !== -1) {
+      estimates[index] = {
+        ...estimates[index],
+        status: 'locked',
+        locked_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      saveEstimatesToStorage(estimates);
+    }
+    return;
+  }
+
+  try {
+    await executeQuery(
+      `UPDATE estimates
+       SET status = 'locked', locked_at = NOW(), updated_at = NOW()
+       WHERE id = $1`,
+      [estimateId]
+    );
+  } catch (error: unknown) {
+    console.error('Error locking estimate:', error);
+    throw error;
+  }
+}
+
+// ============================================================
+// EXPORT ESTIMATE TO TENDER (ENHANCED - PHASE 1.1)
+// ============================================================
+
+export async function exportEstimateToTender(
+  estimateId: string,
+  tenderData: Partial<import('../types').Tender>
+): Promise<string> {
+  console.log('[exportEstimateToTender] Starting export, estimateId:', estimateId);
+
+  // Import required services
+  const { getEstimateItems } = await import('./estimateItemsService');
+  const { createTender } = await import('./tendersService');
+
+  // 1. Verify estimate not already exported (check tender_id is null)
+  const estimate = await getEstimate(estimateId);
+  console.log('[exportEstimateToTender] Estimate loaded:', estimate);
+
+  if (!estimate) {
+    throw new Error('Estimate not found');
+  }
+
+  if (estimate.tender_id) {
+    throw new Error('This estimate has already been exported to a tender. Each estimate can only create one tender (1:1 relationship).');
+  }
+
+  if (estimate.status === 'locked') {
+    throw new Error('Cannot export locked estimate');
+  }
+
+  // 2. Get estimate with all items
+  const items = await getEstimateItems(estimateId);
+  console.log('[exportEstimateToTender] Items loaded:', items.length, 'items');
+
+  // 3. Calculate total with VAT
+  const totalWithVat = items.reduce((sum, item) => sum + item.total_with_vat, 0);
+  console.log('[exportEstimateToTender] Total with VAT:', totalWithVat);
+
+  // 4. Create estimate snapshot
+  const estimateSnapshot = {
+    estimate,
+    items,
+    snapshot_date: new Date().toISOString(),
+    total_with_vat: totalWithVat,
+  };
+
+  // 5. Create tender with estimate data
+  console.log('[exportEstimateToTender] Creating tender with data:', { ...tenderData, estimate_id: estimateId });
+  const newTender = await createTender({
+    ...tenderData,
+    estimate_id: estimateId,
+    estimated_budget: totalWithVat,
+    estimate_snapshot: estimateSnapshot,
+    estimate_version: 1,
+    is_estimate_outdated: false,
+    status: tenderData.status || 'Draft',
+  } as any);
+  console.log('[exportEstimateToTender] Tender created:', newTender.id);
+
+  // 6. Update estimate with tender link
+  console.log('[exportEstimateToTender] Updating estimate with tender link');
+  try {
+    await updateEstimate(estimateId, {
+      tender_id: newTender.id,
+      exported_at: new Date().toISOString(),
+      status: 'exported_to_tender',
+    });
+    console.log('[exportEstimateToTender] Estimate updated successfully');
+  } catch (updateError) {
+    console.error('[exportEstimateToTender] Failed to update estimate, but tender was created:', updateError);
+    // Don't throw - tender was created successfully, just log the error
+  }
+
+  // 7. Return new tender ID for navigation (even if estimate update failed)
+  console.log('[exportEstimateToTender] Export complete, returning tender ID:', newTender.id);
+  return newTender.id;
 }

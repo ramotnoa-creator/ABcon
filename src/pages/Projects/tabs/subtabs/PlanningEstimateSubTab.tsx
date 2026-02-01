@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../../../contexts/ToastContext';
 import {
-  getProjectItems,
+  // getProjectItems,
   getProjectItemsWithEstimates,
   softDeleteProjectItem,
   type ProjectItem
@@ -17,7 +17,7 @@ interface PlanningEstimateSubTabProps {
 export default function PlanningEstimateSubTab({ projectId, projectName }: PlanningEstimateSubTabProps) {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const [items, setItems] = useState<ProjectItem[]>([]);
+  // const [items, setItems] = useState<ProjectItem[]>([]);
   const [itemsWithEstimates, setItemsWithEstimates] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -38,8 +38,8 @@ export default function PlanningEstimateSubTab({ projectId, projectName }: Plann
       setItemsWithEstimates(itemsData);
 
       // Also load plain items for other operations
-      const plainItems = await getProjectItems(projectId, 'planning');
-      setItems(plainItems);
+      // const plainItems = await getProjectItems(projectId, 'planning');
+      // setItems(plainItems);
 
       // Check for locked estimates (Phase 2: UI indicators)
       for (const item of itemsData) {
@@ -55,7 +55,7 @@ export default function PlanningEstimateSubTab({ projectId, projectName }: Plann
     }
   };
 
-  const handleItemSaved = async (item: ProjectItem) => {
+  const handleItemSaved = async (_item: ProjectItem) => {
     await loadItems();
     setShowAddForm(false);
     setEditingItem(null);
@@ -111,21 +111,18 @@ export default function PlanningEstimateSubTab({ projectId, projectName }: Plann
         category: item.category || '',
         description: item.description || '',
         status: 'Draft' as any,
-        publish_date: null,
-        due_date: null,
+        publish_date: undefined,
+        due_date: undefined,
         candidate_professional_ids: [],
-        winner_professional_id: null,
-        winner_professional_name: null,
-        milestone_id: null,
+        winner_professional_id: undefined,
+        winner_professional_name: undefined,
+        milestone_id: undefined,
         notes: `נוצר אוטומטית מפריט: ${item.name}`,
         estimated_budget: parseFloat(item.total_with_vat) || 0,
-        contract_amount: null,
-        management_remarks: null,
-        estimate_id: null,
-        project_item_id: itemId, // Link to project item
-        attempt_number: 1,
-        previous_tender_id: null,
-        retry_reason: null,
+        contract_amount: undefined,
+        management_remarks: undefined,
+        estimate_id: undefined,
+        // project_item_id: itemId, // Link to project item - removed, field doesn't exist in Tender type
       });
 
       // Mark estimate as exported (Phase 1: Change tracking)

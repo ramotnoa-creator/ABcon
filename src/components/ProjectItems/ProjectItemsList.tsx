@@ -3,8 +3,8 @@
  * Reusable table showing project items with estimates
  */
 
-import { useState } from 'react';
-import type { ProjectItem } from '../../services/projectItemsService';
+// import { useState } from 'react';
+// import type { ProjectItem } from '../../services/projectItemsService';
 
 interface ProjectItemsListProps {
   items: any[]; // Items with estimates from view

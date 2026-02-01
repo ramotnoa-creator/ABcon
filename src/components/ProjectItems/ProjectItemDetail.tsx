@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+// import { useNavigate } from 'react-router-dom';
 import {
   getProjectItemById,
   getItemLifecycle,
@@ -25,7 +25,7 @@ interface ProjectItemDetailProps {
 }
 
 export default function ProjectItemDetail({ itemId, onClose }: ProjectItemDetailProps) {
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const [item, setItem] = useState<ProjectItem | null>(null);
   const [currentEstimate, setCurrentEstimate] = useState<ProjectItemEstimate | null>(null);
   const [lifecycle, setLifecycle] = useState<any | null>(null);
