@@ -171,6 +171,7 @@ User interface to create planning and execution estimates with line items. Repla
 ## Phase 5: Budget Auto-Update & Variance Display
 **Duration:** 2 weeks
 **Goal:** Automate budget creation and display variance throughout UI
+**Plans:** 3 plans
 
 ### What We're Building
 When tender winner selected, automatically create/update budget item with contract amount. Calculate variance between estimate and budget. Display variance with color coding throughout the UI.
@@ -184,6 +185,7 @@ When tender winner selected, automatically create/update budget item with contra
 - Export includes variance data
 
 ### Deliverables
+- [ ] Database triggers for auto-variance calculation
 - [ ] Winner selection auto-creates budget item
 - [ ] Budget item links to estimate item (estimate_item_id)
 - [ ] Variance calculation: amount and percentage
@@ -192,9 +194,14 @@ When tender winner selected, automatically create/update budget item with contra
 - [ ] Variance columns in Budget tab (global page)
 - [ ] Variance columns in Budget sub-tab (project page)
 - [ ] Filter: "Show items with variance only"
-- [ ] Export to Excel includes variance columns
+- [ ] Export to Excel includes variance columns with conditional formatting
 - [ ] Recalculation when budget/estimate updated
 - [ ] E2E test: winner → budget → variance display
+
+Plans:
+- [ ] 05-01-PLAN.md — Database triggers and budget auto-creation
+- [ ] 05-02-PLAN.md — UI variance display in budget tabs
+- [ ] 05-03-PLAN.md — Excel export enhancement and E2E tests
 
 ### Dependencies
 - Phase 4 complete (tender integration)
