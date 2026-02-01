@@ -2,16 +2,16 @@
 
 **Project:** ABcon - Construction Project Management System
 **Initiative:** Estimate Integration (Cost Control System)
-**Last Updated:** 2026-01-29
+**Last Updated:** 2026-02-01
 
 ---
 
 ## Current Position
 
-**Phase:** 4 of 6 (04-tender-integration)
-**Plan:** 02 of 03 in phase (COMPLETED ✓)
-**Status:** Phase 4 In Progress - Gap Closure
-**Last activity:** 2026-01-29 - Completed 04-02-PLAN.md (Export to Tender gap closure)
+**Phase:** 5 of 6 (05-budget-auto-update)
+**Plan:** 01 of 01 in phase (COMPLETED ✓)
+**Status:** Phase 5 Complete
+**Last activity:** 2026-02-01 - Completed 05-01-PLAN.md (Budget auto-update with variance triggers)
 
 ### Progress Overview
 
@@ -20,10 +20,10 @@ Phase 1: ████████████████████ 100% Compl
 Phase 2: ████████████████████ 100% Complete (02-cost-control-page)
 Phase 3: ████████████████████ 100% Complete (03-estimates-ui)
 Phase 4: ████████████████████ 100% Complete (04-tender-integration)
-Phase 5: ░░░░░░░░░░░░░░░░░░░░   0% (05-budget-auto-update)
+Phase 5: ████████████████████ 100% Complete (05-budget-auto-update)
 Phase 6: ░░░░░░░░░░░░░░░░░░░░   0% (06-polish-testing)
 
-Overall: ███████████████░░░░░  67% (4 of 6 phases)
+Overall: ████████████████████  83% (5 of 6 phases)
 ```
 
 ---
@@ -49,6 +49,9 @@ Decisions made during execution that affect future work:
 | 013 | 04 | Email modal UI-only for MVP | Focus on core flow first | Actual email sending deferred to future phase |
 | 014 | 04 | Winner selection two-step modal | Preview variance before commit | Better UX, reduces mistakes |
 | 015 | 04 | Auto-create budget on winner selection | Eliminates manual duplicate entry | Budget item created with tender/estimate/supplier links |
+| 016 | 05 | Database triggers for variance calculation | Guarantees consistency across all code paths | Variance auto-calculates on INSERT/UPDATE, no app logic needed |
+| 017 | 05 | Link budget to first estimate item | MVP simplification for tender-to-budget flow | Future enhancement: item matching or user selection |
+| 018 | 05 | Use pg library for migrations | Neon serverless doesn't support complex DDL | Standard PostgreSQL client for migration execution |
 
 ---
 
@@ -65,19 +68,19 @@ Decisions made during execution that affect future work:
 - Unit test infrastructure not set up (deferred to Phase 6)
 - User management system needed for created_by/uploaded_by fields
 - Email integration needed for automated BOM sending (future phase)
+- Multi-item estimate matching (currently links to first item only)
 
 ---
 
 ## Session Continuity
 
-**Last session:** 2026-01-29 11:48:56
-**Stopped at:** Completed 04-02-PLAN.md
+**Last session:** 2026-02-01 21:58:02
+**Stopped at:** Completed 05-01-PLAN.md
 **Resume file:** None
 
 **Next steps:**
-1. Execute 04-03-PLAN.md (Export to Tender validation & E2E tests)
-2. Complete Phase 4 gap closure
-3. Begin Phase 5: Budget Auto-update
+1. Begin Phase 6: Polish & Testing
+2. Review and close out estimate integration initiative
 
 ---
 
@@ -93,6 +96,10 @@ Decisions made during execution that affect future work:
 **Modified Tables:**
 - ✓ tenders (added estimate_id, bom_file_id)
 - ✓ budget_items (added estimate_item_id, estimate_amount, variance_amount, variance_percent)
+
+**Database Triggers:**
+- ✓ budget_variance_trigger - Auto-calculates variance on INSERT/UPDATE
+- ✓ estimate_update_recalc_trigger - Recalculates variance when estimates change
 
 ### Services Available
 
@@ -125,7 +132,11 @@ Decisions made during execution that affect future work:
 
 **Services:** `src/services/estimatesService.ts`, `estimateItemsService.ts`, `bomFilesService.ts`, `varianceService.ts`, `tendersService.ts`, `tenderParticipantsService.ts`
 **Types:** `src/types.ts` (Estimate, EstimateItem, BOMFile, VarianceData, Tender, TenderParticipant)
-**Migrations:** `migrations/create-tables.cjs`, `001-create-estimates-schema.sql`, `002-alter-tenders-budget-items.sql`
+**Migrations:**
+- `migrations/001-create-estimates-schema.sql`
+- `migrations/002-alter-tenders-budget-items.sql`
+- `migrations/006-add-budget-variance-triggers.sql`
+**Migration Runners:** `scripts/run-variance-triggers-migration.cjs`
 **Seed:** `scripts/seed-estimates.cjs`
 **Pages:**
 - `src/pages/CostControl/CostControlPage.tsx` (global cost control page)
@@ -147,12 +158,13 @@ Decisions made during execution that affect future work:
 | 03-estimates-ui | 24 min | 12/12 | ✓ Complete |
 | 04-tender-integration-01 | 25 min | 9/9 | ✓ Complete |
 | 04-tender-integration-02 | 2 min | 1/1 | ✓ Complete |
+| 05-budget-auto-update | 69 min | 3/3 | ✓ Complete |
 
-**Average:** 14.4 min/plan (5 plans completed)
-**Projected remaining:** TBD (gap closure plans vary)
-**Total project estimate:** ~105 min (1.75 hours)
+**Average:** 23.5 min/plan (6 plans completed)
+**Projected remaining:** Phase 6 only
+**Total time invested:** 141 min (2.35 hours)
 
 ---
 
 *This file is automatically updated after each plan execution.*
-*Last update: Phase 04-02 completed on 2026-01-29*
+*Last update: Phase 05-01 completed on 2026-02-01*
