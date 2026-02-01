@@ -9,9 +9,9 @@
 ## Current Position
 
 **Phase:** 5 of 6 (05-budget-auto-update)
-**Plan:** 01 of 01 in phase (COMPLETED ✓)
+**Plan:** 02 of 02 in phase (COMPLETED ✓)
 **Status:** Phase 5 Complete
-**Last activity:** 2026-02-01 - Completed 05-01-PLAN.md (Budget auto-update with variance triggers)
+**Last activity:** 2026-02-01 - Completed 05-02-PLAN.md (Variance UI display)
 
 ### Progress Overview
 
@@ -52,6 +52,9 @@ Decisions made during execution that affect future work:
 | 016 | 05 | Database triggers for variance calculation | Guarantees consistency across all code paths | Variance auto-calculates on INSERT/UPDATE, no app logic needed |
 | 017 | 05 | Link budget to first estimate item | MVP simplification for tender-to-budget flow | Future enhancement: item matching or user selection |
 | 018 | 05 | Use pg library for migrations | Neon serverless doesn't support complex DDL | Standard PostgreSQL client for migration execution |
+| 019 | 05 | VarianceCell uses useMemo not useEffect | Pure calculation from props (React best practice) | Better performance, simpler code |
+| 020 | 05 | Color coding: green/red/gray variance | Follows financial reporting conventions | Consistent visual language across budget system |
+| 021 | 05 | Variance filter applies to all view modes | Consistent UX expectation | Filter affects tree, table, and cashflow views |
 
 ---
 
@@ -74,8 +77,8 @@ Decisions made during execution that affect future work:
 
 ## Session Continuity
 
-**Last session:** 2026-02-01 21:58:02
-**Stopped at:** Completed 05-01-PLAN.md
+**Last session:** 2026-02-01 22:09:02
+**Stopped at:** Completed 05-02-PLAN.md
 **Resume file:** None
 
 **Next steps:**
@@ -158,13 +161,14 @@ Decisions made during execution that affect future work:
 | 03-estimates-ui | 24 min | 12/12 | ✓ Complete |
 | 04-tender-integration-01 | 25 min | 9/9 | ✓ Complete |
 | 04-tender-integration-02 | 2 min | 1/1 | ✓ Complete |
-| 05-budget-auto-update | 69 min | 3/3 | ✓ Complete |
+| 05-budget-auto-update-01 | 69 min | 3/3 | ✓ Complete |
+| 05-budget-auto-update-02 | 7 min | 3/3 | ✓ Complete |
 
-**Average:** 23.5 min/plan (6 plans completed)
+**Average:** 21.1 min/plan (7 plans completed)
 **Projected remaining:** Phase 6 only
-**Total time invested:** 141 min (2.35 hours)
+**Total time invested:** 148 min (2.47 hours)
 
 ---
 
 *This file is automatically updated after each plan execution.*
-*Last update: Phase 05-01 completed on 2026-02-01*
+*Last update: Phase 05-02 completed on 2026-02-01*
