@@ -339,7 +339,7 @@ export default function PlanningEstimateSubTab({ projectId, projectName }: Plann
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex items-center gap-2">
-                        {item.current_status === 'estimation' && !item.estimate_status && (
+                        {item.current_status === 'estimation' && item.estimate_status !== 'exported' && item.estimate_status !== 'locked' && (
                           <button
                             onClick={() => handleExportToTender(item.id)}
                             className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
