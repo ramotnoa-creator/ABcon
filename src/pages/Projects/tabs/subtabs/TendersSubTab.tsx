@@ -10,6 +10,7 @@ import {
   updateTenderFromEstimate,
 } from '../../../../services/tendersService';
 import { getEstimate, lockEstimate } from '../../../../services/estimatesService';
+import { getEstimateItems } from '../../../../services/estimateItemsService';
 import {
   getTenderParticipants,
   addTenderParticipants,
@@ -476,6 +477,19 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
 
           const order = await getNextBudgetItemOrder(project.id, chapterId);
 
+          // Get estimate item if tender has estimate link (for auto-variance calculation)
+          let estimateItemId: string | undefined;
+          if (tender.estimate_id) {
+            try {
+              const estimateItems = await getEstimateItems(tender.estimate_id);
+              // Link to first item (MVP - future: match by description or allow selection)
+              estimateItemId = estimateItems[0]?.id;
+            } catch (error) {
+              console.error('Error fetching estimate items:', error);
+              // Continue without estimate link
+            }
+          }
+
           await createBudgetItem({
             project_id: project.id,
             chapter_id: chapterId,
@@ -496,6 +510,8 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
             order,
             // Add source estimate for traceability
             source_estimate_id: tender.estimate_id || undefined,
+            // Link to estimate item for automatic variance calculation (database trigger)
+            estimate_item_id: estimateItemId,
           });
         }
       }
