@@ -4,19 +4,21 @@ import CostsTab from './CostsTab';
 import TendersSubTab from './subtabs/TendersSubTab';
 import BudgetSubTab from './subtabs/BudgetSubTab';
 import PaymentsSubTab from './subtabs/PaymentsSubTab';
+import CashFlowSubTab from './subtabs/CashFlowSubTab';
 import type { Project } from '../../../types';
 
 interface FinancialTabProps {
   project: Project;
 }
 
-type SubTabValue = 'costs' | 'tenders' | 'budget' | 'payments';
+type SubTabValue = 'costs' | 'tenders' | 'budget' | 'payments' | 'cashflow';
 
 const subTabs = [
   { label: 'עלויות', value: 'costs' as SubTabValue },
   { label: 'מכרזים', value: 'tenders' as SubTabValue },
   { label: 'תקציב', value: 'budget' as SubTabValue },
   { label: 'תשלומים', value: 'payments' as SubTabValue },
+  { label: 'תזרים מזומנים', value: 'cashflow' as SubTabValue },
 ];
 
 export default function FinancialTab({ project }: FinancialTabProps) {
@@ -24,7 +26,7 @@ export default function FinancialTab({ project }: FinancialTabProps) {
   const subtabFromUrl = searchParams.get('subtab') as SubTabValue | null;
 
   // Default to costs, or use URL param if valid
-  const validSubtabs: SubTabValue[] = ['costs', 'tenders', 'budget', 'payments'];
+  const validSubtabs: SubTabValue[] = ['costs', 'tenders', 'budget', 'payments', 'cashflow'];
   const initialSubTab = subtabFromUrl && validSubtabs.includes(subtabFromUrl)
     ? subtabFromUrl
     : 'costs';
@@ -81,6 +83,9 @@ export default function FinancialTab({ project }: FinancialTabProps) {
         )}
         {activeSubTab === 'payments' && (
           <PaymentsSubTab projectId={project.id} />
+        )}
+        {activeSubTab === 'cashflow' && (
+          <CashFlowSubTab project={project} />
         )}
       </div>
     </div>

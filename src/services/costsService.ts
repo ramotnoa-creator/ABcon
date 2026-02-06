@@ -102,7 +102,7 @@ export async function createCostItem(
         newItem.project_id,
         newItem.name,
         newItem.description || null,
-        newItem.type,
+        'execution',
         newItem.category,
         newItem.estimated_amount,
         newItem.actual_amount || null,
@@ -188,6 +188,14 @@ export async function updateCostItem(
 // ============================================================
 
 export async function deleteCostItem(id: string): Promise<void> {
+  // Cascade: delete linked payment schedule
+  try {
+    const { deleteScheduleByCostItem } = await import('./paymentSchedulesService');
+    await deleteScheduleByCostItem(id);
+  } catch (e) {
+    console.error('Error cascading schedule delete for cost item:', e);
+  }
+
   if (isDemoMode) {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
@@ -270,7 +278,6 @@ function transformCostItemFromDB(dbItem: any): CostItem {
     project_id: dbItem.project_id,
     name: dbItem.name,
     description: dbItem.description || undefined,
-    type: dbItem.type,
     category: dbItem.category,
     estimated_amount: parseFloat(dbItem.estimated_amount),
     actual_amount: dbItem.actual_amount ? parseFloat(dbItem.actual_amount) : undefined,

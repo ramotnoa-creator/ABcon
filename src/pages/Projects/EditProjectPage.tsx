@@ -2,6 +2,8 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { Project, ProjectStatus } from '../../types';
 import { getProjectById, updateProject } from '../../services/projectsService';
+import { getCostItems, updateCostItem } from '../../services/costsService';
+import { getScheduleItemsByProject } from '../../services/paymentSchedulesService';
 import { useToast } from '../../contexts/ToastContext';
 import { calculateTargetDate, formatDateForDisplay, formatDateHebrew } from '../../utils/dateUtils';
 
@@ -29,6 +31,7 @@ export default function EditProjectPage() {
     permit_start_date: '',
     permit_duration_months: 12,
     permit_approval_date: '',
+    current_vat_rate: 17,
     notes: '',
   });
 
@@ -59,6 +62,7 @@ export default function EditProjectPage() {
       permit_start_date: loadedProject.permit_start_date || '',
       permit_duration_months: loadedProject.permit_duration_months || 12,
       permit_approval_date: loadedProject.permit_approval_date || '',
+      current_vat_rate: loadedProject.current_vat_rate ?? 17,
       notes: loadedProject.notes || '',
         });
         setLoading(false);
@@ -88,7 +92,7 @@ export default function EditProjectPage() {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === 'permit_duration_months' ? parseInt(value) || 0 : value,
+      [name]: name === 'permit_duration_months' || name === 'current_vat_rate' ? parseInt(value) || 0 : value,
     }));
 
     // Clear error for this field
@@ -124,6 +128,9 @@ export default function EditProjectPage() {
     }
 
     try {
+      const newVatRate = formData.current_vat_rate || 17;
+      const oldVatRate = project.current_vat_rate ?? 17;
+
       await updateProject(project.id, {
         project_name: formData.project_name.trim(),
         client_name: formData.client_name.trim(),
@@ -133,9 +140,54 @@ export default function EditProjectPage() {
         permit_duration_months: formData.permit_duration_months || undefined,
         permit_target_date: targetDate || undefined,
         permit_approval_date: formData.permit_approval_date || undefined,
+        current_vat_rate: newVatRate,
         updated_at_text: formatDateHebrew(new Date().toISOString()),
         notes: formData.notes.trim() || undefined,
       });
+
+      // If VAT rate changed, update all cost items that aren't fully paid
+      if (newVatRate !== oldVatRate) {
+        try {
+          const [costItemsList, scheduleItemsList] = await Promise.all([
+            getCostItems(project.id),
+            getScheduleItemsByProject(project.id),
+          ]);
+
+          // Find cost items that are fully paid (all their schedule items have status 'paid')
+          const fullyPaidCostItemIds = new Set<string>();
+          const costItemScheduleMap = new Map<string, { total: number; paid: number }>();
+
+          for (const si of scheduleItemsList) {
+            if (!costItemScheduleMap.has(si.cost_item_id)) {
+              costItemScheduleMap.set(si.cost_item_id, { total: 0, paid: 0 });
+            }
+            const entry = costItemScheduleMap.get(si.cost_item_id)!;
+            entry.total++;
+            if (si.status === 'paid') entry.paid++;
+          }
+
+          for (const [costItemId, counts] of costItemScheduleMap) {
+            if (counts.total > 0 && counts.paid === counts.total) {
+              fullyPaidCostItemIds.add(costItemId);
+            }
+          }
+
+          // Update all cost items that are NOT fully paid
+          const itemsToUpdate = costItemsList.filter(
+            item => !fullyPaidCostItemIds.has(item.id)
+          );
+
+          await Promise.all(
+            itemsToUpdate.map(item => updateCostItem(item.id, { vat_rate: newVatRate }))
+          );
+
+          if (itemsToUpdate.length > 0) {
+            showSuccess(`עודכן שיעור מע"מ ל-${itemsToUpdate.length} פריטי עלות`);
+          }
+        } catch (vatError) {
+          console.error('Error updating VAT on cost items:', vatError);
+        }
+      }
 
       showSuccess('הפרויקט עודכן בהצלחה!');
       navigate(`/projects/${id}`);
@@ -279,6 +331,24 @@ export default function EditProjectPage() {
                   ))}
                 </select>
               </div>
+            </div>
+
+            {/* VAT Rate */}
+            <div className="flex flex-col gap-2">
+              <label className="text-royal-gray dark:text-text-main-dark text-sm font-bold leading-normal" htmlFor="vat-rate">
+                שיעור מע"מ (%)
+              </label>
+              <input
+                className="form-input w-full rounded border border-slate-300 dark:border-border-dark bg-white dark:bg-background-dark px-4 py-3 text-slate-900 dark:text-text-main-dark focus:border-royal-gray focus:ring-1 focus:ring-royal-gray placeholder:text-slate-400 text-base"
+                id="vat-rate"
+                name="current_vat_rate"
+                min={0}
+                max={100}
+                placeholder="17"
+                type="number"
+                value={formData.current_vat_rate}
+                onChange={handleChange}
+              />
             </div>
 
             {/* Created At (Read Only) */}

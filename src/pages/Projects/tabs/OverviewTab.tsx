@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
-import type { Project } from '../../../types';
+import type { Project, ProjectMilestone, CostItem, ScheduleItem } from '../../../types';
 import { formatDateForDisplay, formatDateHebrew } from '../../../utils/dateUtils';
 import { getProjectProfessionalsByProjectId } from '../../../services/projectProfessionalsService';
 import { getTasks } from '../../../services/tasksService';
 import { getFiles } from '../../../services/filesService';
+import { getMilestones } from '../../../services/milestonesService';
+import { getCostItems } from '../../../services/costsService';
+import { getScheduleItemsByProject } from '../../../services/paymentSchedulesService';
 import ProjectKPICards from '../../../components/Projects/ProjectKPICards';
 
 interface OverviewTabProps {
@@ -12,20 +15,39 @@ interface OverviewTabProps {
   onTabChange?: (tabId: string) => void;
 }
 
+const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat('he-IL', {
+    style: 'currency',
+    currency: 'ILS',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+};
+
 export default function OverviewTab({ project, statusColors, onTabChange }: OverviewTabProps) {
   // State for counts
   const [professionalsCount, setProfessionalsCount] = useState(0);
   const [openTasksCount, setOpenTasksCount] = useState(0);
   const [filesCount, setFilesCount] = useState(0);
 
+  // Milestones state (real data)
+  const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
+
+  // Financial state
+  const [costItems, setCostItems] = useState<CostItem[]>([]);
+  const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([]);
+
   // Load counts on mount
   useEffect(() => {
     const loadCounts = async () => {
       try {
-        const [projectProfessionals, projectTasks, projectFiles] = await Promise.all([
+        const [projectProfessionals, projectTasks, projectFiles, projectMilestones, projectCostItems, projectScheduleItems] = await Promise.all([
           getProjectProfessionalsByProjectId(project.id),
           getTasks(project.id),
           getFiles(project.id),
+          getMilestones(project.id),
+          getCostItems(project.id),
+          getScheduleItemsByProject(project.id),
         ]);
 
         const openTasks = projectTasks.filter(
@@ -35,6 +57,9 @@ export default function OverviewTab({ project, statusColors, onTabChange }: Over
         setProfessionalsCount(projectProfessionals.length);
         setOpenTasksCount(openTasks.length);
         setFilesCount(projectFiles.length);
+        setMilestones(projectMilestones);
+        setCostItems(projectCostItems);
+        setScheduleItems(projectScheduleItems);
       } catch (error) {
         console.error('Error loading overview counts:', error);
       }
@@ -58,6 +83,22 @@ export default function OverviewTab({ project, statusColors, onTabChange }: Over
     openTasks: openTasksCount,
     files: filesCount,
   };
+
+  // Financial calculations
+  const totalEstimated = costItems.reduce((sum, item) => sum + (item.estimated_amount || 0), 0);
+  const totalContracted = costItems
+    .filter(item => item.status === 'tender_winner')
+    .reduce((sum, item) => sum + (item.actual_amount || 0), 0);
+  const totalPaid = scheduleItems
+    .filter(si => si.status === 'paid')
+    .reduce((sum, si) => sum + (si.paid_amount || si.amount), 0);
+  const paidCount = scheduleItems.filter(si => si.status === 'paid').length;
+  const paymentProgressPct = totalContracted > 0 ? Math.min(100, (totalPaid / totalContracted) * 100) : 0;
+
+  // Next upcoming payment
+  const nextPayment = scheduleItems
+    .filter(si => si.status !== 'paid' && si.target_date)
+    .sort((a, b) => new Date(a.target_date!).getTime() - new Date(b.target_date!).getTime())[0];
 
   const handleStatClick = (tabId: string) => {
     if (onTabChange) {
@@ -146,7 +187,7 @@ export default function OverviewTab({ project, statusColors, onTabChange }: Over
         </div>
 
         {/* Summary Cards - Clickable to navigate to relevant tabs */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <button
             onClick={() => handleStatClick('professionals')}
             className="bg-surface-light dark:bg-surface-dark p-4 rounded-xl border border-border-light dark:border-border-dark flex items-center gap-4 hover:shadow-md transition-all text-start group"
@@ -198,6 +239,23 @@ export default function OverviewTab({ project, statusColors, onTabChange }: Over
               arrow_back
             </span>
           </button>
+          <button
+            onClick={() => handleStatClick('financial')}
+            className="bg-surface-light dark:bg-surface-dark p-4 rounded-xl border border-border-light dark:border-border-dark flex items-center gap-4 hover:shadow-md transition-all text-start group"
+          >
+            <div className="size-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-200 dark:group-hover:bg-emerald-900/50 transition-colors">
+              <span className="material-symbols-outlined">payments</span>
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark font-medium">
+                תשלומים
+              </p>
+              <p className="text-lg font-bold">{paidCount}/{scheduleItems.length} שולמו</p>
+            </div>
+            <span className="material-symbols-outlined text-text-secondary-light dark:text-text-secondary-dark text-[18px] opacity-0 group-hover:opacity-100 transition-opacity">
+              arrow_back
+            </span>
+          </button>
         </div>
 
         {/* Milestones Snapshot Card */}
@@ -206,59 +264,17 @@ export default function OverviewTab({ project, statusColors, onTabChange }: Over
             <h3 className="text-xl font-bold">ציוני דרך</h3>
           </div>
           {(() => {
-            // Mock milestones data for now
-            const mockMilestones = [
-              {
-                id: '1',
-                name: 'סיום תכנון',
-                planned_date: '2024-03-15',
-                completed_tasks: 8,
-                total_tasks: 10,
-                status: 'בתהליך' as const,
-              },
-              {
-                id: '2',
-                name: 'קבלת היתר בנייה',
-                planned_date: '2024-04-20',
-                completed_tasks: 3,
-                total_tasks: 5,
-                status: 'בתהליך' as const,
-              },
-              {
-                id: '3',
-                name: 'התחלת ביצוע',
-                planned_date: '2024-05-01',
-                completed_tasks: 0,
-                total_tasks: 12,
-                status: 'בתהליך' as const,
-              },
-              {
-                id: '4',
-                name: 'סיום שלב ראשון',
-                planned_date: '2024-06-15',
-                completed_tasks: 0,
-                total_tasks: 8,
-                status: 'בתהליך' as const,
-              },
-              {
-                id: '5',
-                name: 'מסירת הפרויקט',
-                planned_date: '2024-08-30',
-                completed_tasks: 0,
-                total_tasks: 15,
-                status: 'בתהליך' as const,
-              },
-            ];
-
-            // Sort by planned_date ascending
-            const sortedMilestones = [...mockMilestones].sort((a, b) => 
-              new Date(a.planned_date).getTime() - new Date(b.planned_date).getTime()
+            // Sort by date ascending
+            const sortedMilestones = [...milestones].sort((a, b) =>
+              new Date(a.date).getTime() - new Date(b.date).getTime()
             );
 
-            // Get up to 5 upcoming milestones
-            const upcomingMilestones = sortedMilestones.slice(0, 5);
+            // Get up to 5 upcoming milestones (not completed)
+            const upcomingMilestones = sortedMilestones
+              .filter(m => m.status !== 'completed')
+              .slice(0, 5);
 
-            if (upcomingMilestones.length === 0) {
+            if (milestones.length === 0) {
               return (
                 <div className="flex flex-col items-center justify-center py-8">
                   <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
@@ -277,16 +293,36 @@ export default function OverviewTab({ project, statusColors, onTabChange }: Over
               );
             }
 
-            const statusBadgeColors: Record<string, string> = {
-              'בתהליך': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200',
-              'הושג': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200',
-              'באיחור': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200',
+            const milestoneStatusLabels: Record<string, string> = {
+              'pending': 'ממתין',
+              'in-progress': 'בתהליך',
+              'completed': 'הושלם',
             };
+
+            const statusBadgeColors: Record<string, string> = {
+              'pending': 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200',
+              'in-progress': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200',
+              'completed': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200',
+            };
+
+            const completedCount = milestones.filter(m => m.status === 'completed').length;
 
             return (
               <>
+                {/* Progress indicator */}
+                <div className="flex items-center gap-3 mb-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                  <span className="material-symbols-outlined text-[16px]">flag</span>
+                  <span>{completedCount}/{milestones.length} הושלמו</span>
+                  <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-500 rounded-full transition-all"
+                      style={{ width: `${milestones.length > 0 ? (completedCount / milestones.length) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-3 mb-4">
-                  {upcomingMilestones.map((milestone) => (
+                  {(upcomingMilestones.length > 0 ? upcomingMilestones : sortedMilestones.slice(0, 5)).map((milestone) => (
                     <div
                       key={milestone.id}
                       className="flex items-center justify-between gap-4 p-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark hover:shadow-sm transition-all"
@@ -296,18 +332,20 @@ export default function OverviewTab({ project, statusColors, onTabChange }: Over
                         <div className="flex items-center gap-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">
                           <span className="flex items-center gap-1">
                             <span className="material-symbols-outlined text-[16px]">calendar_today</span>
-                            {formatDateForDisplay(milestone.planned_date)}
+                            {formatDateForDisplay(milestone.date)}
                           </span>
-                          <span className="flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                            {milestone.completed_tasks}/{milestone.total_tasks}
-                          </span>
+                          {milestone.phase && (
+                            <span className="flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[16px]">category</span>
+                              {milestone.phase}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <span
-                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap ${statusBadgeColors[milestone.status] || statusBadgeColors['בתהליך']}`}
+                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap ${statusBadgeColors[milestone.status] || statusBadgeColors['pending']}`}
                       >
-                        {milestone.status}
+                        {milestoneStatusLabels[milestone.status] || milestone.status}
                       </span>
                     </div>
                   ))}
@@ -329,6 +367,65 @@ export default function OverviewTab({ project, statusColors, onTabChange }: Over
 
       {/* Right Column - Sidebar */}
       <div className="flex flex-col gap-6">
+        {/* Financial Summary Card */}
+        <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark overflow-hidden">
+          <div className="bg-gradient-to-l from-emerald-50 to-white dark:from-emerald-950/20 dark:to-surface-dark px-6 py-4 border-b border-border-light dark:border-border-dark flex items-center gap-2">
+            <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400">account_balance</span>
+            <h3 className="text-base font-bold">סיכום פיננסי</h3>
+          </div>
+          <div className="p-5 space-y-4">
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark font-medium">סה"כ אומדן</span>
+                <span className="text-sm font-bold">{formatCurrency(totalEstimated)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark font-medium">סה"כ חוזי</span>
+                <span className="text-sm font-bold text-blue-600 dark:text-blue-400">{formatCurrency(totalContracted)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark font-medium">סה"כ שולם</span>
+                <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(totalPaid)}</span>
+              </div>
+            </div>
+
+            {/* Payment Progress Bar */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-[10px] font-semibold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wide">
+                <span>התקדמות תשלום</span>
+                <span>{paymentProgressPct.toFixed(0)}%</span>
+              </div>
+              <div className="h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-l from-emerald-400 to-emerald-600 rounded-full transition-all duration-500"
+                  style={{ width: `${paymentProgressPct}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Next Upcoming Payment */}
+            {nextPayment && (
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="material-symbols-outlined text-[14px] text-amber-600 dark:text-amber-400">event</span>
+                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide">תשלום קרוב</span>
+                </div>
+                <p className="text-sm font-bold text-amber-900 dark:text-amber-100">{formatCurrency(nextPayment.amount)}</p>
+                <p className="text-xs text-amber-700 dark:text-amber-300">{nextPayment.description}</p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">{formatDateForDisplay(nextPayment.target_date!)}</p>
+              </div>
+            )}
+
+            <button
+              onClick={() => handleStatClick('financial')}
+              className="w-full py-2 text-sm font-bold text-primary hover:text-primary-hover transition-colors flex items-center justify-center gap-1.5 border-t border-border-light dark:border-border-dark pt-3"
+            >
+              <span>לטאב פיננסי</span>
+              <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+            </button>
+          </div>
+        </div>
+
         {/* Permit Details Card */}
         {(project.status === 'תכנון' || project.status === 'היתרים') && project.permit_start_date && (
           <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark overflow-hidden flex flex-col h-fit">

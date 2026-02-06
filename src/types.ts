@@ -499,3 +499,52 @@ export interface VarianceData {
   variance_percent: number;
   color: 'green' | 'red' | 'gray';
 }
+
+// ============================================================
+// PAYMENT SCHEDULES MODULE
+// ============================================================
+
+export type PaymentScheduleStatus = 'draft' | 'active';
+
+export interface PaymentSchedule {
+  id: string;
+  cost_item_id: string;
+  project_id: string;
+  total_amount: number;
+  status: PaymentScheduleStatus;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ScheduleItemStatus =
+  | 'pending'
+  | 'milestone_confirmed'
+  | 'invoice_received'
+  | 'approved'
+  | 'paid';
+
+export interface ScheduleItem {
+  id: string;
+  schedule_id: string;
+  cost_item_id: string;
+  project_id: string;
+  description: string;
+  amount: number;
+  percentage: number;
+  milestone_id?: string;
+  milestone_name?: string;
+  target_date?: string; // ISO date string
+  order: number;
+  status: ScheduleItemStatus;
+  confirmed_by?: string;
+  confirmed_at?: string;
+  confirmed_note?: string;
+  attachment_url?: string;
+  approved_by?: string;
+  approved_at?: string;
+  paid_date?: string;
+  paid_amount?: number;
+  created_at: string;
+  updated_at: string;
+}

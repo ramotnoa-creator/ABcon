@@ -10,6 +10,7 @@ import type { CostItem, CostCategory } from '../../types';
 
 interface AddCostItemFormProps {
   projectId: string;
+  vatRate?: number;
   onSave: (item: CostItem) => void;
   onCancel: () => void;
 }
@@ -20,7 +21,7 @@ const categories: { value: CostCategory; label: string }[] = [
   { value: 'contractor', label: 'קבלן' },
 ];
 
-export default function AddCostItemForm({ projectId, onSave, onCancel }: AddCostItemFormProps) {
+export default function AddCostItemForm({ projectId, vatRate = 17, onSave, onCancel }: AddCostItemFormProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<CostCategory>('contractor');
@@ -53,7 +54,7 @@ export default function AddCostItemForm({ projectId, onSave, onCancel }: AddCost
         estimated_amount: parseFloat(amount),
         actual_amount: undefined,
         vat_included: vatIncluded,
-        vat_rate: 17, // TODO: Get from project settings
+        vat_rate: vatRate,
         status: 'draft',
         notes: notes.trim() || undefined,
       });
@@ -163,7 +164,7 @@ export default function AddCostItemForm({ projectId, onSave, onCancel }: AddCost
                   onChange={(e) => setVatIncluded(e.target.checked)}
                   className="size-5 rounded border-gray-300 text-primary focus:ring-primary"
                 />
-                <span className="text-sm font-medium">כולל מע"מ (17%)</span>
+                <span className="text-sm font-medium">כולל מע"מ ({vatRate}%)</span>
               </label>
             </div>
 

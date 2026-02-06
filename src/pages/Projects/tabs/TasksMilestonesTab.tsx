@@ -1,5 +1,8 @@
-import { useState, useMemo } from 'react';
-import type { Project } from '../../../types';
+import { useState, useEffect, useMemo } from 'react';
+import type { Project, ScheduleItem, CostItem } from '../../../types';
+import { getScheduleItemsByProject, confirmMilestoneForSchedule } from '../../../services/paymentSchedulesService';
+import { getCostItems } from '../../../services/costsService';
+import ScheduleItemStatusBadge from '../../../components/Costs/ScheduleItemStatusBadge';
 
 interface TasksMilestonesTabProps {
   project: Project;
@@ -1119,6 +1122,47 @@ export default function TasksMilestonesTab({ project: _project }: TasksMilestone
   const [filterApt, setFilterApt] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Payment milestone confirmation state
+  const [pendingScheduleItems, setPendingScheduleItems] = useState<ScheduleItem[]>([]);
+  const [costItemsMap, setCostItemsMap] = useState<Record<string, CostItem>>({});
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [confirmNote, setConfirmNote] = useState('');
+  const [showConfirmToast, setShowConfirmToast] = useState(false);
+
+  useEffect(() => {
+    const loadScheduleData = async () => {
+      try {
+        const [sItems, cItems] = await Promise.all([
+          getScheduleItemsByProject(_project.id),
+          getCostItems(_project.id),
+        ]);
+        // Only show items that have a milestone linked and are pending
+        setPendingScheduleItems(
+          sItems.filter((si) => si.milestone_id && si.status === 'pending')
+        );
+        const map: Record<string, CostItem> = {};
+        for (const ci of cItems) map[ci.id] = ci;
+        setCostItemsMap(map);
+      } catch (error) {
+        console.error('Error loading schedule items for milestone confirmations:', error);
+      }
+    };
+    loadScheduleData();
+  }, [_project.id]);
+
+  const handleConfirmMilestone = async (scheduleItemId: string) => {
+    try {
+      await confirmMilestoneForSchedule(scheduleItemId, 'מנהל פרויקט', confirmNote || undefined);
+      setPendingScheduleItems((prev) => prev.filter((si) => si.id !== scheduleItemId));
+      setConfirmingId(null);
+      setConfirmNote('');
+      setShowConfirmToast(true);
+      setTimeout(() => setShowConfirmToast(false), 3000);
+    } catch (error) {
+      console.error('Error confirming milestone:', error);
+    }
+  };
+
   const { startDate, endDate, todayDate, apartments } = projectData;
   const totalDays = daysBetween(startDate, endDate);
   const months = useMemo(() => getMonths(startDate, endDate), [startDate, endDate]);
@@ -1201,6 +1245,94 @@ export default function TasksMilestonesTab({ project: _project }: TasksMilestone
         />
       )}
       {view === 'timeline' && <TimelineView apartments={filteredApartments} />}
+
+      {/* Payment Milestone Confirmations */}
+      {pendingScheduleItems.length > 0 && (
+        <div className="bg-white dark:bg-surface-dark rounded-xl border border-blue-200 dark:border-blue-800 overflow-hidden">
+          <div className="bg-blue-50 dark:bg-blue-900/20 px-4 py-3 border-b border-blue-200 dark:border-blue-800">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-blue-600 dark:text-blue-400">payments</span>
+              <h3 className="text-sm font-bold text-blue-900 dark:text-blue-100">
+                אישורי אבני דרך לתשלום
+              </h3>
+              <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                {pendingScheduleItems.length}
+              </span>
+            </div>
+            <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+              אבני דרך שמקושרות ללוח תשלומים וממתינות לאישור השלמה
+            </p>
+          </div>
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {pendingScheduleItems.map((si) => {
+              const costItem = costItemsMap[si.cost_item_id];
+              return (
+                <div key={si.id} className="px-4 py-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="material-symbols-outlined text-[14px] text-emerald-500">flag</span>
+                        <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
+                          {si.milestone_name || si.description}
+                        </span>
+                        <ScheduleItemStatusBadge status={si.status} />
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                        {costItem && <span>פריט: {costItem.name}</span>}
+                        <span>סכום: {new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', minimumFractionDigits: 0 }).format(si.amount)}</span>
+                        {si.target_date && (
+                          <span>תאריך יעד: {new Date(si.target_date).toLocaleDateString('he-IL')}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {confirmingId === si.id ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={confirmNote}
+                            onChange={(e) => setConfirmNote(e.target.value)}
+                            placeholder="הערה (אופציונלי)"
+                            className="px-3 py-1.5 rounded-lg border border-border-light dark:border-border-dark text-xs w-40"
+                          />
+                          <button
+                            onClick={() => handleConfirmMilestone(si.id)}
+                            className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition-colors"
+                          >
+                            אשר
+                          </button>
+                          <button
+                            onClick={() => { setConfirmingId(null); setConfirmNote(''); }}
+                            className="px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          >
+                            ביטול
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmingId(si.id)}
+                          className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 transition-colors flex items-center gap-1"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                          אשר אבן דרך
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {showConfirmToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-emerald-600 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center gap-2 text-sm font-semibold animate-bounce">
+          <span className="material-symbols-outlined text-[18px]">check_circle</span>
+          אבן דרך אושרה בהצלחה
+        </div>
+      )}
 
       {/* Legend */}
       <div className="bg-white dark:bg-surface-dark rounded-xl border border-gray-200 dark:border-border-dark p-3">

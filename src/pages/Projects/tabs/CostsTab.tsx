@@ -6,8 +6,12 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getCostItems, exportCostItemToTender } from '../../../services/costsService';
+import { getSchedulesByProject, getScheduleItemsByProject } from '../../../services/paymentSchedulesService';
+import { getMilestones } from '../../../services/milestonesService';
 import AddCostItemForm from '../../../components/Costs/AddCostItemForm';
-import type { CostItem, Project, CostCategory } from '../../../types';
+import PaymentScheduleView from '../../../components/Costs/PaymentScheduleView';
+import PaymentScheduleModal from '../../../components/Costs/PaymentScheduleModal';
+import type { CostItem, Project, CostCategory, PaymentSchedule, ScheduleItem, ProjectMilestone } from '../../../types';
 
 interface CostsTabProps {
   project: Project;
@@ -45,6 +49,10 @@ export default function CostsTab({ project, onProjectUpdate }: CostsTabProps) {
   const [filterCategory, setFilterCategory] = useState<CostCategory | 'all'>('all');
   const [exportingItemId, setExportingItemId] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [schedules, setSchedules] = useState<PaymentSchedule[]>([]);
+  const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([]);
+  const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
+  const [scheduleModalItem, setScheduleModalItem] = useState<CostItem | null>(null);
 
   // Get highlight parameter from URL
   const highlightItemId = searchParams.get('highlight');
@@ -91,8 +99,19 @@ export default function CostsTab({ project, onProjectUpdate }: CostsTabProps) {
   const loadItems = async () => {
     try {
       setLoading(true);
+      // Load cost items first (critical), then schedule data (non-critical)
       const data = await getCostItems(project.id);
       setItems(data);
+
+      // Load schedule data in parallel - failures here shouldn't block cost items
+      const [scheds, sItems, ms] = await Promise.all([
+        getSchedulesByProject(project.id).catch(() => [] as PaymentSchedule[]),
+        getScheduleItemsByProject(project.id).catch(() => [] as ScheduleItem[]),
+        getMilestones(project.id).catch(() => [] as ProjectMilestone[]),
+      ]);
+      setSchedules(scheds);
+      setScheduleItems(sItems);
+      setMilestones(ms);
     } catch (error) {
       console.error('Error loading cost items:', error);
     } finally {
@@ -195,6 +214,35 @@ export default function CostsTab({ project, onProjectUpdate }: CostsTabProps) {
   const getVarianceColor = (variance: number): string => {
     if (variance === 0) return 'text-gray-600 dark:text-gray-400';
     return variance > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400';
+  };
+
+  // Helper: get schedule for a cost item
+  const getScheduleForItem = (costItemId: string) =>
+    schedules.find((s) => s.cost_item_id === costItemId);
+
+  const getScheduleItemsForSchedule = (scheduleId: string) =>
+    scheduleItems.filter((si) => si.schedule_id === scheduleId).sort((a, b) => a.order - b.order);
+
+  // Helper: get winner row border color based on schedule status
+  const getWinnerBorderColor = (item: CostItem): string => {
+    if (item.status !== 'tender_winner') return statusRowColors[item.status] || '';
+    const schedule = getScheduleForItem(item.id);
+    if (!schedule) return 'border-r-4 border-r-red-500'; // No schedule
+    const sItems = getScheduleItemsForSchedule(schedule.id);
+    const allLinked = sItems.length > 0 && sItems.every((si) => !!si.milestone_id);
+    if (allLinked) return 'border-r-4 border-r-emerald-500'; // All linked to milestones
+    return 'border-r-4 border-r-amber-400'; // Manual dates
+  };
+
+  // Helper: mini progress for status column
+  const getScheduleProgress = (costItemId: string) => {
+    const schedule = getScheduleForItem(costItemId);
+    if (!schedule) return null;
+    const sItems = getScheduleItemsForSchedule(schedule.id);
+    if (sItems.length === 0) return null;
+    const paidCount = sItems.filter((si) => si.status === 'paid').length;
+    const paidAmount = sItems.filter((si) => si.status === 'paid').reduce((s, i) => s + (i.paid_amount || i.amount), 0);
+    return { paidCount, total: sItems.length, paidAmount, totalAmount: schedule.total_amount };
   };
 
   if (loading) {
@@ -405,7 +453,8 @@ export default function CostsTab({ project, onProjectUpdate }: CostsTabProps) {
                     : null;
 
                   // Check if item has expandable content
-                  const hasExpandableContent = !!(item.description || item.notes || item.created_at);
+                  const hasSchedule = item.status === 'tender_winner' && !!getScheduleForItem(item.id);
+                  const hasExpandableContent = !!(item.description || item.notes || item.created_at || hasSchedule);
 
                   return (
                     <Fragment key={item.id}>
@@ -415,7 +464,7 @@ export default function CostsTab({ project, onProjectUpdate }: CostsTabProps) {
                         group
                         transition-all duration-200 ease-out
                         border-b border-slate-100 dark:border-slate-800/50
-                        ${statusRowColors[item.status] || ''}
+                        ${item.status === 'tender_winner' ? getWinnerBorderColor(item) : (statusRowColors[item.status] || '')}
                         ${isHighlighted
                           ? 'bg-gradient-to-l from-primary/15 via-primary/5 to-transparent dark:from-primary/20 dark:via-primary/10 dark:to-transparent animate-pulse-subtle'
                           : item.status === 'tender_winner'
@@ -598,6 +647,23 @@ export default function CostsTab({ project, onProjectUpdate }: CostsTabProps) {
                           }`} />
                           {statusLabels[item.status as keyof typeof statusLabels] || item.status}
                         </div>
+                        {/* Mini progress bar for winner items with schedule */}
+                        {item.status === 'tender_winner' && (() => {
+                          const progress = getScheduleProgress(item.id);
+                          if (!progress) return null;
+                          const pct = progress.totalAmount > 0 ? (progress.paidAmount / progress.totalAmount) * 100 : 0;
+                          return (
+                            <div className="mt-2 space-y-1">
+                              <div className="w-20 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-emerald-500 rounded-full transition-all"
+                                  style={{ width: `${Math.min(100, pct)}%` }}
+                                />
+                              </div>
+                              <span className="text-[9px] text-slate-500">{progress.paidCount}/{progress.total} שולמו</span>
+                            </div>
+                          );
+                        })()}
                       </td>
                       {/* Actions - Enhanced Design */}
                       <td className="px-6 py-5">
@@ -656,6 +722,25 @@ export default function CostsTab({ project, onProjectUpdate }: CostsTabProps) {
                               <span className="material-symbols-outlined text-[18px]">open_in_new</span>
                               <span className="absolute -top-10 left-1/2 -translate-x-1/2 px-2.5 py-1 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-[10px] font-bold rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-lg">
                                 צפה במכרז
+                                <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-100"></span>
+                              </span>
+                            </button>
+                          )}
+
+                          {/* Payment Schedule Button - for tender winners */}
+                          {item.status === 'tender_winner' && (
+                            <button
+                              onClick={() => setScheduleModalItem(item)}
+                              className={`relative group p-2 rounded-lg border transition-all hover:scale-105 active:scale-95 ${
+                                getScheduleForItem(item.id)
+                                  ? 'bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/30 dark:to-emerald-900/20 border-emerald-200 dark:border-emerald-800/50 text-emerald-600 dark:text-emerald-400'
+                                  : 'bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/30 dark:to-amber-900/20 border-amber-200 dark:border-amber-800/50 text-amber-600 dark:text-amber-400'
+                              }`}
+                              title={getScheduleForItem(item.id) ? 'ערוך לוח תשלומים' : 'צור לוח תשלומים'}
+                            >
+                              <span className="material-symbols-outlined text-[18px]">calendar_month</span>
+                              <span className="absolute -top-10 left-1/2 -translate-x-1/2 px-2.5 py-1 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-[10px] font-bold rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-lg">
+                                {getScheduleForItem(item.id) ? 'ערוך לוח תשלומים' : 'צור לוח תשלומים'}
                                 <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-100"></span>
                               </span>
                             </button>
@@ -747,6 +832,23 @@ export default function CostsTab({ project, onProjectUpdate }: CostsTabProps) {
                                   </div>
                                 </div>
 
+                                {/* Payment Schedule View - for winner items */}
+                                {item.status === 'tender_winner' && (() => {
+                                  const schedule = getScheduleForItem(item.id);
+                                  if (!schedule) return null;
+                                  const sItems = getScheduleItemsForSchedule(schedule.id);
+                                  if (sItems.length === 0) return null;
+                                  return (
+                                    <div className="md:col-span-2 bg-white dark:bg-slate-950/30 rounded-lg p-4 border border-slate-200 dark:border-slate-800">
+                                      <PaymentScheduleView
+                                        schedule={schedule}
+                                        items={sItems}
+                                        milestones={milestones}
+                                      />
+                                    </div>
+                                  );
+                                })()}
+
                                 {/* Additional Metadata */}
                                 <div className="bg-white dark:bg-slate-950/30 rounded-lg p-4 border border-slate-200 dark:border-slate-800">
                                   <div className="flex items-center gap-2 mb-3">
@@ -792,11 +894,32 @@ export default function CostsTab({ project, onProjectUpdate }: CostsTabProps) {
       {showAddForm && (
         <AddCostItemForm
           projectId={project.id}
+          vatRate={project.current_vat_rate ?? 17}
           onSave={(newItem) => {
             setItems([newItem, ...items]);
             setShowAddForm(false);
           }}
           onCancel={() => setShowAddForm(false)}
+        />
+      )}
+
+      {/* Payment Schedule Modal */}
+      {scheduleModalItem && (
+        <PaymentScheduleModal
+          costItem={scheduleModalItem}
+          projectId={project.id}
+          milestones={milestones}
+          existingSchedule={getScheduleForItem(scheduleModalItem.id) || null}
+          existingItems={
+            getScheduleForItem(scheduleModalItem.id)
+              ? getScheduleItemsForSchedule(getScheduleForItem(scheduleModalItem.id)!.id)
+              : undefined
+          }
+          onSave={() => {
+            setScheduleModalItem(null);
+            loadItems();
+          }}
+          onCancel={() => setScheduleModalItem(null)}
         />
       )}
     </div>

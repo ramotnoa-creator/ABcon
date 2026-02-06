@@ -21,6 +21,9 @@ import type {
   SpecialIssue,
   PlanningChange,
   ProjectProfessional,
+  CostItem,
+  PaymentSchedule,
+  ScheduleItem,
 } from '../types';
 
 // Import services for Neon seeding
@@ -79,6 +82,7 @@ export const seedProjects: Project[] = [
     created_at: daysAgo(200),
     updated_at_text: 'לפני חודשיים',
     notes: 'פרויקט גדול עם 4 קומות + מרתף חניה',
+    current_vat_rate: 17,
   },
   {
     id: 'proj-2',
@@ -1298,6 +1302,450 @@ export const seedPlanningChanges: PlanningChange[] = [
 ];
 
 // ============================================================
+// COST ITEMS - Various statuses for testing
+// ============================================================
+
+export const seedCostItems: CostItem[] = [
+  // Project 1 — Draft: no tender yet
+  {
+    id: 'cost-1-1',
+    project_id: 'proj-1',
+    name: 'עבודות גינון',
+    description: 'פיתוח גינה ושטחים ירוקים',
+    category: 'contractor',
+    estimated_amount: 120000,
+    vat_included: false,
+    vat_rate: 17,
+    status: 'draft',
+    created_at: daysAgo(90),
+    updated_at: daysAgo(90),
+  },
+  // Project 1 — Draft #2
+  {
+    id: 'cost-1-2',
+    project_id: 'proj-1',
+    name: 'מערכת מיזוג אוויר',
+    description: 'מיזוג VRF לכל הבניין',
+    category: 'supplier',
+    estimated_amount: 280000,
+    vat_included: false,
+    vat_rate: 17,
+    status: 'draft',
+    created_at: daysAgo(85),
+    updated_at: daysAgo(85),
+  },
+  // Project 1 — Tender Draft: exported to tender (draft)
+  {
+    id: 'cost-1-3',
+    project_id: 'proj-1',
+    name: 'אלומיניום וחלונות',
+    description: 'חלונות אלומיניום לכל הדירות',
+    category: 'supplier',
+    estimated_amount: 350000,
+    vat_included: false,
+    vat_rate: 17,
+    status: 'tender_draft',
+    tender_id: 'tender-alum-1',
+    created_at: daysAgo(70),
+    updated_at: daysAgo(60),
+  },
+  // Project 1 — Tender Open: tender published
+  {
+    id: 'cost-1-4',
+    project_id: 'proj-1',
+    name: 'עבודות אינסטלציה',
+    description: 'מערכת אינסטלציה מלאה כולל קולטים',
+    category: 'contractor',
+    estimated_amount: 380000,
+    vat_included: false,
+    vat_rate: 17,
+    status: 'tender_open',
+    tender_id: 'tender-1',
+    created_at: daysAgo(60),
+    updated_at: daysAgo(20),
+  },
+  // Project 1 — Tender Winner: fully paid (should be excluded from VAT cascade)
+  {
+    id: 'cost-1-5',
+    project_id: 'proj-1',
+    name: 'עבודות שלד וחפירה',
+    description: 'חפירה, יציקות, שלד בטון',
+    category: 'contractor',
+    estimated_amount: 950000,
+    actual_amount: 920000,
+    vat_included: false,
+    vat_rate: 17,
+    status: 'tender_winner',
+    notes: 'הושלם ושולם במלואו',
+    created_at: daysAgo(150),
+    updated_at: daysAgo(30),
+  },
+  // Project 1 — Tender Winner: partially paid (should be included in VAT cascade)
+  {
+    id: 'cost-1-6',
+    project_id: 'proj-1',
+    name: 'עבודות חשמל',
+    description: 'מערכת חשמל מלאה 4 קומות',
+    category: 'contractor',
+    estimated_amount: 450000,
+    actual_amount: 440000,
+    vat_included: false,
+    vat_rate: 17,
+    status: 'tender_winner',
+    tender_id: 'tender-2',
+    notes: 'שולם חלקית - 2 מתוך 4 תשלומים',
+    created_at: daysAgo(120),
+    updated_at: daysAgo(10),
+  },
+  // Project 1 — Tender Winner: not paid at all
+  {
+    id: 'cost-1-7',
+    project_id: 'proj-1',
+    name: 'ריצוף וחיפוי',
+    description: 'ריצוף פורצלן + חיפוי אמבטיות',
+    category: 'supplier',
+    estimated_amount: 320000,
+    actual_amount: 310000,
+    vat_included: false,
+    vat_rate: 17,
+    status: 'tender_winner',
+    notes: 'נבחר זוכה - ממתין לתחילת עבודה',
+    created_at: daysAgo(45),
+    updated_at: daysAgo(15),
+  },
+  // Project 1 — Consultant (draft, small amount)
+  {
+    id: 'cost-1-8',
+    project_id: 'proj-1',
+    name: 'יועץ קרקע',
+    category: 'consultant',
+    estimated_amount: 25000,
+    vat_included: false,
+    vat_rate: 17,
+    status: 'draft',
+    created_at: daysAgo(100),
+    updated_at: daysAgo(100),
+  },
+  // Project 2 — Single draft item (early stage project)
+  {
+    id: 'cost-2-1',
+    project_id: 'proj-2',
+    name: 'תכניות אדריכליות',
+    description: 'אדריכלות שלב ראשוני',
+    category: 'consultant',
+    estimated_amount: 175000,
+    vat_included: false,
+    vat_rate: 17,
+    status: 'draft',
+    created_at: daysAgo(80),
+    updated_at: daysAgo(80),
+  },
+  // Project 4 — Overdue project items
+  {
+    id: 'cost-4-1',
+    project_id: 'proj-4',
+    name: 'קבלן ראשי - ביצוע',
+    category: 'contractor',
+    estimated_amount: 2200000,
+    actual_amount: 2350000,
+    vat_included: false,
+    vat_rate: 17,
+    status: 'tender_winner',
+    notes: 'חריגה תקציבית',
+    created_at: daysAgo(380),
+    updated_at: daysAgo(60),
+  },
+];
+
+// ============================================================
+// PAYMENT SCHEDULES - One per cost item that has a schedule
+// ============================================================
+
+export const seedPaymentSchedules: PaymentSchedule[] = [
+  // cost-1-5: Fully paid (4/4 paid)
+  {
+    id: 'ps-1',
+    cost_item_id: 'cost-1-5',
+    project_id: 'proj-1',
+    total_amount: 920000,
+    status: 'active',
+    created_at: daysAgo(140),
+    updated_at: daysAgo(30),
+  },
+  // cost-1-6: Partially paid (2/4 paid)
+  {
+    id: 'ps-2',
+    cost_item_id: 'cost-1-6',
+    project_id: 'proj-1',
+    total_amount: 440000,
+    status: 'active',
+    created_at: daysAgo(110),
+    updated_at: daysAgo(10),
+  },
+  // cost-1-7: Not paid at all (0/3 paid)
+  {
+    id: 'ps-3',
+    cost_item_id: 'cost-1-7',
+    project_id: 'proj-1',
+    total_amount: 310000,
+    status: 'active',
+    created_at: daysAgo(40),
+    updated_at: daysAgo(15),
+  },
+  // cost-4-1: Overdue project schedule
+  {
+    id: 'ps-4',
+    cost_item_id: 'cost-4-1',
+    project_id: 'proj-4',
+    total_amount: 2350000,
+    status: 'active',
+    created_at: daysAgo(370),
+    updated_at: daysAgo(60),
+  },
+];
+
+// ============================================================
+// SCHEDULE ITEMS - Installments with various statuses
+// ============================================================
+
+export const seedScheduleItems: ScheduleItem[] = [
+  // ---- ps-1: cost-1-5 (Fully paid: 4 installments, all paid) ----
+  {
+    id: 'si-1-1',
+    schedule_id: 'ps-1',
+    cost_item_id: 'cost-1-5',
+    project_id: 'proj-1',
+    description: 'מקדמה - עבודות שלד',
+    amount: 230000,
+    percentage: 25,
+    milestone_id: 'ms-1-1',
+    milestone_name: 'יציקת תקרה',
+    target_date: daysAgo(130),
+    order: 1,
+    status: 'paid',
+    paid_date: daysAgo(128),
+    paid_amount: 230000,
+    created_at: daysAgo(140),
+    updated_at: daysAgo(128),
+  },
+  {
+    id: 'si-1-2',
+    schedule_id: 'ps-1',
+    cost_item_id: 'cost-1-5',
+    project_id: 'proj-1',
+    description: 'תשלום שני - חפירות',
+    amount: 230000,
+    percentage: 25,
+    target_date: daysAgo(100),
+    order: 2,
+    status: 'paid',
+    paid_date: daysAgo(98),
+    paid_amount: 230000,
+    created_at: daysAgo(140),
+    updated_at: daysAgo(98),
+  },
+  {
+    id: 'si-1-3',
+    schedule_id: 'ps-1',
+    cost_item_id: 'cost-1-5',
+    project_id: 'proj-1',
+    description: 'תשלום שלישי - יציקות',
+    amount: 230000,
+    percentage: 25,
+    target_date: daysAgo(70),
+    order: 3,
+    status: 'paid',
+    paid_date: daysAgo(68),
+    paid_amount: 230000,
+    created_at: daysAgo(140),
+    updated_at: daysAgo(68),
+  },
+  {
+    id: 'si-1-4',
+    schedule_id: 'ps-1',
+    cost_item_id: 'cost-1-5',
+    project_id: 'proj-1',
+    description: 'תשלום סופי - שלד',
+    amount: 230000,
+    percentage: 25,
+    target_date: daysAgo(40),
+    order: 4,
+    status: 'paid',
+    paid_date: daysAgo(38),
+    paid_amount: 230000,
+    created_at: daysAgo(140),
+    updated_at: daysAgo(38),
+  },
+
+  // ---- ps-2: cost-1-6 (Partially paid: 2 paid, 1 approved, 1 pending) ----
+  {
+    id: 'si-2-1',
+    schedule_id: 'ps-2',
+    cost_item_id: 'cost-1-6',
+    project_id: 'proj-1',
+    description: 'מקדמה - חשמל',
+    amount: 110000,
+    percentage: 25,
+    target_date: daysAgo(90),
+    order: 1,
+    status: 'paid',
+    paid_date: daysAgo(88),
+    paid_amount: 110000,
+    created_at: daysAgo(110),
+    updated_at: daysAgo(88),
+  },
+  {
+    id: 'si-2-2',
+    schedule_id: 'ps-2',
+    cost_item_id: 'cost-1-6',
+    project_id: 'proj-1',
+    description: 'תשלום שני - חשמל קומה 1-2',
+    amount: 110000,
+    percentage: 25,
+    target_date: daysAgo(50),
+    order: 2,
+    status: 'paid',
+    paid_date: daysAgo(48),
+    paid_amount: 110000,
+    created_at: daysAgo(110),
+    updated_at: daysAgo(48),
+  },
+  {
+    id: 'si-2-3',
+    schedule_id: 'ps-2',
+    cost_item_id: 'cost-1-6',
+    project_id: 'proj-1',
+    description: 'תשלום שלישי - חשמל קומה 3-4',
+    amount: 110000,
+    percentage: 25,
+    target_date: daysAgo(3), // recently due — overdue color (red)
+    order: 3,
+    status: 'approved',
+    approved_by: 'מנהל פרויקט',
+    approved_at: daysAgo(5),
+    created_at: daysAgo(110),
+    updated_at: daysAgo(5),
+  },
+  {
+    id: 'si-2-4',
+    schedule_id: 'ps-2',
+    cost_item_id: 'cost-1-6',
+    project_id: 'proj-1',
+    description: 'תשלום סופי - חשמל',
+    amount: 110000,
+    percentage: 25,
+    milestone_id: 'ms-1-3',
+    milestone_name: 'ריצוף וחיפוי',
+    target_date: daysFromNow(30),
+    order: 4,
+    status: 'pending',
+    created_at: daysAgo(110),
+    updated_at: daysAgo(110),
+  },
+
+  // ---- ps-3: cost-1-7 (Not paid: 1 milestone_confirmed, 1 invoice_received, 1 pending) ----
+  {
+    id: 'si-3-1',
+    schedule_id: 'ps-3',
+    cost_item_id: 'cost-1-7',
+    project_id: 'proj-1',
+    description: 'מקדמה - ריצוף',
+    amount: 103333,
+    percentage: 33,
+    milestone_id: 'ms-1-2',
+    milestone_name: 'גבס ותשתיות',
+    target_date: daysAgo(5), // overdue (red)
+    order: 1,
+    status: 'milestone_confirmed',
+    confirmed_by: 'מפקח אתר',
+    confirmed_at: daysAgo(7),
+    confirmed_note: 'אבן דרך הושלמה - גבס בוצע',
+    created_at: daysAgo(40),
+    updated_at: daysAgo(7),
+  },
+  {
+    id: 'si-3-2',
+    schedule_id: 'ps-3',
+    cost_item_id: 'cost-1-7',
+    project_id: 'proj-1',
+    description: 'תשלום ביניים - ריצוף',
+    amount: 103333,
+    percentage: 33,
+    target_date: daysFromNow(5), // upcoming (amber)
+    order: 2,
+    status: 'invoice_received',
+    created_at: daysAgo(40),
+    updated_at: daysAgo(2),
+  },
+  {
+    id: 'si-3-3',
+    schedule_id: 'ps-3',
+    cost_item_id: 'cost-1-7',
+    project_id: 'proj-1',
+    description: 'תשלום סופי - ריצוף',
+    amount: 103334,
+    percentage: 34,
+    milestone_id: 'ms-1-3',
+    milestone_name: 'ריצוף וחיפוי',
+    target_date: daysFromNow(45),
+    order: 3,
+    status: 'pending',
+    created_at: daysAgo(40),
+    updated_at: daysAgo(40),
+  },
+
+  // ---- ps-4: cost-4-1 (Overdue project: 2 paid, 1 overdue pending) ----
+  {
+    id: 'si-4-1',
+    schedule_id: 'ps-4',
+    cost_item_id: 'cost-4-1',
+    project_id: 'proj-4',
+    description: 'מקדמה - קבלן ראשי',
+    amount: 783333,
+    percentage: 33,
+    target_date: daysAgo(300),
+    order: 1,
+    status: 'paid',
+    paid_date: daysAgo(298),
+    paid_amount: 783333,
+    created_at: daysAgo(370),
+    updated_at: daysAgo(298),
+  },
+  {
+    id: 'si-4-2',
+    schedule_id: 'ps-4',
+    cost_item_id: 'cost-4-1',
+    project_id: 'proj-4',
+    description: 'תשלום ביניים - קבלן ראשי',
+    amount: 783333,
+    percentage: 33,
+    target_date: daysAgo(150),
+    order: 2,
+    status: 'paid',
+    paid_date: daysAgo(148),
+    paid_amount: 783333,
+    created_at: daysAgo(370),
+    updated_at: daysAgo(148),
+  },
+  {
+    id: 'si-4-3',
+    schedule_id: 'ps-4',
+    cost_item_id: 'cost-4-1',
+    project_id: 'proj-4',
+    description: 'תשלום סופי - קבלן ראשי (באיחור!)',
+    amount: 783334,
+    percentage: 34,
+    target_date: daysAgo(30), // OVERDUE!
+    order: 3,
+    status: 'approved',
+    approved_by: 'מנהל',
+    approved_at: daysAgo(35),
+    created_at: daysAgo(370),
+    updated_at: daysAgo(35),
+  },
+];
+
+// ============================================================
 // SEED FUNCTION - Populate localStorage or Neon
 // ============================================================
 
@@ -1322,21 +1770,42 @@ export async function seedDatabase(target: 'localStorage' | 'neon' = 'localStora
     localStorage.setItem('anprojects:special_issues', JSON.stringify(seedSpecialIssues));
     localStorage.setItem('anprojects:planning_changes', JSON.stringify(seedPlanningChanges));
 
-    console.log('✅ Seed data loaded to localStorage');
-    console.log(`📊 Projects: ${seedProjects.length}`);
-    console.log(`👥 Professionals: ${seedProfessionals.length}`);
-    console.log(`💰 Budget Items: ${seedBudgetItems.length}`);
-    console.log(`💳 Payments: ${seedBudgetPayments.length}`);
-    console.log(`🎯 Milestones: ${seedProjectMilestones.length}`);
-    console.log(`📋 Tasks: ${seedTasks.length}`);
-    console.log(`📁 Files: ${seedFiles.length}`);
-    console.log(`⚠️ Issues: ${seedSpecialIssues.length}`);
+    // Cost items are stored per-project
+    const costItemsByProject = new Map<string, CostItem[]>();
+    for (const item of seedCostItems) {
+      const list = costItemsByProject.get(item.project_id) || [];
+      list.push(item);
+      costItemsByProject.set(item.project_id, list);
+    }
+    for (const [projectId, items] of costItemsByProject) {
+      localStorage.setItem(`cost_items_${projectId}`, JSON.stringify(items));
+    }
+
+    // Payment schedules and schedule items
+    localStorage.setItem('anprojects:payment_schedules', JSON.stringify(seedPaymentSchedules));
+    localStorage.setItem('anprojects:schedule_items', JSON.stringify(seedScheduleItems));
+
+    console.log('Seed data loaded to localStorage');
+    console.log(`Projects: ${seedProjects.length}`);
+    console.log(`Professionals: ${seedProfessionals.length}`);
+    console.log(`Budget Items: ${seedBudgetItems.length}`);
+    console.log(`Payments: ${seedBudgetPayments.length}`);
+    console.log(`Milestones: ${seedProjectMilestones.length}`);
+    console.log(`Tasks: ${seedTasks.length}`);
+    console.log(`Files: ${seedFiles.length}`);
+    console.log(`Issues: ${seedSpecialIssues.length}`);
+    console.log(`Cost Items: ${seedCostItems.length}`);
+    console.log(`Payment Schedules: ${seedPaymentSchedules.length}`);
+    console.log(`Schedule Items: ${seedScheduleItems.length}`);
 
     return {
       projects: seedProjects.length,
       professionals: seedProfessionals.length,
       budgetItems: seedBudgetItems.length,
       payments: seedBudgetPayments.length,
+      costItems: seedCostItems.length,
+      paymentSchedules: seedPaymentSchedules.length,
+      scheduleItems: seedScheduleItems.length,
       totalRecords:
         seedProjects.length +
         seedProfessionals.length +
@@ -1354,11 +1823,14 @@ export async function seedDatabase(target: 'localStorage' | 'neon' = 'localStora
         seedTasks.length +
         seedFiles.length +
         seedSpecialIssues.length +
-        seedPlanningChanges.length,
+        seedPlanningChanges.length +
+        seedCostItems.length +
+        seedPaymentSchedules.length +
+        seedScheduleItems.length,
     };
   } else if (target === 'neon') {
     // Seed Neon database using services
-    console.log('🚀 Starting Neon database seeding...');
+    console.log('Starting Neon database seeding...');
 
     try {
       // 1. Create Projects
@@ -1458,26 +1930,39 @@ export async function seedDatabase(target: 'localStorage' | 'neon' = 'localStora
       }
 
       // 17. Create Planning Changes
-      console.log('🔄 Creating planning changes...');
+      console.log('Creating planning changes...');
       for (const change of seedPlanningChanges) {
         await createPlanningChange(change);
       }
 
-      console.log('✅ Neon database seeded successfully!');
-      console.log(`📊 Projects: ${seedProjects.length}`);
-      console.log(`👥 Professionals: ${seedProfessionals.length}`);
-      console.log(`💰 Budget Items: ${seedBudgetItems.length}`);
-      console.log(`💳 Payments: ${seedBudgetPayments.length}`);
-      console.log(`🎯 Milestones: ${seedProjectMilestones.length}`);
-      console.log(`📋 Tasks: ${seedTasks.length}`);
-      console.log(`📁 Files: ${seedFiles.length}`);
-      console.log(`⚠️ Issues: ${seedSpecialIssues.length}`);
+      // 18. Create Cost Items
+      console.log('Creating cost items...');
+      const { createCostItem } = await import('../services/costsService');
+      for (const item of seedCostItems) {
+        await createCostItem(item);
+      }
+
+      // 19. Create Payment Schedules + Schedule Items
+      console.log('Creating payment schedules...');
+      const { createSchedule, createScheduleItem } = await import('../services/paymentSchedulesService');
+      for (const schedule of seedPaymentSchedules) {
+        await createSchedule(schedule);
+      }
+      console.log('Creating schedule items...');
+      for (const si of seedScheduleItems) {
+        await createScheduleItem(si);
+      }
+
+      console.log('Neon database seeded successfully!');
 
       return {
         projects: seedProjects.length,
         professionals: seedProfessionals.length,
         budgetItems: seedBudgetItems.length,
         payments: seedBudgetPayments.length,
+        costItems: seedCostItems.length,
+        paymentSchedules: seedPaymentSchedules.length,
+        scheduleItems: seedScheduleItems.length,
         totalRecords:
           seedProjects.length +
           seedProfessionals.length +
@@ -1495,7 +1980,10 @@ export async function seedDatabase(target: 'localStorage' | 'neon' = 'localStora
           seedTasks.length +
           seedFiles.length +
           seedSpecialIssues.length +
-          seedPlanningChanges.length,
+          seedPlanningChanges.length +
+          seedCostItems.length +
+          seedPaymentSchedules.length +
+          seedScheduleItems.length,
       };
     } catch (error) {
       console.error('❌ Error seeding Neon database:', error);
@@ -1508,9 +1996,11 @@ export async function seedDatabase(target: 'localStorage' | 'neon' = 'localStora
 
 export async function clearDatabase(target: 'localStorage' | 'neon' = 'localStorage') {
   if (target === 'localStorage') {
-    const keys = Object.keys(localStorage).filter(k => k.startsWith('anprojects:'));
+    const keys = Object.keys(localStorage).filter(
+      k => k.startsWith('anprojects:') || k.startsWith('cost_items_')
+    );
     keys.forEach(k => localStorage.removeItem(k));
-    console.log(`🗑️ Cleared ${keys.length} localStorage keys`);
+    console.log(`Cleared ${keys.length} localStorage keys`);
     return { clearedKeys: keys.length };
   } else if (target === 'neon') {
     // Clear Neon DB by truncating all tables with CASCADE
@@ -1578,6 +2068,9 @@ export const seedDataSummary = {
   files: seedFiles.length,
   specialIssues: seedSpecialIssues.length,
   planningChanges: seedPlanningChanges.length,
+  costItems: seedCostItems.length,
+  paymentSchedules: seedPaymentSchedules.length,
+  scheduleItems: seedScheduleItems.length,
 };
 
-console.log('📦 Seed Data Summary:', seedDataSummary);
+console.log('Seed Data Summary:', seedDataSummary);
