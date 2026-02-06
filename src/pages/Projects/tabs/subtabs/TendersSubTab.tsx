@@ -7,7 +7,6 @@ import {
   updateTender,
   createTender,
   deleteTender,
-  updateTenderFromEstimate,
 } from '../../../../services/tendersService';
 import { getEstimate, lockEstimate } from '../../../../services/estimatesService';
 import { getEstimateItems } from '../../../../services/estimateItemsService';
@@ -30,15 +29,6 @@ import { getBOMFile } from '../../../../services/bomFilesService';
 import BOMUploader from '../../../../components/Tenders/BOMUploader';
 import SendBOMEmailModal from '../../../../components/Tenders/SendBOMEmailModal';
 import WinnerSelectionModal from '../../../../components/Tenders/WinnerSelectionModal';
-// File upload functions - TODO: Implement file storage service
-const uploadTenderQuote = async (_tenderId: string, _participantId: string, _file: File): Promise<string> => {
-  throw new Error('File upload service not configured');
-};
-
-const getFileNameFromUrl = (url: string | null | undefined): string => {
-  if (!url) return '';
-  return url.split('/').pop() || '';
-};
 import { findChapterForTender } from '../../../../utils/tenderChapterMapping';
 import type { Project, Tender, TenderStatus, TenderType, TenderParticipant, Professional, BOMFile, CostItem, CostCategory } from '../../../../types';
 import { formatDateForDisplay } from '../../../../utils/dateUtils';
@@ -137,7 +127,7 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
   const [allProfessionals, setAllProfessionals] = useState<Professional[]>([]);
   const [participantsMap, setParticipantsMap] = useState<Record<string, TenderParticipant[]>>({});
   const [milestones, setMilestones] = useState<any[]>([]);
-  const [estimatesMap, setEstimatesMap] = useState<Record<string, any>>({});
+  const [, setEstimatesMap] = useState<Record<string, any>>({});
   const [bomFilesMap, setBomFilesMap] = useState<Record<string, BOMFile | null>>({});
   const [costItemsMap, setCostItemsMap] = useState<Record<string, CostItem>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -193,7 +183,7 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
   const [selectedParticipant, setSelectedParticipant] = useState<TenderParticipant | null>(null);
 
   // File upload state
-  const [uploadingFile, setUploadingFile] = useState(false);
+  const [,] = useState(false);
 
   // Form states
   const [tenderForm, setTenderForm] = useState({
@@ -578,23 +568,6 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
     }
   };
 
-  // Handle update tender from estimate
-  const handleUpdateTenderFromEstimate = async (tenderId: string, estimateId: string) => {
-    try {
-      const { oldBudget, newBudget } = await updateTenderFromEstimate(tenderId, estimateId);
-
-      // Reload tenders to show updated data
-      await loadTenders();
-
-      showSuccess(
-        `מכרז עודכן מהאומדן (תקציב: ${oldBudget.toLocaleString()} ← ${newBudget.toLocaleString()})`
-      );
-    } catch (error: any) {
-      console.error('Error updating tender from estimate:', error);
-      showError(error.message || 'שגיאה בעדכון מכרז מאומדן');
-    }
-  };
-
   // Handle update participant details
   const handleUpdateParticipant = async () => {
     if (!selectedParticipant) return;
@@ -776,7 +749,7 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                     <div className="flex gap-3">
                       {bomFilesMap[tender.id] ? (
                         <a
-                          href={bomFilesMap[tender.id]!.file_url}
+                          href={bomFilesMap[tender.id]!.file_path}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-900 dark:text-white font-bold rounded-lg transition-all text-sm"
@@ -1130,7 +1103,7 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                         <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                           {(() => {
                             const stats = getPriceStats(tender);
-                            return participantsWithProf.map((participant, index) => {
+                            return participantsWithProf.map((participant) => {
                               if (!participant.professional) return null;
                               const isBestPrice = stats && participant.id === stats.lowestParticipantId && !participant.is_winner;
 
