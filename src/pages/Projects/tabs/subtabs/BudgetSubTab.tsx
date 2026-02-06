@@ -76,7 +76,7 @@ const getCategoryColor = (type: string): { bg: string; text: string; border: str
 // ============================================================
 // SUMMARY CARDS
 // ============================================================
-const SummaryCards = ({ chapters, items }: {
+const SummaryCards = ({ items }: {
   chapters: BudgetChapter[];
   items: BudgetItem[];
 }) => {

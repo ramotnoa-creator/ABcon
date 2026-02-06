@@ -6,7 +6,6 @@
 import { executeQuery, executeQuerySingle, isDemoMode as isNeonDemoMode } from '../lib/neon';
 import type { PaymentSchedule, ScheduleItem } from '../types';
 import {
-  getAllSchedules as getAllSchedulesLocal,
   getSchedulesByProject as getSchedulesByProjectLocal,
   getScheduleByCostItem as getScheduleByCostItemLocal,
   getScheduleById as getScheduleByIdLocal,
@@ -18,7 +17,6 @@ import {
   getScheduleItems as getScheduleItemsLocal,
   getScheduleItemsByProject as getScheduleItemsByProjectLocal,
   getScheduleItemsByMilestone as getScheduleItemsByMilestoneLocal,
-  getScheduleItemById as getScheduleItemByIdLocal,
   addScheduleItem as addScheduleItemLocal,
   updateScheduleItem as updateScheduleItemLocal,
   deleteScheduleItem as deleteScheduleItemLocal,
@@ -257,7 +255,7 @@ export async function createScheduleItemsBatch(
   items: Omit<ScheduleItem, 'id' | 'created_at' | 'updated_at'>[]
 ): Promise<ScheduleItem[]> {
   const now = new Date().toISOString();
-  const newItems: ScheduleItem[] = items.map((item, idx) => ({
+  const newItems: ScheduleItem[] = items.map((item) => ({
     ...item,
     id: crypto.randomUUID(),
     created_at: now,

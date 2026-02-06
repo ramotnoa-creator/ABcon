@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { PaymentSchedule, ScheduleItem, CostItem, ProjectMilestone } from '../../types';
 import {

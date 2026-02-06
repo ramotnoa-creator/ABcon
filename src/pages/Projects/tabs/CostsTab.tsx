@@ -40,7 +40,7 @@ const statusRowColors: Record<string, string> = {
   tender_winner: 'border-r-4 border-r-emerald-500',
 };
 
-export default function CostsTab({ project, onProjectUpdate }: CostsTabProps) {
+export default function CostsTab({ project }: CostsTabProps) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<CostItem[]>([]);
@@ -239,11 +239,6 @@ export default function CostsTab({ project, onProjectUpdate }: CostsTabProps) {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
-  };
-
-  const getVarianceColor = (variance: number): string => {
-    if (variance === 0) return 'text-gray-600 dark:text-gray-400';
-    return variance > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400';
   };
 
   // Helper: get schedule for a cost item

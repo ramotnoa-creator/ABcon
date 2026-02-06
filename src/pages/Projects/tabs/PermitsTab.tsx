@@ -72,10 +72,6 @@ const formatDateForInput = (isoDate: string): string => {
   }
 };
 
-const getTodayISO = (): string => {
-  return new Date().toISOString().split('T')[0];
-};
-
 const isNearExpiry = (expiryDate: string): boolean => {
   const expiry = new Date(expiryDate);
   const now = new Date();

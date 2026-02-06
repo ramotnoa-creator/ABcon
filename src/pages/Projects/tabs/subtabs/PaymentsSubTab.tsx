@@ -109,11 +109,6 @@ export default function PaymentsSubTab({ projectId }: PaymentsSubTabProps) {
     return item?.description || 'פריט לא נמצא';
   };
 
-  const getCostItemName = (costItemId: string): string => {
-    const item = costItems.find(i => i.id === costItemId);
-    return item?.name || 'פריט לא נמצא';
-  };
-
   const handleApprove = async (itemId: string) => {
     if (processingItemId) return;
     if (!confirm('לאשר תשלום זה?')) return;
