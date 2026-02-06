@@ -178,10 +178,24 @@ export default function CostsTab({ project, onProjectUpdate }: CostsTabProps) {
 
   // Calculate summary
   const summary = useMemo(() => {
+    const generalEstimate = project.general_estimate || 0;
     const totalEstimated = items.reduce((sum, item) => sum + (item.estimated_amount || 0), 0);
     const totalActual = items.reduce((sum, item) => sum + (item.actual_amount || 0), 0);
     const variance = totalActual - totalEstimated;
     const variancePercent = totalEstimated > 0 ? (variance / totalEstimated) * 100 : 0;
+
+    // Items with/without actual amounts
+    const itemsWithActual = items.filter(i => i.actual_amount != null && i.actual_amount > 0);
+    const itemsWithoutActual = items.filter(i => i.actual_amount == null || i.actual_amount === 0);
+    const totalWithoutActual = itemsWithoutActual.reduce((s, i) => s + (i.estimated_amount || 0), 0);
+    const totalContracted = itemsWithActual.reduce((s, i) => s + (i.actual_amount ?? 0), 0);
+    const bestEstimateTotal = totalContracted + totalWithoutActual;
+
+    // Gap percentages vs general estimate
+    const gapEstimatedVsGeneral = generalEstimate > 0
+      ? ((totalEstimated - generalEstimate) / generalEstimate) * 100 : 0;
+    const gapBestVsGeneral = generalEstimate > 0
+      ? ((bestEstimateTotal - generalEstimate) / generalEstimate) * 100 : 0;
 
     // Square meter calculations
     const costPerBuiltSqm = project.built_sqm && project.built_sqm > 0
@@ -192,13 +206,20 @@ export default function CostsTab({ project, onProjectUpdate }: CostsTabProps) {
       : 0;
 
     return {
-      generalEstimate: project.general_estimate || 0,
+      generalEstimate,
       totalEstimated,
       totalActual,
       variance,
       variancePercent,
       costPerBuiltSqm,
       costPerSalesSqm,
+      itemsWithActualCount: itemsWithActual.length,
+      itemsWithoutActualCount: itemsWithoutActual.length,
+      totalWithoutActual,
+      totalContracted,
+      bestEstimateTotal,
+      gapEstimatedVsGeneral,
+      gapBestVsGeneral,
     };
   }, [items, project.general_estimate, project.built_sqm, project.sales_sqm]);
 
@@ -258,83 +279,195 @@ export default function CostsTab({ project, onProjectUpdate }: CostsTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {/* General Estimate */}
+      {/* Summary Cards — 4 focused cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* 1. General Estimate */}
         <div className="bg-white dark:bg-surface-dark rounded-lg p-4 border border-border-light dark:border-border-dark">
-          <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-1">
+          <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark mb-1 font-medium">
             אומדן כללי
           </div>
-          <div className="text-2xl font-bold text-text-main-light dark:text-text-main-dark">
+          <div className="text-xl font-bold text-text-main-light dark:text-text-main-dark">
             {formatCurrency(summary.generalEstimate)}
           </div>
         </div>
 
-        {/* Total Estimated */}
-        <div className="bg-white dark:bg-surface-dark rounded-lg p-4 border border-border-light dark:border-border-dark">
-          <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-1">
-            סה"כ אומדן
+        {/* 2. Total Estimated */}
+        <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800/40">
+          <div className="text-xs text-blue-600 dark:text-blue-400 mb-1 font-medium">
+            סה"כ אומדנים
           </div>
-          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+          <div className="text-xl font-bold text-blue-700 dark:text-blue-300">
             {formatCurrency(summary.totalEstimated)}
           </div>
-        </div>
-
-        {/* Total Actual */}
-        <div className="bg-white dark:bg-surface-dark rounded-lg p-4 border border-border-light dark:border-border-dark">
-          <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-1">
-            עלות בפועל
-          </div>
-          <div className="text-2xl font-bold text-text-main-light dark:text-text-main-dark">
-            {formatCurrency(summary.totalActual)}
-          </div>
-        </div>
-
-        {/* Variance */}
-        <div className="bg-white dark:bg-surface-dark rounded-lg p-4 border border-border-light dark:border-border-dark">
-          <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-1">
-            פער
-          </div>
-          <div className={`text-2xl font-bold ${getVarianceColor(summary.variance)}`}>
-            {formatCurrency(Math.abs(summary.variance))}
-            {summary.variance !== 0 && (
-              <span className="text-sm mr-1">
-                ({summary.variance > 0 ? '+' : '-'}{Math.abs(summary.variancePercent).toFixed(1)}%)
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Cost per Built SQM */}
-        <div className="bg-white dark:bg-surface-dark rounded-lg p-4 border border-border-light dark:border-border-dark">
-          <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-1">
-            מ"ר בנוי
-          </div>
-          <div className="text-lg font-bold text-text-main-light dark:text-text-main-dark">
-            {project.built_sqm || 0} מ"ר
-          </div>
-          {project.built_sqm && project.built_sqm > 0 && (
-            <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
-              {formatCurrency(summary.costPerBuiltSqm)} / מ"ר
+          {summary.generalEstimate > 0 && (
+            <div className={`text-xs font-semibold mt-1 ${
+              summary.gapEstimatedVsGeneral > 0
+                ? 'text-red-600 dark:text-red-400'
+                : summary.gapEstimatedVsGeneral < 0
+                ? 'text-green-600 dark:text-green-400'
+                : 'text-gray-500'
+            }`}>
+              {summary.gapEstimatedVsGeneral > 0 ? '+' : ''}{summary.gapEstimatedVsGeneral.toFixed(1)}% מול אומדן כללי
             </div>
           )}
         </div>
 
-        {/* Cost per Sales SQM */}
-        <div className="bg-white dark:bg-surface-dark rounded-lg p-4 border border-border-light dark:border-border-dark">
-          <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-1">
-            מ"ר מכר
+        {/* 3. Actual (contracted) */}
+        <div className={`rounded-lg p-4 border ${
+          summary.gapBestVsGeneral > 0
+            ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800/40'
+            : 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40'
+        }`}>
+          <div className={`text-xs mb-1 font-medium ${
+            summary.gapBestVsGeneral > 0
+              ? 'text-red-600 dark:text-red-400'
+              : 'text-emerald-600 dark:text-emerald-400'
+          }`}>
+            מחיר בפועל
           </div>
-          <div className="text-lg font-bold text-text-main-light dark:text-text-main-dark">
-            {project.sales_sqm || 0} מ"ר
+          <div className={`text-xl font-bold ${
+            summary.gapBestVsGeneral > 0
+              ? 'text-red-700 dark:text-red-300'
+              : 'text-emerald-700 dark:text-emerald-300'
+          }`}>
+            {formatCurrency(summary.totalContracted)}
           </div>
-          {project.sales_sqm && project.sales_sqm > 0 && (
-            <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
-              {formatCurrency(summary.costPerSalesSqm)} / מ"ר
+          {summary.generalEstimate > 0 && (
+            <div className={`text-xs font-semibold mt-1 ${
+              summary.gapBestVsGeneral > 0
+                ? 'text-red-600 dark:text-red-400'
+                : summary.gapBestVsGeneral < 0
+                ? 'text-green-600 dark:text-green-400'
+                : 'text-gray-500'
+            }`}>
+              {summary.gapBestVsGeneral > 0 ? '+' : ''}{summary.gapBestVsGeneral.toFixed(1)}% מול אומדן כללי
+              <span className="text-gray-400 dark:text-gray-500 mx-1">·</span>
+              {summary.itemsWithActualCount} פריטים
             </div>
           )}
+        </div>
+
+        {/* 4. Without Actual (risk zone) */}
+        <div className="bg-amber-50 dark:bg-amber-950/20 rounded-lg p-4 border border-amber-200 dark:border-amber-800/40">
+          <div className="text-xs text-amber-600 dark:text-amber-400 mb-1 font-medium">
+            ללא מחיר בפועל
+          </div>
+          <div className="text-xl font-bold text-amber-700 dark:text-amber-300">
+            {formatCurrency(summary.totalWithoutActual)}
+          </div>
+          <div className="text-xs font-semibold mt-1 text-amber-600 dark:text-amber-400">
+            {summary.itemsWithoutActualCount} פריטים
+          </div>
         </div>
       </div>
+
+      {/* SQM compact row */}
+      {(project.built_sqm || project.sales_sqm) && (
+        <div className="grid grid-cols-2 gap-4">
+          {project.built_sqm && project.built_sqm > 0 && (
+            <div className="bg-white dark:bg-surface-dark rounded-lg px-4 py-2.5 border border-border-light dark:border-border-dark flex items-center justify-between">
+              <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                מ"ר בנוי: {project.built_sqm.toLocaleString()}
+              </span>
+              <span className="text-xs font-bold text-text-main-light dark:text-text-main-dark">
+                {formatCurrency(summary.costPerBuiltSqm)} / מ"ר
+              </span>
+            </div>
+          )}
+          {project.sales_sqm && project.sales_sqm > 0 && (
+            <div className="bg-white dark:bg-surface-dark rounded-lg px-4 py-2.5 border border-border-light dark:border-border-dark flex items-center justify-between">
+              <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                מ"ר מכר: {project.sales_sqm.toLocaleString()}
+              </span>
+              <span className="text-xs font-bold text-text-main-light dark:text-text-main-dark">
+                {formatCurrency(summary.costPerSalesSqm)} / מ"ר
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Budget Bridge Bar */}
+      {summary.generalEstimate > 0 && (
+        <div className="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 space-y-3">
+          <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">
+            גשר תקציבי
+          </div>
+          {(() => {
+            const maxVal = Math.max(summary.generalEstimate, summary.totalEstimated, summary.bestEstimateTotal) || 1;
+            const pctGeneral = (summary.generalEstimate / maxVal) * 100;
+            const pctEstimated = (summary.totalEstimated / maxVal) * 100;
+            const pctContracted = (summary.totalContracted / maxVal) * 100;
+            const pctUncontracted = (summary.totalWithoutActual / maxVal) * 100;
+            return (
+              <div className="space-y-2">
+                {/* Bar 1: General Estimate */}
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-6 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gray-300 dark:bg-gray-600 rounded-full"
+                      style={{ width: `${pctGeneral}%` }}
+                    />
+                  </div>
+                  <div className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap min-w-[160px] text-left">
+                    אומדן כללי: {formatCurrency(summary.generalEstimate)}
+                  </div>
+                </div>
+
+                {/* Bar 2: Total Estimated */}
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-6 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-400 dark:bg-blue-500 rounded-full"
+                      style={{ width: `${pctEstimated}%` }}
+                    />
+                  </div>
+                  <div className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap min-w-[160px] text-left">
+                    סה"כ אומדנים: {formatCurrency(summary.totalEstimated)}
+                    {summary.gapEstimatedVsGeneral !== 0 && (
+                      <span className={`mr-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                        summary.gapEstimatedVsGeneral > 0
+                          ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                          : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                      }`}>
+                        {summary.gapEstimatedVsGeneral > 0 ? '+' : ''}{summary.gapEstimatedVsGeneral.toFixed(1)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Bar 3: Actual + Uncontracted (split bar) */}
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-6 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden flex">
+                    <div
+                      className="h-full bg-emerald-400 dark:bg-emerald-500"
+                      style={{ width: `${pctContracted}%` }}
+                    />
+                    <div
+                      className="h-full bg-amber-300 dark:bg-amber-500"
+                      style={{ width: `${pctUncontracted}%` }}
+                    />
+                  </div>
+                  <div className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap min-w-[160px] text-left">
+                    <span className="text-emerald-600 dark:text-emerald-400">בפועל: {formatCurrency(summary.totalContracted)}</span>
+                    <span className="text-gray-400 mx-1">+</span>
+                    <span className="text-amber-600 dark:text-amber-400">ללא מחיר: {formatCurrency(summary.totalWithoutActual)}</span>
+                    {summary.gapBestVsGeneral !== 0 && (
+                      <span className={`mr-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                        summary.gapBestVsGeneral > 0
+                          ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                          : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                      }`}>
+                        {summary.gapBestVsGeneral > 0 ? '+' : ''}{summary.gapBestVsGeneral.toFixed(1)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
 
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-4">
