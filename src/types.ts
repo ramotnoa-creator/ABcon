@@ -407,6 +407,30 @@ export interface BudgetPayment {
 }
 
 // ============================================================
+// PERMITS MODULE (היתרים)
+// ============================================================
+
+export type PermitType = 'building' | 'fire' | 'electricity' | 'water' | 'form4' | 'municipality' | 'environment' | 'other';
+export type PermitStatus = 'not_submitted' | 'submitted' | 'in_review' | 'approved' | 'rejected' | 'expired';
+
+export interface Permit {
+  id: string;
+  project_id: string;
+  permit_type: PermitType;
+  permit_name: string;
+  authority?: string;           // רשות מאשרת
+  application_reference?: string; // מספר בקשה
+  application_date?: string;    // תאריך הגשה
+  approval_date?: string;       // תאריך אישור
+  expiry_date?: string;         // תוקף עד
+  permit_number?: string;       // מספר היתר
+  status: PermitStatus;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================================
 // COSTS MODULE (NEW UNIFIED SYSTEM)
 // ============================================================
 

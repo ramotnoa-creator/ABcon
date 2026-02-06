@@ -12,6 +12,7 @@ import FinancialTab from './tabs/FinancialTab';
 import TasksMilestonesTab from './tabs/TasksMilestonesTab';
 import PlanningChangesTab from './tabs/PlanningChangesTab';
 import SpecialIssuesTab from './tabs/SpecialIssuesTab';
+import PermitsTab from './tabs/PermitsTab';
 import DeveloperApprovalTab from './tabs/DeveloperApprovalTab';
 
 const tabs = [
@@ -20,6 +21,7 @@ const tabs = [
   { id: 'financial', label: 'ניהול פיננסי', icon: 'account_balance', path: '/financial' },
   { id: 'planning-changes', label: 'שינויים בתכנון', icon: 'change_circle', path: '/planning-changes' },
   { id: 'special-issues', label: 'בעיות מיוחדות', icon: 'error', path: '/special-issues' },
+  { id: 'permits', label: 'היתרים', icon: 'gavel', path: '/permits' },
   { id: 'professionals', label: 'בעלי מקצוע', icon: 'people', path: '/professionals' },
   { id: 'files', label: 'קבצים', icon: 'folder', path: '/files' },
   { id: 'developer-approval', label: 'אישור יזם', icon: 'verified_user', path: '/developer-approval' },
@@ -173,6 +175,8 @@ export default function ProjectDetailPage() {
           return <PlanningChangesTab project={project} />;
         case 'special-issues':
           return <SpecialIssuesTab project={project} />;
+        case 'permits':
+          return <PermitsTab project={project} />;
         case 'files':
           return <FilesTab project={project} />;
         case 'developer-approval':
