@@ -119,7 +119,7 @@ export async function createBudgetCategory(
   if (isDemoMode) {
     const newCategory: BudgetCategory = {
       ...category,
-      id: `category-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -153,7 +153,7 @@ export async function createBudgetCategory(
     // Fallback to localStorage
     const newCategory: BudgetCategory = {
       ...category,
-      id: `category-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

@@ -30,8 +30,12 @@ const STORAGE_KEY = 'developer_approvals';
 const getApprovals = (projectId: string): DeveloperApproval[] => {
   const data = localStorage.getItem(STORAGE_KEY);
   if (!data) return [];
-  const all: DeveloperApproval[] = JSON.parse(data);
-  return all.filter(a => a.project_id === projectId);
+  try {
+    const all: DeveloperApproval[] = JSON.parse(data);
+    return all.filter(a => a.project_id === projectId);
+  } catch {
+    return [];
+  }
 };
 
 const saveApprovals = (approvals: DeveloperApproval[]): void => {
@@ -41,7 +45,11 @@ const saveApprovals = (approvals: DeveloperApproval[]): void => {
 const getAllApprovals = (): DeveloperApproval[] => {
   const data = localStorage.getItem(STORAGE_KEY);
   if (!data) return [];
-  return JSON.parse(data);
+  try {
+    return JSON.parse(data);
+  } catch {
+    return [];
+  }
 };
 
 interface DeveloperApprovalTabProps {
@@ -125,7 +133,7 @@ export default function DeveloperApprovalTab({ project }: DeveloperApprovalTabPr
     } else {
       // Create new
       const newApproval: DeveloperApproval = {
-        id: `approval-${Date.now()}`,
+        id: crypto.randomUUID(),
         project_id: project.id,
         approval_number: getNextApprovalNumber(),
         title: formData.title,

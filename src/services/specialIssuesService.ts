@@ -150,7 +150,7 @@ export async function createSpecialIssue(
   if (isDemoMode) {
     const newIssue: SpecialIssue = {
       ...issue,
-      id: `issue-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -189,7 +189,7 @@ export async function createSpecialIssue(
     // Fallback to localStorage
     const newIssue: SpecialIssue = {
       ...issue,
-      id: `issue-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -311,7 +311,11 @@ function transformSpecialIssueFromDB(dbIssue: any): SpecialIssue {
     priority: dbIssue.priority || undefined,
     category: dbIssue.category || undefined,
     responsible: dbIssue.responsible || undefined,
-    image_urls: dbIssue.image_urls ? JSON.parse(dbIssue.image_urls) : undefined,
+    image_urls: dbIssue.image_urls
+      ? (typeof dbIssue.image_urls === 'object'
+        ? dbIssue.image_urls
+        : (() => { try { return JSON.parse(dbIssue.image_urls); } catch { return []; } })())
+      : undefined,
     resolution: dbIssue.resolution || undefined,
     created_by: dbIssue.created_by || undefined,
     created_at: dbIssue.created_at,

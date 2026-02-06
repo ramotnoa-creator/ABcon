@@ -65,7 +65,7 @@ export async function uploadBOMFile(
   if (isDemoMode) {
     const newFile: BOMFile = {
       ...bomFile,
-      id: `bom-${Date.now()}`,
+      id: crypto.randomUUID(),
       uploaded_at: new Date().toISOString(),
     };
     const files = getFilesFromStorage();
@@ -100,7 +100,7 @@ export async function uploadBOMFile(
     // Fallback to localStorage
     const newFile: BOMFile = {
       ...bomFile,
-      id: `bom-${Date.now()}`,
+      id: crypto.randomUUID(),
       uploaded_at: new Date().toISOString(),
     };
     const files = getFilesFromStorage();

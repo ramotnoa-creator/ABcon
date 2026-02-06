@@ -206,7 +206,7 @@ export default function OverviewTab({ project, statusColors, onTabChange }: Over
             </span>
           </button>
           <button
-            onClick={() => handleStatClick('tasks')}
+            onClick={() => handleStatClick('tasks-milestones')}
             className="bg-surface-light dark:bg-surface-dark p-4 rounded-xl border border-border-light dark:border-border-dark flex items-center gap-4 hover:shadow-md transition-all text-start group"
           >
             <div className="size-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-colors">
@@ -281,7 +281,7 @@ export default function OverviewTab({ project, statusColors, onTabChange }: Over
                     עדיין לא הוגדרו ציוני דרך לפרויקט זה
                   </p>
                   <button
-                    onClick={() => handleStatClick('milestones')}
+                    onClick={() => handleStatClick('tasks-milestones')}
                     className="flex items-center gap-2 text-primary hover:text-primary-hover font-medium transition-colors group"
                   >
                     <span>לכל ציוני הדרך</span>
@@ -351,7 +351,7 @@ export default function OverviewTab({ project, statusColors, onTabChange }: Over
                   ))}
                 </div>
                 <button
-                  onClick={() => handleStatClick('milestones')}
+                  onClick={() => handleStatClick('tasks-milestones')}
                   className="flex items-center gap-2 text-primary hover:text-primary-hover font-medium transition-colors group w-full justify-center pt-2 border-t border-border-light dark:border-border-dark"
                 >
                   <span>לכל ציוני הדרך</span>

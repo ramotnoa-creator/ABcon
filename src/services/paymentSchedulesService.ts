@@ -86,7 +86,7 @@ export async function createSchedule(
   const now = new Date().toISOString();
   const newSchedule: PaymentSchedule = {
     ...schedule,
-    id: `schedule-${Date.now()}`,
+    id: crypto.randomUUID(),
     created_at: now,
     updated_at: now,
   };
@@ -121,12 +121,9 @@ export async function updateSchedule(id: string, updates: Partial<PaymentSchedul
     const values: unknown[] = [];
     let idx = 1;
 
-    for (const [key, value] of Object.entries(updates)) {
-      if (key !== 'id' && key !== 'created_at') {
-        setClauses.push(`${key} = $${idx++}`);
-        values.push(value);
-      }
-    }
+    if (updates.total_amount !== undefined) { setClauses.push(`total_amount = $${idx++}`); values.push(updates.total_amount); }
+    if (updates.status !== undefined) { setClauses.push(`status = $${idx++}`); values.push(updates.status); }
+
     if (setClauses.length === 0) return;
     setClauses.push('updated_at = NOW()');
     values.push(id);
@@ -224,7 +221,7 @@ export async function createScheduleItem(
   const now = new Date().toISOString();
   const newItem: ScheduleItem = {
     ...item,
-    id: `si-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    id: crypto.randomUUID(),
     created_at: now,
     updated_at: now,
   };
@@ -262,7 +259,7 @@ export async function createScheduleItemsBatch(
   const now = new Date().toISOString();
   const newItems: ScheduleItem[] = items.map((item, idx) => ({
     ...item,
-    id: `si-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+    id: crypto.randomUUID(),
     created_at: now,
     updated_at: now,
   }));
@@ -310,13 +307,23 @@ export async function updateScheduleItem(id: string, updates: Partial<ScheduleIt
     const values: unknown[] = [];
     let idx = 1;
 
-    for (const [key, value] of Object.entries(updates)) {
-      if (key !== 'id' && key !== 'created_at') {
-        const col = key === 'order' ? '"order"' : key;
-        setClauses.push(`${col} = $${idx++}`);
-        values.push(value ?? null);
-      }
-    }
+    if (updates.description !== undefined) { setClauses.push(`description = $${idx++}`); values.push(updates.description); }
+    if (updates.amount !== undefined) { setClauses.push(`amount = $${idx++}`); values.push(updates.amount); }
+    if (updates.percentage !== undefined) { setClauses.push(`percentage = $${idx++}`); values.push(updates.percentage); }
+    if (updates.milestone_id !== undefined) { setClauses.push(`milestone_id = $${idx++}`); values.push(updates.milestone_id ?? null); }
+    if (updates.milestone_name !== undefined) { setClauses.push(`milestone_name = $${idx++}`); values.push(updates.milestone_name ?? null); }
+    if (updates.target_date !== undefined) { setClauses.push(`target_date = $${idx++}`); values.push(updates.target_date ?? null); }
+    if (updates.order !== undefined) { setClauses.push(`"order" = $${idx++}`); values.push(updates.order); }
+    if (updates.status !== undefined) { setClauses.push(`status = $${idx++}`); values.push(updates.status); }
+    if (updates.confirmed_by !== undefined) { setClauses.push(`confirmed_by = $${idx++}`); values.push(updates.confirmed_by ?? null); }
+    if (updates.confirmed_at !== undefined) { setClauses.push(`confirmed_at = $${idx++}`); values.push(updates.confirmed_at ?? null); }
+    if (updates.confirmed_note !== undefined) { setClauses.push(`confirmed_note = $${idx++}`); values.push(updates.confirmed_note ?? null); }
+    if (updates.attachment_url !== undefined) { setClauses.push(`attachment_url = $${idx++}`); values.push(updates.attachment_url ?? null); }
+    if (updates.approved_by !== undefined) { setClauses.push(`approved_by = $${idx++}`); values.push(updates.approved_by ?? null); }
+    if (updates.approved_at !== undefined) { setClauses.push(`approved_at = $${idx++}`); values.push(updates.approved_at ?? null); }
+    if (updates.paid_date !== undefined) { setClauses.push(`paid_date = $${idx++}`); values.push(updates.paid_date ?? null); }
+    if (updates.paid_amount !== undefined) { setClauses.push(`paid_amount = $${idx++}`); values.push(updates.paid_amount ?? null); }
+
     if (setClauses.length === 0) return;
     setClauses.push('updated_at = NOW()');
     values.push(id);

@@ -69,7 +69,7 @@ export async function createBudget(
   if (isDemoMode) {
     const newBudget: Budget = {
       ...budget,
-      id: `budget-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -87,7 +87,7 @@ export async function createBudget(
         budget.project_id,
         budget.planned_budget,
         budget.actual_budget,
-        budget.variance || null,
+        budget.variance ?? null,
         budget.status,
         budget.notes || null,
       ]
@@ -103,7 +103,7 @@ export async function createBudget(
     // Fallback to localStorage
     const newBudget: Budget = {
       ...budget,
-      id: `budget-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -182,7 +182,7 @@ function transformBudgetFromDB(dbBudget: any): Budget {
     project_id: dbBudget.project_id,
     planned_budget: dbBudget.planned_budget,
     actual_budget: dbBudget.actual_budget,
-    variance: dbBudget.variance || undefined,
+    variance: dbBudget.variance ?? undefined,
     status: dbBudget.status,
     notes: dbBudget.notes || undefined,
     created_at: dbBudget.created_at,

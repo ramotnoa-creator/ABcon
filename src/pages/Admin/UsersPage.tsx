@@ -223,7 +223,7 @@ export default function UsersPage() {
     } else {
       // Create new user
       const newUser: User = {
-        id: Date.now().toString(),
+        id: crypto.randomUUID(),
         email: userData.email || '',
         full_name: userData.full_name || '',
         phone: userData.phone,

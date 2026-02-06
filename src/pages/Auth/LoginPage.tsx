@@ -140,7 +140,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="text-center text-xs text-gray-500 dark:text-gray-400">
-          © 2024 AB Projects Management. כל הזכויות שמורות.
+          {new Date().getFullYear()} © AB Projects Management. כל הזכויות שמורות.
         </p>
       </div>
     </div>

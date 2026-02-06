@@ -138,7 +138,7 @@ export async function createFile(
   if (isDemoMode) {
     const newFile: File = {
       ...file,
-      id: `file-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -180,7 +180,7 @@ export async function createFile(
     // Fallback to localStorage
     const newFile: File = {
       ...file,
-      id: `file-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

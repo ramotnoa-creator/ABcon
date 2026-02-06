@@ -99,7 +99,7 @@ export async function createEstimateItem(
   if (isDemoMode) {
     const newItem: EstimateItem = {
       ...itemWithTotals,
-      id: `item-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -152,7 +152,7 @@ export async function createEstimateItem(
     // Fallback to localStorage
     const newItem: EstimateItem = {
       ...itemWithTotals,
-      id: `item-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -456,14 +456,14 @@ function transformEstimateItemFromDB(dbItem: any): EstimateItem {
     category: dbItem.category || undefined,
     subcategory: dbItem.subcategory || undefined,
     unit: dbItem.unit || undefined,
-    quantity: parseFloat(dbItem.quantity) || 0,
-    unit_price: parseFloat(dbItem.unit_price) || 0,
-    total_price: parseFloat(dbItem.total_price) || 0,
-    vat_rate: parseFloat(dbItem.vat_rate) || 17,
-    vat_amount: parseFloat(dbItem.vat_amount) || 0,
-    total_with_vat: parseFloat(dbItem.total_with_vat) || 0,
-    notes: dbItem.notes || undefined,
-    order_index: parseInt(dbItem.order_index) || 0,
+    quantity: Number.isFinite(parseFloat(dbItem.quantity)) ? parseFloat(dbItem.quantity) : 0,
+    unit_price: Number.isFinite(parseFloat(dbItem.unit_price)) ? parseFloat(dbItem.unit_price) : 0,
+    total_price: Number.isFinite(parseFloat(dbItem.total_price)) ? parseFloat(dbItem.total_price) : 0,
+    vat_rate: Number.isFinite(parseFloat(dbItem.vat_rate)) ? parseFloat(dbItem.vat_rate) : 17,
+    vat_amount: Number.isFinite(parseFloat(dbItem.vat_amount)) ? parseFloat(dbItem.vat_amount) : 0,
+    total_with_vat: Number.isFinite(parseFloat(dbItem.total_with_vat)) ? parseFloat(dbItem.total_with_vat) : 0,
+    notes: dbItem.notes ?? undefined,
+    order_index: Number.isFinite(parseInt(dbItem.order_index)) ? parseInt(dbItem.order_index) : 0,
     created_at: dbItem.created_at,
     updated_at: dbItem.updated_at,
   };

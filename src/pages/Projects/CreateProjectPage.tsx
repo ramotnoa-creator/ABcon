@@ -115,24 +115,24 @@ export default function CreateProjectPage() {
       {/* Page Heading */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-royal-gray-dark text-3xl md:text-4xl font-black leading-tight tracking-tight">
+          <h1 className="text-royal-gray-dark dark:text-gray-100 text-3xl md:text-4xl font-black leading-tight tracking-tight">
             יצירת פרויקט חדש
           </h1>
-          <p className="text-slate-500 mt-2 text-sm md:text-base">
+          <p className="text-slate-500 dark:text-gray-400 mt-2 text-sm md:text-base">
             מלא את הפרטים ליצירת כרטיס פרויקט חדש במערכת
           </p>
         </div>
       </div>
 
       {/* Form Container */}
-      <div className="bg-white rounded shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded shadow-sm border border-slate-200 dark:border-gray-700 overflow-hidden">
         {/* Form Header Bar */}
-        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-          <span className="text-sm font-bold text-royal-gray uppercase tracking-wider flex items-center gap-2">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-gray-700 bg-slate-50/50 dark:bg-gray-800/50 flex items-center justify-between">
+          <span className="text-sm font-bold text-royal-gray dark:text-gray-200 uppercase tracking-wider flex items-center gap-2">
             <span className="material-symbols-outlined text-lg">edit_document</span>
             פרטי פרויקט
           </span>
-          <span className="text-xs font-medium text-slate-400">* שדות חובה</span>
+          <span className="text-xs font-medium text-slate-400 dark:text-gray-500">* שדות חובה</span>
         </div>
 
         {/* The Form */}
@@ -141,14 +141,14 @@ export default function CreateProjectPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Project Name */}
             <div className="flex flex-col gap-2">
-              <label className="text-royal-gray text-sm font-bold leading-normal" htmlFor="project-name">
+              <label className="text-royal-gray dark:text-gray-200 text-sm font-bold leading-normal" htmlFor="project-name">
                 שם הפרויקט <span className="text-red-500">*</span>
               </label>
               <input
-                className={`form-input w-full rounded border px-4 py-3 text-slate-900 focus:ring-1 placeholder:text-slate-400 text-base transition-shadow ${
+                className={`form-input w-full rounded border px-4 py-3 text-slate-900 dark:text-gray-100 focus:ring-1 placeholder:text-slate-400 dark:placeholder:text-gray-500 text-base transition-shadow ${
                   errors.project_name
                     ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
-                    : 'border-slate-300 bg-white focus:border-royal-gray focus:ring-royal-gray'
+                    : 'border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:border-royal-gray focus:ring-royal-gray'
                 }`}
                 id="project-name"
                 name="project_name"
@@ -164,14 +164,14 @@ export default function CreateProjectPage() {
 
             {/* Client Name */}
             <div className="flex flex-col gap-2">
-              <label className="text-royal-gray text-sm font-bold leading-normal" htmlFor="client-name">
+              <label className="text-royal-gray dark:text-gray-200 text-sm font-bold leading-normal" htmlFor="client-name">
                 שם הלקוח <span className="text-red-500">*</span>
               </label>
               <input
-                className={`form-input w-full rounded border px-4 py-3 text-slate-900 focus:ring-1 placeholder:text-slate-400 text-base transition-shadow ${
+                className={`form-input w-full rounded border px-4 py-3 text-slate-900 dark:text-gray-100 focus:ring-1 placeholder:text-slate-400 dark:placeholder:text-gray-500 text-base transition-shadow ${
                   errors.client_name
                     ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
-                    : 'border-slate-300 bg-white focus:border-royal-gray focus:ring-royal-gray'
+                    : 'border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:border-royal-gray focus:ring-royal-gray'
                 }`}
                 id="client-name"
                 name="client_name"
@@ -187,12 +187,12 @@ export default function CreateProjectPage() {
 
             {/* Address */}
             <div className="flex flex-col gap-2 md:col-span-2">
-              <label className="text-royal-gray text-sm font-bold leading-normal" htmlFor="address">
+              <label className="text-royal-gray dark:text-gray-200 text-sm font-bold leading-normal" htmlFor="address">
                 כתובת הפרויקט
               </label>
               <div className="relative">
                 <input
-                  className="form-input w-full rounded border border-slate-300 bg-white px-4 py-3 text-slate-900 focus:border-royal-gray focus:ring-1 focus:ring-royal-gray placeholder:text-slate-400 text-base transition-shadow pl-10"
+                  className="form-input w-full rounded border border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-3 text-slate-900 dark:text-gray-100 focus:border-royal-gray focus:ring-1 focus:ring-royal-gray placeholder:text-slate-400 dark:placeholder:text-gray-500 text-base transition-shadow ps-10"
                   id="address"
                   name="address"
                   placeholder="רחוב, מספר עיר"
@@ -200,7 +200,7 @@ export default function CreateProjectPage() {
                   value={formData.address}
                   onChange={handleChange}
                 />
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                <span className="material-symbols-outlined absolute start-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-gray-500 pointer-events-none">
                   location_on
                 </span>
               </div>
@@ -208,12 +208,12 @@ export default function CreateProjectPage() {
 
             {/* Status */}
             <div className="flex flex-col gap-2">
-              <label className="text-royal-gray text-sm font-bold leading-normal" htmlFor="status">
+              <label className="text-royal-gray dark:text-gray-200 text-sm font-bold leading-normal" htmlFor="status">
                 סטטוס פרויקט
               </label>
               <div className="relative">
                 <select
-                  className="form-select w-full rounded border border-slate-300 bg-white px-4 py-3 text-slate-900 focus:border-royal-gray focus:ring-1 focus:ring-royal-gray text-base appearance-none cursor-pointer"
+                  className="form-select w-full rounded border border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-3 text-slate-900 dark:text-gray-100 focus:border-royal-gray focus:ring-1 focus:ring-royal-gray text-base appearance-none cursor-pointer"
                   id="status"
                   name="status"
                   value={formData.status}
@@ -230,11 +230,11 @@ export default function CreateProjectPage() {
 
             {/* Created At (Read Only) */}
             <div className="flex flex-col gap-2">
-              <label className="text-slate-500 text-sm font-bold leading-normal" htmlFor="created-at">
+              <label className="text-slate-500 dark:text-gray-400 text-sm font-bold leading-normal" htmlFor="created-at">
                 נוצר ב- (אוטומטי)
               </label>
               <input
-                className="form-input w-full rounded border border-slate-200 bg-slate-100 px-4 py-3 text-slate-500 focus:outline-none cursor-not-allowed text-base"
+                className="form-input w-full rounded border border-slate-200 dark:border-gray-600 bg-slate-100 dark:bg-gray-900 px-4 py-3 text-slate-500 dark:text-gray-400 focus:outline-none cursor-not-allowed text-base"
                 id="created-at"
                 readOnly
                 type="text"
@@ -243,22 +243,22 @@ export default function CreateProjectPage() {
             </div>
           </div>
 
-          <div className="h-px bg-slate-200 w-full my-4"></div>
+          <div className="h-px bg-slate-200 dark:bg-gray-700 w-full my-4"></div>
 
           {/* Section 2: Permit Timeline */}
           <div>
-            <h3 className="text-royal-gray font-bold text-lg flex items-center gap-2 mb-4">
+            <h3 className="text-royal-gray dark:text-gray-200 font-bold text-lg flex items-center gap-2 mb-4">
               <span className="material-symbols-outlined text-primary">calendar_clock</span>
               לוחות זמנים להיתר
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Permit Start Date */}
               <div className="flex flex-col gap-2">
-                <label className="text-royal-gray text-sm font-bold leading-normal" htmlFor="permit-start">
+                <label className="text-royal-gray dark:text-gray-200 text-sm font-bold leading-normal" htmlFor="permit-start">
                   תאריך התחלת היתר
                 </label>
                 <input
-                  className="form-input w-full rounded border border-slate-300 bg-white px-4 py-3 text-slate-900 focus:border-royal-gray focus:ring-1 focus:ring-royal-gray text-base"
+                  className="form-input w-full rounded border border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-3 text-slate-900 dark:text-gray-100 focus:border-royal-gray focus:ring-1 focus:ring-royal-gray text-base"
                   id="permit-start"
                   name="permit_start_date"
                   type="date"
@@ -269,7 +269,7 @@ export default function CreateProjectPage() {
 
               {/* Duration */}
               <div className="flex flex-col gap-2">
-                <label className="text-royal-gray text-sm font-bold leading-normal" htmlFor="permit-duration">
+                <label className="text-royal-gray dark:text-gray-200 text-sm font-bold leading-normal" htmlFor="permit-duration">
                   משך היתר (חודשים)
                 </label>
                 <input
@@ -289,10 +289,10 @@ export default function CreateProjectPage() {
               <div className="flex flex-col gap-2">
                 <label className="text-slate-500 text-sm font-bold leading-normal flex justify-between" htmlFor="target-date">
                   <span>תאריך יעד להיתר</span>
-                  <span className="text-xs font-normal text-primary bg-blue-50 px-2 rounded-full">מחושב</span>
+                  <span className="text-xs font-normal text-primary bg-blue-50 dark:bg-blue-900/30 px-2 rounded-full">מחושב</span>
                 </label>
                 <input
-                  className="form-input w-full rounded border border-slate-200 bg-slate-100 px-4 py-3 text-slate-600 focus:outline-none cursor-not-allowed font-medium text-base"
+                  className="form-input w-full rounded border border-slate-200 dark:border-gray-600 bg-slate-100 dark:bg-gray-900 px-4 py-3 text-slate-600 dark:text-gray-400 focus:outline-none cursor-not-allowed font-medium text-base"
                   id="target-date"
                   readOnly
                   type="text"
@@ -302,11 +302,11 @@ export default function CreateProjectPage() {
 
               {/* Approval Date (Optional) */}
               <div className="flex flex-col gap-2">
-                <label className="text-royal-gray text-sm font-bold leading-normal" htmlFor="approval-date">
-                  תאריך קבלת היתר <span className="text-slate-400 font-normal text-xs">(אופציונלי)</span>
+                <label className="text-royal-gray dark:text-gray-200 text-sm font-bold leading-normal" htmlFor="approval-date">
+                  תאריך קבלת היתר <span className="text-slate-400 dark:text-gray-500 font-normal text-xs">(אופציונלי)</span>
                 </label>
                 <input
-                  className="form-input w-full rounded border border-slate-300 bg-white px-4 py-3 text-slate-900 focus:border-royal-gray focus:ring-1 focus:ring-royal-gray text-base"
+                  className="form-input w-full rounded border border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-3 text-slate-900 dark:text-gray-100 focus:border-royal-gray focus:ring-1 focus:ring-royal-gray text-base"
                   id="approval-date"
                   name="permit_approval_date"
                   type="date"
@@ -317,15 +317,15 @@ export default function CreateProjectPage() {
             </div>
           </div>
 
-          <div className="h-px bg-slate-200 w-full my-4"></div>
+          <div className="h-px bg-slate-200 dark:bg-gray-700 w-full my-4"></div>
 
           {/* Section 3: Notes */}
           <div className="flex flex-col gap-2">
-            <label className="text-royal-gray text-sm font-bold leading-normal" htmlFor="notes">
+            <label className="text-royal-gray dark:text-gray-200 text-sm font-bold leading-normal" htmlFor="notes">
               הערות ודגשים
             </label>
             <textarea
-              className="form-textarea w-full rounded border border-slate-300 bg-white px-4 py-3 text-slate-900 focus:border-royal-gray focus:ring-1 focus:ring-royal-gray placeholder:text-slate-400 text-base resize-none"
+              className="form-textarea w-full rounded border border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-3 text-slate-900 dark:text-gray-100 focus:border-royal-gray focus:ring-1 focus:ring-royal-gray placeholder:text-slate-400 dark:placeholder:text-gray-500 text-base resize-none"
               id="notes"
               name="notes"
               placeholder="הוסף הערות כלליות לגבי הפרויקט..."
@@ -338,14 +338,14 @@ export default function CreateProjectPage() {
           {/* Actions Footer */}
           <div className="flex flex-col-reverse md:flex-row justify-end gap-4 pt-4">
             <button
-              className="w-full md:w-auto px-8 py-3.5 rounded bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold text-base transition-colors focus:ring-2 focus:ring-slate-300 focus:outline-none"
+              className="w-full md:w-auto px-8 py-3.5 rounded bg-slate-200 dark:bg-gray-700 text-slate-700 dark:text-gray-200 hover:bg-slate-300 dark:hover:bg-gray-600 font-bold text-base transition-colors focus:ring-2 focus:ring-slate-300 focus:outline-none"
               type="button"
               onClick={handleCancel}
             >
               ביטול
             </button>
             <button
-              className="w-full md:w-auto px-10 py-3.5 rounded bg-royal-gray hover:bg-royal-gray-dark text-white font-bold text-base shadow-lg shadow-slate-300/50 transition-all transform active:scale-95 focus:ring-2 focus:ring-royal-gray focus:ring-offset-2 focus:outline-none flex items-center justify-center gap-2"
+              className="w-full md:w-auto px-10 py-3.5 rounded bg-royal-gray hover:bg-royal-gray-dark text-white font-bold text-base shadow-lg shadow-slate-300/50 dark:shadow-none transition-all transform active:scale-95 focus:ring-2 focus:ring-royal-gray focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:outline-none flex items-center justify-center gap-2"
               type="submit"
             >
               <span className="material-symbols-outlined text-sm">save</span>

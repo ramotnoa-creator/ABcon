@@ -171,7 +171,7 @@ export async function createMilestone(
   if (isDemoMode) {
     const newMilestone: ProjectMilestone = {
       ...milestone,
-      id: `milestone-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -211,7 +211,7 @@ export async function createMilestone(
     // Fallback to localStorage
     const newMilestone: ProjectMilestone = {
       ...milestone,
-      id: `milestone-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

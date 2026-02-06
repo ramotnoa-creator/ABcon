@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
   const { updatePassword, isDemoMode } = useAuth();
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -22,6 +23,13 @@ export default function ResetPasswordPage() {
       // In production, you'd want to validate this more thoroughly
       console.log('No access token found in URL');
     }
+
+    // Cleanup redirect timer on unmount
+    return () => {
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+      }
+    };
   }, []);
 
   const validatePassword = (pass: string): string | null => {
@@ -67,7 +75,7 @@ export default function ResetPasswordPage() {
       await updatePassword(password);
       setSuccess(true);
       // Redirect to login after 3 seconds
-      setTimeout(() => {
+      redirectTimerRef.current = setTimeout(() => {
         navigate('/login');
       }, 3000);
     } catch (err: unknown) {

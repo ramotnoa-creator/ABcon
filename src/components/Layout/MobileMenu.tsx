@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface MobileMenuProps {
   onClose: () => void;
@@ -7,6 +8,7 @@ interface MobileMenuProps {
 
 export default function MobileMenu({ onClose }: MobileMenuProps) {
   const location = useLocation();
+  const { user, logout } = useAuth();
   const [isClosing, setIsClosing] = useState(false);
 
   const isActive = (path: string) => {
@@ -136,11 +138,11 @@ export default function MobileMenu({ onClose }: MobileMenuProps) {
           <div className="p-4 border-b border-border-light dark:border-border-dark">
             <div className="flex items-center gap-3">
               <div className="size-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
-                מכ
+                {user?.full_name?.charAt(0) ?? '?'}
               </div>
               <div className="flex-1">
-                <p className="font-bold text-sm">משה כהן</p>
-                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">moshe@example.com</p>
+                <p className="font-bold text-sm">{user?.full_name ?? 'אורח'}</p>
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{user?.email ?? ''}</p>
               </div>
             </div>
           </div>
@@ -155,8 +157,8 @@ export default function MobileMenu({ onClose }: MobileMenuProps) {
               <span className="material-symbols-outlined text-[20px]">settings</span>
               הגדרות
             </button>
-            <button 
-              onClick={handleClose}
+            <button
+              onClick={() => { logout(); handleClose(); }}
               className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
             >
               <span className="material-symbols-outlined text-[20px]">logout</span>
@@ -167,7 +169,7 @@ export default function MobileMenu({ onClose }: MobileMenuProps) {
           {/* Copyright */}
           <div className="p-3 border-t border-border-light dark:border-border-dark">
             <p className="text-xs text-center text-text-secondary-light dark:text-text-secondary-dark">
-              אנ פרויקטים © 2024
+              אנ פרויקטים {new Date().getFullYear()} ©
             </p>
           </div>
         </div>

@@ -105,7 +105,7 @@ export async function createCostItem(
         'execution',
         newItem.category,
         newItem.estimated_amount,
-        newItem.actual_amount || null,
+        newItem.actual_amount ?? null,
         newItem.vat_included,
         newItem.vat_rate,
         newItem.status,
@@ -161,12 +161,16 @@ export async function updateCostItem(
     const values: unknown[] = [];
     let paramIndex = 1;
 
-    Object.entries(updates).forEach(([key, value]) => {
-      if (key !== 'id' && key !== 'created_at') {
-        setClauses.push(`${key} = $${paramIndex++}`);
-        values.push(value);
-      }
-    });
+    if (updates.name !== undefined) { setClauses.push(`name = $${paramIndex++}`); values.push(updates.name); }
+    if (updates.description !== undefined) { setClauses.push(`description = $${paramIndex++}`); values.push(updates.description); }
+    if (updates.category !== undefined) { setClauses.push(`category = $${paramIndex++}`); values.push(updates.category); }
+    if (updates.estimated_amount !== undefined) { setClauses.push(`estimated_amount = $${paramIndex++}`); values.push(updates.estimated_amount); }
+    if (updates.actual_amount !== undefined) { setClauses.push(`actual_amount = $${paramIndex++}`); values.push(updates.actual_amount); }
+    if (updates.vat_included !== undefined) { setClauses.push(`vat_included = $${paramIndex++}`); values.push(updates.vat_included); }
+    if (updates.vat_rate !== undefined) { setClauses.push(`vat_rate = $${paramIndex++}`); values.push(updates.vat_rate); }
+    if (updates.status !== undefined) { setClauses.push(`status = $${paramIndex++}`); values.push(updates.status); }
+    if (updates.tender_id !== undefined) { setClauses.push(`tender_id = $${paramIndex++}`); values.push(updates.tender_id); }
+    if (updates.notes !== undefined) { setClauses.push(`notes = $${paramIndex++}`); values.push(updates.notes); }
 
     if (setClauses.length === 0) return;
 
@@ -280,7 +284,7 @@ function transformCostItemFromDB(dbItem: any): CostItem {
     description: dbItem.description || undefined,
     category: dbItem.category,
     estimated_amount: parseFloat(dbItem.estimated_amount),
-    actual_amount: dbItem.actual_amount ? parseFloat(dbItem.actual_amount) : undefined,
+    actual_amount: dbItem.actual_amount != null ? parseFloat(dbItem.actual_amount) : undefined,
     vat_included: dbItem.vat_included,
     vat_rate: parseFloat(dbItem.vat_rate),
     status: dbItem.status,

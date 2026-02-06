@@ -69,7 +69,7 @@ export async function createProject(
   if (isDemoMode) {
     const newProject: Project = {
       ...project,
-      id: `project-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
     };
     addProjectLocal(newProject);
@@ -122,7 +122,7 @@ export async function createProject(
     // Fallback to localStorage
     const newProject: Project = {
       ...project,
-      id: `project-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
     };
     addProjectLocal(newProject);
@@ -295,6 +295,10 @@ function transformProjectFromDB(dbProject: any): Project {
     permit_target_date: dbProject.permit_target_date,
     permit_approval_date: dbProject.permit_approval_date,
     notes: dbProject.notes,
+    general_estimate: dbProject.general_estimate ?? undefined,
+    built_sqm: dbProject.built_sqm ?? undefined,
+    sales_sqm: dbProject.sales_sqm ?? undefined,
+    current_vat_rate: dbProject.current_vat_rate ?? undefined,
     created_at: dbProject.created_at,
     updated_at_text: formatUpdatedAt(dbProject.updated_at || dbProject.created_at),
   };

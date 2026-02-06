@@ -131,7 +131,7 @@ export async function getNextBudgetItemOrder(projectId: string, chapterId: strin
       [projectId, chapterId]
     );
 
-    const maxOrder = (data?.max_order as number) || 0;
+    const maxOrder = (data?.max_order as number) ?? 0;
     return maxOrder + 1;
   } catch (error: unknown) {
     console.error('Error getting next budget item order:', error);
@@ -259,7 +259,7 @@ export async function createBudgetItem(
   if (isDemoMode) {
     const newItem: BudgetItem = {
       ...item,
-      id: `item-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -281,8 +281,8 @@ export async function createBudgetItem(
         item.code || null,
         item.description,
         item.unit || null,
-        item.quantity || null,
-        item.unit_price || null,
+        item.quantity ?? null,
+        item.unit_price ?? null,
         item.total_price,
         item.vat_rate,
         item.vat_amount,
@@ -308,7 +308,7 @@ export async function createBudgetItem(
     // Fallback to localStorage
     const newItem: BudgetItem = {
       ...item,
-      id: `item-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -481,8 +481,8 @@ function transformBudgetItemFromDB(dbItem: any): BudgetItem {
     code: dbItem.code || undefined,
     description: dbItem.description,
     unit: dbItem.unit || undefined,
-    quantity: dbItem.quantity || undefined,
-    unit_price: dbItem.unit_price || undefined,
+    quantity: dbItem.quantity ?? undefined,
+    unit_price: dbItem.unit_price ?? undefined,
     total_price: dbItem.total_price,
     vat_rate: dbItem.vat_rate,
     vat_amount: dbItem.vat_amount,
@@ -497,9 +497,9 @@ function transformBudgetItemFromDB(dbItem: any): BudgetItem {
     notes: dbItem.notes || undefined,
     // Variance tracking fields
     estimate_item_id: dbItem.estimate_item_id || undefined,
-    estimate_amount: dbItem.estimate_amount ? parseFloat(dbItem.estimate_amount) : undefined,
-    variance_amount: dbItem.variance_amount ? parseFloat(dbItem.variance_amount) : undefined,
-    variance_percent: dbItem.variance_percent ? parseFloat(dbItem.variance_percent) : undefined,
+    estimate_amount: dbItem.estimate_amount != null ? parseFloat(dbItem.estimate_amount) : undefined,
+    variance_amount: dbItem.variance_amount != null ? parseFloat(dbItem.variance_amount) : undefined,
+    variance_percent: dbItem.variance_percent != null ? parseFloat(dbItem.variance_percent) : undefined,
     created_at: dbItem.created_at,
     updated_at: dbItem.updated_at,
   };

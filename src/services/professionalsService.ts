@@ -124,7 +124,7 @@ export async function createProfessional(
   if (isDemoMode) {
     const newProfessional: Professional = {
       ...professional,
-      id: `professional-${Date.now()}`,
+      id: crypto.randomUUID(),
     };
     addProfessionalLocal(newProfessional);
     return newProfessional;
@@ -142,7 +142,7 @@ export async function createProfessional(
         professional.field,
         professional.phone || null,
         professional.email || null,
-        professional.rating || null,
+        professional.rating ?? null,
         professional.notes || null,
         professional.is_active,
       ]
@@ -158,7 +158,7 @@ export async function createProfessional(
     // Fallback to localStorage
     const newProfessional: Professional = {
       ...professional,
-      id: `professional-${Date.now()}`,
+      id: crypto.randomUUID(),
     };
     addProfessionalLocal(newProfessional);
     return newProfessional;
@@ -268,7 +268,7 @@ function transformProfessionalFromDB(dbProfessional: any): Professional {
     field: dbProfessional.field,
     phone: dbProfessional.phone || undefined,
     email: dbProfessional.email || undefined,
-    rating: dbProfessional.rating || undefined,
+    rating: dbProfessional.rating ?? undefined,
     notes: dbProfessional.notes || undefined,
     is_active: dbProfessional.is_active,
   };

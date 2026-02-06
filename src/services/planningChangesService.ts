@@ -307,7 +307,11 @@ function transformPlanningChangeFromDB(dbChange: any): PlanningChange {
     schedule_impact: dbChange.schedule_impact || undefined,
     budget_impact: dbChange.budget_impact || undefined,
     decision: dbChange.decision,
-    image_urls: dbChange.image_urls ? JSON.parse(dbChange.image_urls) : undefined,
+    image_urls: dbChange.image_urls
+      ? (typeof dbChange.image_urls === 'object'
+        ? dbChange.image_urls
+        : (() => { try { return JSON.parse(dbChange.image_urls); } catch { return []; } })())
+      : undefined,
     created_by: dbChange.created_by || undefined,
     created_at: dbChange.created_at,
     updated_at: dbChange.updated_at,

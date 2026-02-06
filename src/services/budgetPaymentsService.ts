@@ -169,7 +169,7 @@ export async function createBudgetPayment(
   if (isDemoMode) {
     const newPayment: BudgetPayment = {
       ...payment,
-      id: `payment-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -208,7 +208,7 @@ export async function createBudgetPayment(
     // Fallback to localStorage
     const newPayment: BudgetPayment = {
       ...payment,
-      id: `payment-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

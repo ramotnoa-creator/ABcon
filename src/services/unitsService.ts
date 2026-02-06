@@ -117,7 +117,7 @@ export async function createUnit(
   if (isDemoMode) {
     const newUnit: ProjectUnit = {
       ...unit,
-      id: `unit-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -151,7 +151,7 @@ export async function createUnit(
     // Fallback to localStorage
     const newUnit: ProjectUnit = {
       ...unit,
-      id: `unit-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

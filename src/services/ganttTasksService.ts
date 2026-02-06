@@ -160,7 +160,7 @@ export async function createGanttTask(
   if (isDemoMode) {
     const newTask: GanttTask = {
       ...task,
-      id: `gantt-task-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -192,7 +192,7 @@ export async function createGanttTask(
         task.predecessors || null,
         task.type,
         task.wbs || null,
-        task.outline_level || null,
+        task.outline_level ?? null,
         task.ms_project_id || null,
         task.order,
         task.notes || null,
@@ -209,7 +209,7 @@ export async function createGanttTask(
     // Fallback to localStorage
     const newTask: GanttTask = {
       ...task,
-      id: `gantt-task-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -378,7 +378,7 @@ export async function getNextGanttTaskOrder(projectId: string): Promise<number> 
       `SELECT MAX("order") as max_order FROM gantt_tasks WHERE project_id = $1`,
       [projectId]
     );
-    const maxOrder = data?.max_order || 0;
+    const maxOrder = data?.max_order ?? 0;
     return maxOrder + 1;
   } catch (error) {
     console.error('Error getting next gantt task order:', error);
@@ -440,7 +440,7 @@ function transformGanttTaskFromDB(dbTask: any): GanttTask {
     predecessors: dbTask.predecessors || undefined,
     type: dbTask.type,
     wbs: dbTask.wbs || undefined,
-    outline_level: dbTask.outline_level || undefined,
+    outline_level: dbTask.outline_level ?? undefined,
     ms_project_id: dbTask.ms_project_id || undefined,
     order: dbTask.order,
     notes: dbTask.notes || undefined,

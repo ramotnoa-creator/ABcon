@@ -100,7 +100,7 @@ export async function createTender(
   if (isDemoMode) {
     const newTender: Tender = {
       ...tender,
-      id: `tender-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -133,13 +133,13 @@ export async function createTender(
         tender.winner_professional_name || null,
         tender.milestone_id || null,
         tender.notes || null,
-        tender.estimated_budget || null,
-        tender.contract_amount || null,
+        tender.estimated_budget ?? null,
+        tender.contract_amount ?? null,
         tender.management_remarks || null,
         tender.estimate_id || null,
         tender.bom_file_id || null,
         (tender as any).project_item_id || null,
-        (tender as any).attempt_number || 1,
+        (tender as any).attempt_number ?? 1,
         (tender as any).previous_tender_id || null,
         (tender as any).retry_reason || null,
         (tender as any).cost_item_id || null,
@@ -156,7 +156,7 @@ export async function createTender(
     // Fallback to localStorage
     const newTender: Tender = {
       ...tender,
-      id: `tender-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -324,20 +324,20 @@ function transformTenderFromDB(dbTender: any): Tender {
     publish_date: dbTender.publish_date || undefined,
     due_date: dbTender.due_date || undefined,
     candidate_professional_ids: typeof dbTender.candidate_professional_ids === 'string'
-      ? JSON.parse(dbTender.candidate_professional_ids)
+      ? (() => { try { return JSON.parse(dbTender.candidate_professional_ids); } catch { return []; } })()
       : (dbTender.candidate_professional_ids || []),
     winner_professional_id: dbTender.winner_professional_id || undefined,
     winner_professional_name: dbTender.winner_professional_name || undefined,
     milestone_id: dbTender.milestone_id || undefined,
     notes: dbTender.notes || undefined,
-    estimated_budget: dbTender.estimated_budget || undefined,
-    contract_amount: dbTender.contract_amount || undefined,
+    estimated_budget: dbTender.estimated_budget ?? undefined,
+    contract_amount: dbTender.contract_amount ?? undefined,
     management_remarks: dbTender.management_remarks || undefined,
     estimate_id: dbTender.estimate_id || undefined,
     bom_file_id: dbTender.bom_file_id || undefined,
     estimate_snapshot: dbTender.estimate_snapshot || undefined,
-    estimate_version: dbTender.estimate_version || undefined,
-    is_estimate_outdated: dbTender.is_estimate_outdated || undefined,
+    estimate_version: dbTender.estimate_version ?? undefined,
+    is_estimate_outdated: dbTender.is_estimate_outdated ?? undefined,
     cost_item_id: dbTender.cost_item_id || undefined,
     created_at: dbTender.created_at,
     updated_at: dbTender.updated_at,
@@ -413,7 +413,7 @@ export async function updateTenderFromEstimate(
 
   // 4. Calculate new budget
   const newBudget = items.reduce((sum, item) => sum + item.total_with_vat, 0);
-  const oldBudget = tender.estimated_budget || 0;
+  const oldBudget = tender.estimated_budget ?? 0;
 
   // 5. Create new snapshot
   const newSnapshot = {
@@ -427,7 +427,7 @@ export async function updateTenderFromEstimate(
   await updateTender(tenderId, {
     estimated_budget: newBudget,
     estimate_snapshot: newSnapshot as any,
-    estimate_version: (tender.estimate_version || 1) + 1,
+    estimate_version: (tender.estimate_version ?? 1) + 1,
     is_estimate_outdated: false,
   });
 

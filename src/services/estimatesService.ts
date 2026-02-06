@@ -109,7 +109,7 @@ export async function createEstimate(
   if (isDemoMode) {
     const newEstimate: Estimate = {
       ...estimate,
-      id: `estimate-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -147,7 +147,7 @@ export async function createEstimate(
     // Fallback to localStorage
     const newEstimate: Estimate = {
       ...estimate,
-      id: `estimate-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

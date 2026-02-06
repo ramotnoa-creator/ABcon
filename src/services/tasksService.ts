@@ -134,7 +134,7 @@ export async function createTask(
   if (isDemoMode) {
     const newTask: Task = {
       ...task,
-      id: `task-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -162,8 +162,8 @@ export async function createTask(
         task.due_date || null,
         task.start_date || null,
         task.completed_at || null,
-        task.duration_days || null,
-        task.percent_complete || null,
+        task.duration_days ?? null,
+        task.percent_complete ?? null,
         task.external_reference_id || null,
         task.notes || null,
       ]
@@ -179,7 +179,7 @@ export async function createTask(
     // Fallback to localStorage
     const newTask: Task = {
       ...task,
-      id: `task-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -320,8 +320,8 @@ function transformTaskFromDB(dbTask: any): Task {
     due_date: dbTask.due_date || undefined,
     start_date: dbTask.start_date || undefined,
     completed_at: dbTask.completed_at || undefined,
-    duration_days: dbTask.duration_days || undefined,
-    percent_complete: dbTask.percent_complete || undefined,
+    duration_days: dbTask.duration_days ?? undefined,
+    percent_complete: dbTask.percent_complete ?? undefined,
     external_reference_id: dbTask.external_reference_id || undefined,
     notes: dbTask.notes || undefined,
     created_at: dbTask.created_at,

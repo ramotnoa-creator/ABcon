@@ -128,7 +128,7 @@ export async function getNextBudgetChapterOrder(projectId: string, categoryId: s
       [projectId, categoryId]
     );
 
-    const maxOrder = (data?.max_order as number) || 0;
+    const maxOrder = (data?.max_order as number) ?? 0;
     return maxOrder + 1;
   } catch (error: unknown) {
     console.error('Error getting next budget chapter order:', error);
@@ -152,7 +152,7 @@ export async function getCategoryBudgetSummary(
     const chapters = await getBudgetChaptersByCategory(projectId, categoryId);
     return {
       budget: chapters.reduce((sum, c) => sum + c.budget_amount, 0),
-      contract: chapters.reduce((sum, c) => sum + (c.contract_amount || 0), 0),
+      contract: chapters.reduce((sum, c) => sum + (c.contract_amount ?? 0), 0),
     };
   } catch (error: unknown) {
     console.error('Error getting category budget summary:', error);
@@ -170,7 +170,7 @@ export async function createBudgetChapter(
   if (isDemoMode) {
     const newChapter: BudgetChapter = {
       ...chapter,
-      id: `chapter-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -190,7 +190,7 @@ export async function createBudgetChapter(
         chapter.code || null,
         chapter.name,
         chapter.budget_amount,
-        chapter.contract_amount || null,
+        chapter.contract_amount ?? null,
         chapter.order,
       ]
     );
@@ -205,7 +205,7 @@ export async function createBudgetChapter(
     // Fallback to localStorage
     const newChapter: BudgetChapter = {
       ...chapter,
-      id: `chapter-${Date.now()}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -314,7 +314,7 @@ function transformBudgetChapterFromDB(dbChapter: any): BudgetChapter {
     code: dbChapter.code || undefined,
     name: dbChapter.name,
     budget_amount: dbChapter.budget_amount,
-    contract_amount: dbChapter.contract_amount || undefined,
+    contract_amount: dbChapter.contract_amount ?? undefined,
     order: dbChapter.order,
     created_at: dbChapter.created_at,
     updated_at: dbChapter.updated_at,

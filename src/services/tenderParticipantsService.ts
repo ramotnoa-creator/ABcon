@@ -126,7 +126,7 @@ export async function createTenderParticipant(
   if (isDemoMode) {
     const newParticipant: TenderParticipant = {
       ...participant,
-      id: `tp-${Date.now()}-${participant.professional_id}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
     };
     addTenderParticipantLocal(newParticipant);
@@ -153,7 +153,7 @@ export async function createTenderParticipant(
         participant.tender_id,
         participant.professional_id,
         participant.quote_file || null,
-        participant.total_amount || null,
+        participant.total_amount ?? null,
         participant.notes || null,
         participant.is_winner,
       ]
@@ -169,7 +169,7 @@ export async function createTenderParticipant(
     // Fallback to localStorage
     const newParticipant: TenderParticipant = {
       ...participant,
-      id: `tp-${Date.now()}-${participant.professional_id}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
     };
     addTenderParticipantLocal(newParticipant);
@@ -377,7 +377,7 @@ function transformTenderParticipantFromDB(dbParticipant: any): TenderParticipant
     tender_id: dbParticipant.tender_id,
     professional_id: dbParticipant.professional_id,
     quote_file: dbParticipant.quote_file || undefined,
-    total_amount: dbParticipant.total_amount || undefined,
+    total_amount: dbParticipant.total_amount ?? undefined,
     notes: dbParticipant.notes || undefined,
     is_winner: dbParticipant.is_winner,
     created_at: dbParticipant.created_at,

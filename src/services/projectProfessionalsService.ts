@@ -80,7 +80,7 @@ export async function createProjectProfessional(
   if (isDemoMode) {
     const newPP: ProjectProfessional = {
       ...projectProfessional,
-      id: `pp-${Date.now()}`,
+      id: crypto.randomUUID(),
     };
     addProjectProfessionalLocal(newPP);
     return newPP;
@@ -116,7 +116,7 @@ export async function createProjectProfessional(
     // Fallback to localStorage
     const newPP: ProjectProfessional = {
       ...projectProfessional,
-      id: `pp-${Date.now()}`,
+      id: crypto.randomUUID(),
     };
     addProjectProfessionalLocal(newPP);
     return newPP;
