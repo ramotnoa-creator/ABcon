@@ -50,16 +50,16 @@ const scheduleFilterOptions: { value: ScheduleFilterStatus; label: string; activ
   { value: 'paid', label: 'שולם', activeClass: 'bg-green-600 text-white' },
 ];
 
-function getDateColor(targetDate?: string): string {
-  if (!targetDate) return '';
+function getDateUrgency(targetDate?: string): { className: string; icon: string; label: string } {
+  if (!targetDate) return { className: '', icon: '', label: '' };
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   const target = new Date(targetDate);
   target.setHours(0, 0, 0, 0);
   const diffDays = (target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-  if (diffDays < 0) return 'text-red-600 dark:text-red-400 font-bold';
-  if (diffDays <= 7) return 'text-amber-600 dark:text-amber-400 font-semibold';
-  return '';
+  if (diffDays < 0) return { className: 'text-red-600 dark:text-red-400 font-bold', icon: 'warning', label: 'באיחור' };
+  if (diffDays <= 7) return { className: 'text-amber-600 dark:text-amber-400 font-semibold', icon: 'schedule', label: 'קרוב' };
+  return { className: '', icon: '', label: '' };
 }
 
 export default function PaymentsSubTab({ projectId }: PaymentsSubTabProps) {
@@ -72,6 +72,7 @@ export default function PaymentsSubTab({ projectId }: PaymentsSubTabProps) {
   const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([]);
   const [costItems, setCostItems] = useState<CostItem[]>([]);
   const [scheduleFilterStatus, setScheduleFilterStatus] = useState<ScheduleFilterStatus>('all');
+  const [processingItemId, setProcessingItemId] = useState<string | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -114,6 +115,9 @@ export default function PaymentsSubTab({ projectId }: PaymentsSubTabProps) {
   };
 
   const handleApprove = async (itemId: string) => {
+    if (processingItemId) return;
+    if (!confirm('לאשר תשלום זה?')) return;
+    setProcessingItemId(itemId);
     try {
       await updateScheduleItem(itemId, {
         status: 'approved',
@@ -127,12 +131,17 @@ export default function PaymentsSubTab({ projectId }: PaymentsSubTabProps) {
       ));
     } catch (error) {
       console.error('Error approving payment:', error);
+    } finally {
+      setProcessingItemId(null);
     }
   };
 
   const handleMarkPaid = async (itemId: string) => {
+    if (processingItemId) return;
     const item = scheduleItems.find(si => si.id === itemId);
     if (!item) return;
+    if (!confirm(`לסמן כשולם? (${formatCurrency(item.amount)})`)) return;
+    setProcessingItemId(itemId);
     try {
       await updateScheduleItem(itemId, {
         status: 'paid',
@@ -146,6 +155,8 @@ export default function PaymentsSubTab({ projectId }: PaymentsSubTabProps) {
       ));
     } catch (error) {
       console.error('Error marking as paid:', error);
+    } finally {
+      setProcessingItemId(null);
     }
   };
 
@@ -267,7 +278,7 @@ export default function PaymentsSubTab({ projectId }: PaymentsSubTabProps) {
           </div>
 
           {/* Schedule Filter Buttons */}
-          <div className="flex gap-2 mb-6 flex-wrap">
+          <div className="flex gap-2 mb-6 flex-wrap" role="group" aria-label="סינון תשלומים לפי סטטוס">
             {scheduleFilterOptions.map(opt => {
               const count = opt.value === 'all'
                 ? scheduleItems.length
@@ -276,6 +287,7 @@ export default function PaymentsSubTab({ projectId }: PaymentsSubTabProps) {
                 <button
                   key={opt.value}
                   onClick={() => setScheduleFilterStatus(opt.value)}
+                  aria-pressed={scheduleFilterStatus === opt.value}
                   className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
                     scheduleFilterStatus === opt.value
                       ? opt.activeClass
@@ -347,11 +359,18 @@ export default function PaymentsSubTab({ projectId }: PaymentsSubTabProps) {
                             <tr key={si.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                               <td className="px-4 py-3 text-sm font-semibold">{si.description}</td>
                               <td className="px-4 py-3 text-sm font-bold">{formatCurrency(si.amount)}</td>
-                              <td className={`px-4 py-3 text-sm ${getDateColor(si.target_date)}`}>
+                              <td className={`px-4 py-3 text-sm ${getDateUrgency(si.target_date).className}`}>
                                 {si.target_date ? (
                                   <span className="flex items-center gap-1">
-                                    <span className="material-symbols-outlined text-[14px]">event</span>
+                                    {getDateUrgency(si.target_date).icon ? (
+                                      <span className="material-symbols-outlined text-[14px]">{getDateUrgency(si.target_date).icon}</span>
+                                    ) : (
+                                      <span className="material-symbols-outlined text-[14px]">event</span>
+                                    )}
                                     {formatDate(si.target_date)}
+                                    {getDateUrgency(si.target_date).label && (
+                                      <span className="text-[10px]">({getDateUrgency(si.target_date).label})</span>
+                                    )}
                                   </span>
                                 ) : (
                                   <span className="text-slate-400">-</span>
@@ -376,9 +395,10 @@ export default function PaymentsSubTab({ projectId }: PaymentsSubTabProps) {
                                   {(si.status === 'milestone_confirmed' || si.status === 'invoice_received' || (si.status === 'pending' && !si.milestone_id)) && (
                                     <button
                                       onClick={() => handleApprove(si.id)}
-                                      className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-semibold hover:bg-purple-700 transition-colors flex items-center gap-1"
+                                      disabled={processingItemId === si.id}
+                                      className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-semibold hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
                                     >
-                                      <span className="material-symbols-outlined text-[14px]">thumb_up</span>
+                                      <span className="material-symbols-outlined text-[14px]">{processingItemId === si.id ? 'hourglass_empty' : 'thumb_up'}</span>
                                       אשר תשלום
                                     </button>
                                   )}
@@ -386,9 +406,10 @@ export default function PaymentsSubTab({ projectId }: PaymentsSubTabProps) {
                                   {si.status === 'approved' && (
                                     <button
                                       onClick={() => handleMarkPaid(si.id)}
-                                      className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 transition-colors flex items-center gap-1"
+                                      disabled={processingItemId === si.id}
+                                      className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
                                     >
-                                      <span className="material-symbols-outlined text-[14px]">paid</span>
+                                      <span className="material-symbols-outlined text-[14px]">{processingItemId === si.id ? 'hourglass_empty' : 'paid'}</span>
                                       סמן כשולם
                                     </button>
                                   )}
@@ -458,7 +479,7 @@ export default function PaymentsSubTab({ projectId }: PaymentsSubTabProps) {
         </div>
 
         {/* Filter Buttons */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 mb-6 flex-wrap">
           <button
             onClick={() => setFilterStatus('all')}
             className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${

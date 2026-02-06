@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import { getScheduleItemsByProject } from '../../../../services/paymentSchedulesService';
 import { getCostItems } from '../../../../services/costsService';
 import * as ExcelJS from 'exceljs';
@@ -106,8 +106,9 @@ export default function CashFlowSubTab({ project }: CashFlowSubTabProps) {
   const totalPlanned = scheduleItems.reduce((s, i) => s + i.amount, 0);
   const totalPaid = scheduleItems.filter(i => i.status === 'paid').reduce((s, i) => s + (i.paid_amount || i.amount), 0);
   const remaining = totalPlanned - totalPaid;
-  const avgMonthly = monthlyData.length > 0
-    ? monthlyData.reduce((s, m) => s + m.actual, 0) / monthlyData.filter(m => m.actual > 0).length || 0
+  const monthsWithActual = monthlyData.filter(m => m.actual > 0).length;
+  const avgMonthly = monthsWithActual > 0
+    ? monthlyData.reduce((s, m) => s + m.actual, 0) / monthsWithActual
     : 0;
 
   // Chart max for scaling bars
@@ -360,12 +361,15 @@ export default function CashFlowSubTab({ project }: CashFlowSubTabProps) {
             </thead>
             <tbody className="divide-y divide-border-light dark:divide-border-dark">
               {monthlyData.map((month) => (
-                <>
-                  <tr
-                    key={month.key}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
-                    onClick={() => setExpandedMonth(expandedMonth === month.key ? null : month.key)}
-                  >
+                <Fragment key={month.key}>
+                <tr
+                  className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={expandedMonth === month.key}
+                  onClick={() => setExpandedMonth(expandedMonth === month.key ? null : month.key)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedMonth(expandedMonth === month.key ? null : month.key); } }}
+                >
                     <td className="px-4 py-3 text-center">
                       <span className={`material-symbols-outlined text-[16px] text-text-secondary-light dark:text-text-secondary-dark transition-transform ${expandedMonth === month.key ? 'rotate-180' : ''}`}>
                         expand_more
@@ -425,7 +429,7 @@ export default function CashFlowSubTab({ project }: CashFlowSubTabProps) {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>
