@@ -208,6 +208,20 @@ export default function PaymentsSubTab({ projectId }: PaymentsSubTabProps) {
   return (
     <div className="payments-subtab space-y-8">
       {/* Schedule Payments Section */}
+      {scheduleItems.length === 0 && payments.length === 0 && (
+        <div className="bg-white dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark p-12 text-center mb-8">
+          <span className="material-symbols-outlined text-[48px] text-text-secondary-light dark:text-text-secondary-dark mb-3 block">
+            payments
+          </span>
+          <h3 className="text-lg font-bold text-text-main-light dark:text-text-main-dark mb-2">
+            אין תשלומים עדיין
+          </h3>
+          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark max-w-md mx-auto">
+            צור לוח תשלומים דרך טאב "עלויות" עבור פריטי עלות עם מכרז זוכה, או הוסף תשלומי תקציב דרך טאב "תקציב".
+          </p>
+        </div>
+      )}
+
       {scheduleItems.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-4">

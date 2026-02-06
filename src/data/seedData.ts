@@ -96,6 +96,7 @@ export const seedProjects: Project[] = [
     created_at: daysAgo(90),
     updated_at_text: 'לפני שבוע',
     notes: 'וילה יוקרתית 500 מ"ר',
+    current_vat_rate: 17,
   },
   {
     id: 'proj-3',
@@ -106,6 +107,7 @@ export const seedProjects: Project[] = [
     created_at: daysAgo(60),
     updated_at_text: 'אתמול',
     notes: 'שיפוץ 3 קומות משרדים',
+    current_vat_rate: 17,
   },
   {
     id: 'proj-4',
@@ -120,6 +122,7 @@ export const seedProjects: Project[] = [
     created_at: daysAgo(450),
     updated_at_text: 'לפני 3 חודשים',
     notes: 'פרויקט באיחור - בעיות תקציב',
+    current_vat_rate: 18,
   },
   {
     id: 'proj-5',
@@ -129,6 +132,7 @@ export const seedProjects: Project[] = [
     created_at: daysAgo(5),
     updated_at_text: 'היום',
     notes: 'פרויקט חדש לבדיקת edge cases',
+    current_vat_rate: 17,
   },
 ];
 

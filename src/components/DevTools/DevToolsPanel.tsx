@@ -185,10 +185,12 @@ export default function DevToolsPanel() {
                 <div>Professionals: {seedDataSummary.professionals}</div>
                 <div>Budget Items: {seedDataSummary.budgetItems}</div>
                 <div>Payments: {seedDataSummary.budgetPayments}</div>
+                <div>Cost Items: {seedDataSummary.costItems}</div>
+                <div>Schedules: {seedDataSummary.paymentSchedules}</div>
+                <div>Schedule Items: {seedDataSummary.scheduleItems}</div>
                 <div>Milestones: {seedDataSummary.projectMilestones}</div>
-                <div>Files: {seedDataSummary.files}</div>
-                <div>Issues: {seedDataSummary.specialIssues}</div>
                 <div>Tenders: {seedDataSummary.tenders}</div>
+                <div>Files: {seedDataSummary.files}</div>
               </div>
               <div className="mt-2 pt-2 border-t border-gray-300 dark:border-gray-600 font-bold">
                 Total: {Object.values(seedDataSummary).reduce((a, b) => a + b, 0)} records
@@ -259,14 +261,14 @@ export default function DevToolsPanel() {
             <div className="text-[10px] text-gray-500 dark:text-gray-400 pt-2 border-t border-gray-200 dark:border-gray-700">
               <div className="font-bold mb-1">Edge Cases Included:</div>
               <ul className="list-disc list-inside space-y-0.5">
-                <li>Overdue projects & milestones</li>
+                <li>All cost statuses (draft/tender/winner)</li>
+                <li>Schedule items: paid/approved/pending</li>
+                <li>Fully paid items (VAT cascade test)</li>
+                <li>Overdue target dates (red)</li>
+                <li>Upcoming dates within 7d (amber)</li>
                 <li>Budget overruns (15%+)</li>
-                <li>Zero quantity items</li>
-                <li>Past due payments</li>
-                <li>Very large amounts (&gt;1M)</li>
-                <li>Inactive professionals</li>
-                <li>Old open issues (&gt;90 days)</li>
-                <li>Orphaned files</li>
+                <li>Different VAT rates per project</li>
+                <li>Overdue projects & milestones</li>
               </ul>
             </div>
           </div>
