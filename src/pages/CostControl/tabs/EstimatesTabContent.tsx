@@ -2,8 +2,9 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAllEstimates } from '../../../services/estimatesService';
 import { getProjects } from '../../../services/projectsService';
+import { getAllTenders } from '../../../services/tendersService';
 import * as XLSX from 'xlsx';
-import type { Estimate, Project, EstimateType, EstimateStatus } from '../../../types';
+import type { Estimate, Project, EstimateType, EstimateStatus, Tender } from '../../../types';
 import { useAuth } from '../../../contexts/AuthContext';
 import { canAccessProject, canViewAllProjects } from '../../../utils/permissions';
 
@@ -30,12 +31,14 @@ const statusLabels: Record<EstimateStatus, string> = {
   draft: 'טיוטה',
   active: 'פעיל',
   exported_to_tender: 'יוצא למכרז',
+  locked: 'נעול',
 };
 
 const statusColors: Record<EstimateStatus, string> = {
   draft: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200',
   active: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200',
   exported_to_tender: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200',
+  locked: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200',
 };
 
 interface KPICardProps {
@@ -76,13 +79,14 @@ function KPICard({ icon, label, value, subValue, color }: KPICardProps) {
   );
 }
 
-type EstimateWithProject = Estimate & { project?: Project };
+type EstimateWithProject = Estimate & { project?: Project; tender?: Tender };
 
 export default function EstimatesTabContent() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [estimates, setEstimates] = useState<Estimate[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [tenders, setTenders] = useState<Tender[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<EstimateType | 'all'>('all');
@@ -96,9 +100,10 @@ export default function EstimatesTabContent() {
     const loadData = async () => {
       try {
         setIsLoading(true);
-        const [allEstimates, allProjects] = await Promise.all([
+        const [allEstimates, allProjects, allTenders] = await Promise.all([
           getAllEstimates(),
           getProjects(),
+          getAllTenders(),
         ]);
 
         // Filter estimates based on user permissions
@@ -110,6 +115,7 @@ export default function EstimatesTabContent() {
 
         setEstimates(accessibleEstimates);
         setProjects(allProjects);
+        setTenders(allTenders);
       } catch (error) {
         console.error('Error loading estimates:', error);
       } finally {
@@ -120,13 +126,14 @@ export default function EstimatesTabContent() {
     loadData();
   }, [user]);
 
-  // Combine estimates with project data
+  // Combine estimates with project and tender data
   const estimatesWithProjects: EstimateWithProject[] = useMemo(() => {
     return estimates.map((estimate) => ({
       ...estimate,
       project: projects.find((p) => p.id === estimate.project_id),
+      tender: estimate.tender_id ? tenders.find((t) => t.id === estimate.tender_id) : undefined,
     }));
-  }, [estimates, projects]);
+  }, [estimates, projects, tenders]);
 
   // Calculate KPIs
   const kpiData = useMemo(() => {
@@ -175,12 +182,13 @@ export default function EstimatesTabContent() {
       filtered = filtered.filter((e) => e.project_id === projectFilter);
     }
 
-    // Sort
+    // Sort (default by updated_at DESC - latest on top)
     filtered.sort((a, b) => {
       let comparison = 0;
       switch (sortBy) {
         case 'date':
-          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          // Sort by updated_at instead of created_at (latest first by default)
+          comparison = new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime();
           break;
         case 'amount':
           comparison = a.total_amount - b.total_amount;
@@ -330,6 +338,7 @@ export default function EstimatesTabContent() {
           <option value="draft">טיוטה</option>
           <option value="active">פעיל</option>
           <option value="exported_to_tender">יוצא למכרז</option>
+          <option value="locked">נעול</option>
         </select>
 
         {/* Export Button */}
@@ -386,11 +395,14 @@ export default function EstimatesTabContent() {
                   סטטוס
                 </th>
                 <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                  מכרז
+                </th>
+                <th className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
                   <button
                     onClick={() => handleSort('date')}
                     className="flex items-center gap-1 hover:text-primary transition-colors"
                   >
-                    תאריך
+                    עדכון אחרון
                     {sortBy === 'date' && (
                       <span className="material-symbols-outlined text-[16px]">
                         {sortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'}
@@ -407,7 +419,7 @@ export default function EstimatesTabContent() {
               {filteredEstimates.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="px-6 py-12 text-center text-text-secondary-light dark:text-text-secondary-dark"
                   >
                     <span className="material-symbols-outlined text-[48px] mb-4 opacity-50 block">assessment</span>
@@ -446,11 +458,53 @@ export default function EstimatesTabContent() {
                       <span
                         className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${statusColors[estimate.status]}`}
                       >
+                        {estimate.status === 'locked' && (
+                          <span className="material-symbols-outlined text-[14px] ml-1">lock</span>
+                        )}
                         {statusLabels[estimate.status]}
                       </span>
                     </td>
+                    <td className="px-6 py-4 align-middle">
+                      {estimate.tender ? (
+                        <div className="flex flex-col gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/projects/${estimate.project_id}?tab=tenders`);
+                            }}
+                            className="text-sm font-medium text-primary hover:underline text-right"
+                          >
+                            {estimate.tender.tender_name}
+                          </button>
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold w-fit ${
+                              estimate.tender.status === 'WinnerSelected'
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200'
+                                : estimate.tender.status === 'Open'
+                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200'
+                                : estimate.tender.status === 'Closed'
+                                ? 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200'
+                                : estimate.tender.status === 'Draft'
+                                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200'
+                                : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
+                            }`}
+                          >
+                            {estimate.tender.status === 'WinnerSelected' && '🏆 זוכה נבחר'}
+                            {estimate.tender.status === 'Open' && '📋 פתוח'}
+                            {estimate.tender.status === 'Closed' && '🔒 סגור'}
+                            {estimate.tender.status === 'Draft' && '✏️ טיוטה'}
+                            {estimate.tender.status === 'Canceled' && '❌ בוטל'}
+                            {estimate.tender.is_estimate_outdated && (
+                              <span className="mr-1" title="האומדן השתנה מאז הייצוא">⚠️</span>
+                            )}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">—</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 align-middle text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                      {formatDate(estimate.created_at)}
+                      {formatDate(estimate.updated_at)}
                     </td>
                     <td className="px-6 py-4 align-middle">
                       <button

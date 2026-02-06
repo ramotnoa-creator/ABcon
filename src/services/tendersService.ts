@@ -92,16 +92,12 @@ export async function getTenderById(id: string): Promise<Tender | null> {
 export async function createTender(
   tender: Omit<Tender, 'id' | 'created_at' | 'updated_at'>
 ): Promise<Tender> {
-  console.log('DEBUG createTender: isDemoMode=', isDemoMode, 'estimate_id=', tender.estimate_id, 'project_item_id=', (tender as any).project_item_id);
-
-  // Enforce business rule: All tenders must be linked to an estimate OR project item
-  if (!tender.estimate_id && !(tender as any).project_item_id) {
-    throw new Error('Cannot create tender without estimate_id or project_item_id. All tenders must be linked to an estimate or project item.');
+  // Enforce business rule: All tenders must be linked to an estimate OR project item OR cost item
+  if (!tender.estimate_id && !(tender as any).project_item_id && !(tender as any).cost_item_id) {
+    throw new Error('Cannot create tender without estimate_id, project_item_id, or cost_item_id. All tenders must be linked to a source.');
   }
 
   if (isDemoMode) {
-    console.log('DEBUG: Using demo mode (localStorage)');
-
     const newTender: Tender = {
       ...tender,
       id: `tender-${Date.now()}`,
@@ -113,7 +109,6 @@ export async function createTender(
   }
 
   try {
-    console.log('DEBUG: Inserting into database with estimate_id:', tender.estimate_id);
     const data = await executeQuerySingle<Record<string, unknown>>(
       `INSERT INTO tenders (
         project_id, tender_name, tender_type, category, description,
@@ -121,8 +116,8 @@ export async function createTender(
         winner_professional_id, winner_professional_name, milestone_id,
         notes, estimated_budget, contract_amount, management_remarks,
         estimate_id, bom_file_id, project_item_id, attempt_number,
-        previous_tender_id, retry_reason
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+        previous_tender_id, retry_reason, cost_item_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
       RETURNING *`,
       [
         tender.project_id,
@@ -147,6 +142,7 @@ export async function createTender(
         (tender as any).attempt_number || 1,
         (tender as any).previous_tender_id || null,
         (tender as any).retry_reason || null,
+        (tender as any).cost_item_id || null,
       ]
     );
 
@@ -342,6 +338,7 @@ function transformTenderFromDB(dbTender: any): Tender {
     estimate_snapshot: dbTender.estimate_snapshot || undefined,
     estimate_version: dbTender.estimate_version || undefined,
     is_estimate_outdated: dbTender.is_estimate_outdated || undefined,
+    cost_item_id: dbTender.cost_item_id || undefined,
     created_at: dbTender.created_at,
     updated_at: dbTender.updated_at,
   };

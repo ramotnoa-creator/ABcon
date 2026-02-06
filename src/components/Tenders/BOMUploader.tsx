@@ -169,7 +169,7 @@ export default function BOMUploader({ tenderId, currentBOM, onUploadSuccess }: B
           onDragLeave={handleDrag}
           onDragOver={handleDrag}
           onDrop={handleDrop}
-          className={`upload-zone p-8 rounded-lg border-2 border-dashed transition-colors cursor-pointer ${
+          className={`upload-zone p-4 rounded-lg border-2 border-dashed transition-colors cursor-pointer ${
             dragActive
               ? 'border-primary bg-primary/5'
               : 'border-border-light dark:border-border-dark hover:border-primary/50 hover:bg-primary/5'
@@ -185,17 +185,19 @@ export default function BOMUploader({ tenderId, currentBOM, onUploadSuccess }: B
           />
           <label
             htmlFor={`bom-upload-${tenderId}`}
-            className="flex flex-col items-center gap-3 cursor-pointer"
+            className="flex items-center gap-3 cursor-pointer"
           >
-            <span className="material-symbols-outlined text-[48px] text-text-secondary-light dark:text-text-secondary-dark">
+            <span className="material-symbols-outlined text-[32px] text-text-secondary-light dark:text-text-secondary-dark flex-shrink-0">
               upload_file
             </span>
-            <p className="text-sm font-bold text-center">
-              גרור קובץ בל"מ לכאן או לחץ לבחירה
-            </p>
-            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark text-center">
-              מקסימום 10MB, קבצי .doc או .docx בלבד
-            </p>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-right leading-tight">
+                גרור קובץ בל"מ לכאן או לחץ לבחירה
+              </p>
+              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark text-right leading-tight mt-1">
+                מקסימום 10MB, קבצי .doc או .docx בלבד
+              </p>
+            </div>
           </label>
         </div>
       )}

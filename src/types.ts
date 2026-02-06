@@ -19,6 +19,11 @@ export interface Project {
   created_at: string; // ISO date string (auto)
   updated_at_text: string; // Display text like "24 באוקטובר 2023"
   notes?: string;
+  // Costs tracking (new unified system)
+  general_estimate?: number; // אומדן כללי - total project budget
+  built_sqm?: number; // מטר בנוי - built square meters
+  sales_sqm?: number; // מטר מכר - sales square meters
+  current_vat_rate?: number; // Current VAT rate (default 17)
 }
 
 export type AlertType = 'budget' | 'delay' | 'contract' | 'other';
@@ -136,10 +141,24 @@ export interface Tender {
   contract_amount?: number; // Final negotiated price (סכום חוזה)
   management_remarks?: string; // Admin-only notes (הערות ניהול)
   // Estimate integration fields (added in Phase 1)
-  estimate_id?: string; // Link to estimates table
+  estimate_id?: string; // Link to estimates table (OLD SYSTEM)
   bom_file_id?: string; // Link to bom_files table
+  // Enhanced tracking fields (Phase 1.1)
+  estimate_snapshot?: EstimateSnapshot; // Snapshot of estimate at time of export
+  estimate_version?: number; // Version number for change tracking
+  is_estimate_outdated?: boolean; // Flag when source estimate has been modified
+  // NEW UNIFIED SYSTEM
+  cost_item_id?: string; // Link to cost_items table (NEW SYSTEM - replaces estimate_id)
   created_at: string; // ISO date string
   updated_at: string; // ISO date string
+}
+
+// Snapshot of estimate data at time of tender creation
+export interface EstimateSnapshot {
+  estimate: Estimate;
+  items: EstimateItem[];
+  snapshot_date: string;
+  total_with_vat: number;
 }
 
 export interface TenderParticipant {
@@ -363,6 +382,8 @@ export interface BudgetItem {
   estimate_amount?: number; // Amount from estimate
   variance_amount?: number; // budget - estimate
   variance_percent?: number; // (variance / estimate) * 100
+  // Enhanced traceability (Phase 1.1)
+  source_estimate_id?: string; // Link to source estimate for full traceability
   created_at: string;
   updated_at: string;
 }
@@ -386,11 +407,40 @@ export interface BudgetPayment {
 }
 
 // ============================================================
-// ESTIMATES MODULE
+// COSTS MODULE (NEW UNIFIED SYSTEM)
+// ============================================================
+
+export type CostCategory = 'consultant' | 'supplier' | 'contractor'; // יועץ / ספק / קבלן
+export type CostStatus =
+  | 'draft'           // אומדן - לא יצא למכרז
+  | 'tender_draft'    // טיוטת מכרז - יצא למכרז שעדיין ב-Draft
+  | 'tender_open'     // מכרז נשלח - המכרז פתוח למציעים
+  | 'tender_winner';  // מכרז זוכה - נבחר זכיין
+
+export interface CostItem {
+  id: string;
+  project_id: string;
+  name: string; // Short name - REQUIRED
+  description?: string; // Detailed description - OPTIONAL
+  category: CostCategory; // consultant, supplier, contractor
+  estimated_amount: number; // The ONE sum (no breakdown)
+  actual_amount?: number; // After tender/contract
+  vat_included: boolean; // Is VAT included in the amount?
+  vat_rate: number; // VAT rate at time of entry (for tracking changes)
+  status: CostStatus;
+  tender_id?: string; // Link to tender if exported
+  notes?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================================
+// ESTIMATES MODULE (OLD SYSTEM - DEPRECATED)
 // ============================================================
 
 export type EstimateType = 'planning' | 'execution';
-export type EstimateStatus = 'draft' | 'active' | 'exported_to_tender';
+export type EstimateStatus = 'draft' | 'active' | 'exported_to_tender' | 'locked';
 
 export interface Estimate {
   id: string;
@@ -402,6 +452,10 @@ export interface Estimate {
   status: EstimateStatus;
   created_by?: string;
   notes?: string;
+  // Enhanced tracking fields (Phase 1)
+  tender_id?: string; // 1:1 link to the tender created from this estimate
+  exported_at?: string; // ISO date string - when estimate was exported to tender
+  locked_at?: string; // ISO date string - when estimate was locked (after winner selection)
   created_at: string;
   updated_at: string;
 }
@@ -410,7 +464,8 @@ export interface EstimateItem {
   id: string;
   estimate_id: string;
   code?: string;
-  description: string;
+  name?: string; // Short title/name for the item (REQUIRED after migration)
+  description?: string; // Detailed description (OPTIONAL)
   category?: string;
   subcategory?: string;
   unit?: string;

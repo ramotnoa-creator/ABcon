@@ -431,15 +431,12 @@ export async function exportEstimateToTender(
   estimateId: string,
   tenderData: Partial<import('../types').Tender>
 ): Promise<string> {
-  console.log('[exportEstimateToTender] Starting export, estimateId:', estimateId);
-
   // Import required services
   const { getEstimateItems } = await import('./estimateItemsService');
   const { createTender } = await import('./tendersService');
 
   // 1. Verify estimate not already exported (check tender_id is null)
   const estimate = await getEstimate(estimateId);
-  console.log('[exportEstimateToTender] Estimate loaded:', estimate);
 
   if (!estimate) {
     throw new Error('Estimate not found');
@@ -455,11 +452,9 @@ export async function exportEstimateToTender(
 
   // 2. Get estimate with all items
   const items = await getEstimateItems(estimateId);
-  console.log('[exportEstimateToTender] Items loaded:', items.length, 'items');
 
   // 3. Calculate total with VAT
   const totalWithVat = items.reduce((sum, item) => sum + item.total_with_vat, 0);
-  console.log('[exportEstimateToTender] Total with VAT:', totalWithVat);
 
   // 4. Create estimate snapshot
   const estimateSnapshot = {
@@ -470,7 +465,6 @@ export async function exportEstimateToTender(
   };
 
   // 5. Create tender with estimate data
-  console.log('[exportEstimateToTender] Creating tender with data:', { ...tenderData, estimate_id: estimateId });
   const newTender = await createTender({
     ...tenderData,
     estimate_id: estimateId,
@@ -480,23 +474,18 @@ export async function exportEstimateToTender(
     is_estimate_outdated: false,
     status: tenderData.status || 'Draft',
   } as any);
-  console.log('[exportEstimateToTender] Tender created:', newTender.id);
 
   // 6. Update estimate with tender link
-  console.log('[exportEstimateToTender] Updating estimate with tender link');
   try {
     await updateEstimate(estimateId, {
       tender_id: newTender.id,
       exported_at: new Date().toISOString(),
       status: 'exported_to_tender',
     });
-    console.log('[exportEstimateToTender] Estimate updated successfully');
   } catch (updateError) {
-    console.error('[exportEstimateToTender] Failed to update estimate, but tender was created:', updateError);
+    console.error('Failed to update estimate after tender creation:', updateError);
     // Don't throw - tender was created successfully, just log the error
   }
 
-  // 7. Return new tender ID for navigation (even if estimate update failed)
-  console.log('[exportEstimateToTender] Export complete, returning tender ID:', newTender.id);
   return newTender.id;
 }

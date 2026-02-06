@@ -116,14 +116,15 @@ export async function createEstimateItem(
   try {
     const data = await executeQuerySingle<Record<string, unknown>>(
       `INSERT INTO estimate_items (
-        estimate_id, code, description, category, subcategory, unit, quantity, unit_price,
+        estimate_id, code, name, description, category, subcategory, unit, quantity, unit_price,
         total_price, vat_rate, vat_amount, total_with_vat, notes, order_index
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *`,
       [
         itemWithTotals.estimate_id,
         itemWithTotals.code || null,
-        itemWithTotals.description,
+        itemWithTotals.name || itemWithTotals.description || 'ללא שם', // Fallback to description if name missing
+        itemWithTotals.description || null, // OPTIONAL
         itemWithTotals.category || null,
         itemWithTotals.subcategory || null,
         itemWithTotals.unit || null,
@@ -232,6 +233,10 @@ export async function updateEstimateItem(
     if (updatesWithTotals.code !== undefined) {
       setClauses.push(`code = $${paramIndex++}`);
       values.push(updatesWithTotals.code);
+    }
+    if (updatesWithTotals.name !== undefined) {
+      setClauses.push(`name = $${paramIndex++}`);
+      values.push(updatesWithTotals.name);
     }
     if (updatesWithTotals.description !== undefined) {
       setClauses.push(`description = $${paramIndex++}`);

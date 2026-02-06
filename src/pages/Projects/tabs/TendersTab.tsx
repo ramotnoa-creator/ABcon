@@ -433,7 +433,6 @@ export default function TendersTab({ project }: TendersTabProps) {
               order,
             });
 
-            console.log('✓ Budget item created successfully');
           }
         }
       } catch (budgetError) {
@@ -562,17 +561,6 @@ export default function TendersTab({ project }: TendersTabProps) {
             const participantsWithProf = getParticipantsWithProfessionals(tender);
             const winner = participantsWithProf.find((p) => p.is_winner);
             const deadlinePassed = isDeadlinePassed(tender);
-
-            // DEBUG: Log tender and estimate info
-            console.log('=== TENDER DEBUG ===');
-            console.log('Tender:', tender.tender_name);
-            console.log('Tender estimate_id:', tender.estimate_id);
-            console.log('Estimates array length:', estimates.length);
-            if (tender.estimate_id) {
-              const foundEstimate = estimates.find(e => e.id === tender.estimate_id);
-              console.log('Found estimate:', foundEstimate);
-            }
-            console.log('==================');
 
             return (
               <div

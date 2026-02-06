@@ -28,6 +28,11 @@ const formatCurrency = (amount: number): string => {
 };
 
 const formatCompactCurrency = (amount: number): string => {
+  // Handle invalid numbers
+  if (!amount || isNaN(amount) || !isFinite(amount)) {
+    return '₪0';
+  }
+
   if (amount >= 1000000) {
     return `₪${(amount / 1000000).toFixed(1)}M`;
   }
@@ -76,26 +81,39 @@ const SummaryCards = ({ chapters, items }: {
   items: BudgetItem[];
 }) => {
   const summary = useMemo(() => {
-    const totalBudget = chapters.reduce((sum, c) => sum + c.budget_amount, 0);
-    const totalContract = chapters.reduce((sum, c) => sum + (c.contract_amount || 0), 0);
-    const totalPaid = items.reduce((sum, i) => sum + i.paid_amount, 0);
-    const totalWithVat = items.reduce((sum, i) => sum + i.total_with_vat, 0);
+    // Calculate everything from items, not chapters - with safety checks
+    const totalBudget = items.reduce((sum, i) => {
+      const val = Number(i.total_with_vat) || 0;
+      return sum + (isFinite(val) ? val : 0);
+    }, 0);
+
+    const totalContract = items.reduce((sum, i) => {
+      const val = Number(i.total_with_vat) || 0;
+      return sum + (isFinite(val) ? val : 0);
+    }, 0);
+
+    const totalPaid = items.reduce((sum, i) => {
+      const val = Number(i.paid_amount) || 0;
+      return sum + (isFinite(val) ? val : 0);
+    }, 0);
+
+    const totalWithVat = totalBudget;
     const remainingToPay = totalWithVat - totalPaid;
     const completedItems = items.filter(i => i.status === 'completed').length;
     const inProgressItems = items.filter(i => i.status === 'in-progress').length;
 
     return {
-      totalBudget,
-      totalContract,
-      totalPaid,
-      totalWithVat,
-      remainingToPay,
+      totalBudget: isFinite(totalBudget) ? totalBudget : 0,
+      totalContract: isFinite(totalContract) ? totalContract : 0,
+      totalPaid: isFinite(totalPaid) ? totalPaid : 0,
+      totalWithVat: isFinite(totalWithVat) ? totalWithVat : 0,
+      remainingToPay: isFinite(remainingToPay) ? remainingToPay : 0,
       completedItems,
       inProgressItems,
       totalItems: items.length,
       progress: totalWithVat > 0 ? Math.round((totalPaid / totalWithVat) * 100) : 0,
     };
-  }, [chapters, items]);
+  }, [items]);
 
   const stats = [
     {
@@ -191,18 +209,18 @@ const TreeView = ({
     const categoryItems = items.filter(i => chapterIds.includes(i.chapter_id));
 
     return {
-      budget: categoryChapters.reduce((sum, c) => sum + c.budget_amount, 0),
-      contract: categoryChapters.reduce((sum, c) => sum + (c.contract_amount || 0), 0),
-      paid: categoryItems.reduce((sum, i) => sum + i.paid_amount, 0),
-      total: categoryItems.reduce((sum, i) => sum + i.total_with_vat, 0),
+      budget: categoryItems.reduce((sum, i) => sum + (Number(i.total_with_vat) || 0), 0),
+      contract: categoryItems.reduce((sum, i) => sum + (Number(i.total_with_vat) || 0), 0),
+      paid: categoryItems.reduce((sum, i) => sum + (Number(i.paid_amount) || 0), 0),
+      total: categoryItems.reduce((sum, i) => sum + (Number(i.total_with_vat) || 0), 0),
     };
   };
 
   const getChapterTotals = (chapterId: string) => {
     const chapterItems = items.filter(i => i.chapter_id === chapterId);
     return {
-      paid: chapterItems.reduce((sum, i) => sum + i.paid_amount, 0),
-      total: chapterItems.reduce((sum, i) => sum + i.total_with_vat, 0),
+      paid: chapterItems.reduce((sum, i) => sum + (Number(i.paid_amount) || 0), 0),
+      total: chapterItems.reduce((sum, i) => sum + (Number(i.total_with_vat) || 0), 0),
       count: chapterItems.length,
     };
   };

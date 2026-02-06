@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import PlanningEstimateSubTab from './subtabs/PlanningEstimateSubTab';
-import ExecutionEstimateSubTab from './subtabs/ExecutionEstimateSubTab';
+import CostsTab from './CostsTab';
 import TendersSubTab from './subtabs/TendersSubTab';
 import BudgetSubTab from './subtabs/BudgetSubTab';
 import PaymentsSubTab from './subtabs/PaymentsSubTab';
@@ -11,11 +10,10 @@ interface FinancialTabProps {
   project: Project;
 }
 
-type SubTabValue = 'planning-estimate' | 'execution-estimate' | 'tenders' | 'budget' | 'payments';
+type SubTabValue = 'costs' | 'tenders' | 'budget' | 'payments';
 
 const subTabs = [
-  { label: 'אומדן תכנון', value: 'planning-estimate' as SubTabValue },
-  { label: 'אומדן ביצוע', value: 'execution-estimate' as SubTabValue },
+  { label: 'עלויות', value: 'costs' as SubTabValue },
   { label: 'מכרזים', value: 'tenders' as SubTabValue },
   { label: 'תקציב', value: 'budget' as SubTabValue },
   { label: 'תשלומים', value: 'payments' as SubTabValue },
@@ -25,11 +23,11 @@ export default function FinancialTab({ project }: FinancialTabProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const subtabFromUrl = searchParams.get('subtab') as SubTabValue | null;
 
-  // Default to planning-estimate, or use URL param if valid
-  const validSubtabs: SubTabValue[] = ['planning-estimate', 'execution-estimate', 'tenders', 'budget', 'payments'];
+  // Default to costs, or use URL param if valid
+  const validSubtabs: SubTabValue[] = ['costs', 'tenders', 'budget', 'payments'];
   const initialSubTab = subtabFromUrl && validSubtabs.includes(subtabFromUrl)
     ? subtabFromUrl
-    : 'planning-estimate';
+    : 'costs';
 
   const [activeSubTab, setActiveSubTab] = useState<SubTabValue>(initialSubTab);
 
@@ -45,7 +43,7 @@ export default function FinancialTab({ project }: FinancialTabProps) {
     const subtabFromUrl = searchParams.get('subtab') as SubTabValue | null;
     const targetSubTab = subtabFromUrl && validSubtabs.includes(subtabFromUrl)
       ? subtabFromUrl
-      : 'planning-estimate';
+      : 'costs';
     if (targetSubTab !== activeSubTab) {
       setActiveSubTab(targetSubTab);
     }
@@ -72,11 +70,8 @@ export default function FinancialTab({ project }: FinancialTabProps) {
 
       {/* Sub-tab content */}
       <div className="subtab-content">
-        {activeSubTab === 'planning-estimate' && (
-          <PlanningEstimateSubTab projectId={project.id} projectName={project.project_name} />
-        )}
-        {activeSubTab === 'execution-estimate' && (
-          <ExecutionEstimateSubTab projectId={project.id} projectName={project.project_name} />
+        {activeSubTab === 'costs' && (
+          <CostsTab project={project} />
         )}
         {activeSubTab === 'tenders' && (
           <TendersSubTab project={project} />

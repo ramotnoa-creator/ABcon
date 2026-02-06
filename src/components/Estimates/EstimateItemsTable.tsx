@@ -106,7 +106,7 @@ export default function EstimateItemsTable({ items, onEdit, onDelete }: Estimate
                 className="px-4 py-3 text-right text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 <div className="flex items-center gap-1">
-                  תיאור {getSortIcon('description')}
+                  שם הפריט {getSortIcon('description')}
                 </div>
               </th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark">
@@ -156,8 +156,23 @@ export default function EstimateItemsTable({ items, onEdit, onDelete }: Estimate
                 className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
                 onClick={() => onEdit(item)}
               >
-                <td className="px-4 py-3 text-sm font-semibold max-w-xs break-words">
-                  {item.description}
+                <td className="px-4 py-3 text-sm max-w-xs break-words">
+                  {item.name ? (
+                    <>
+                      <div className="font-bold text-text-main-light dark:text-text-main-dark mb-1">
+                        {item.name}
+                      </div>
+                      {item.description && (
+                        <div className="text-text-secondary-light dark:text-text-secondary-dark text-xs">
+                          {item.description}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="font-semibold">
+                      {item.description || 'ללא שם'}
+                    </div>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-sm">
                   {item.category && (

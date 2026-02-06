@@ -46,6 +46,19 @@
     @apply shadow-lg -translate-y-1;
   }
 
+  /* Subtle pulse animation for highlights */
+  @keyframes pulse-subtle {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.85;
+    }
+  }
+  .animate-pulse-subtle {
+    animation: pulse-subtle 2s ease-in-out infinite;
+  }
+
   /* Button press effect */
   .btn-press {
     @apply transition-all duration-150 active:scale-95;

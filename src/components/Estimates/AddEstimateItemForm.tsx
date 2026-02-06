@@ -32,13 +32,13 @@ const units = [
 
 export default function AddEstimateItemForm({ estimateId, item, onSave, onCancel }: AddEstimateItemFormProps) {
   const [code, setCode] = useState(item?.code || '');
+  const [name, setName] = useState(item?.name || '');
   const [description, setDescription] = useState(item?.description || '');
   const [category, setCategory] = useState(item?.category || 'contractors');
   const [subcategory, setSubcategory] = useState(item?.subcategory || '');
   const [unit, setUnit] = useState(item?.unit || 'unit');
   const [quantity, setQuantity] = useState(item?.quantity || 1);
   const [unitPrice, setUnitPrice] = useState(item?.unit_price || 0);
-  const [notes, setNotes] = useState(item?.notes || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Calculated fields
@@ -68,8 +68,8 @@ export default function AddEstimateItemForm({ estimateId, item, onSave, onCancel
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!description.trim()) {
-      alert('נא למלא תיאור');
+    if (!name.trim()) {
+      alert('נא למלא שם פריט');
       return;
     }
 
@@ -89,7 +89,8 @@ export default function AddEstimateItemForm({ estimateId, item, onSave, onCancel
       const itemData = {
         estimate_id: estimateId,
         code: code || `AUTO-${Date.now()}`,
-        description: description.trim(),
+        name: name.trim(), // REQUIRED
+        description: description.trim() || undefined, // OPTIONAL
         category,
         subcategory,
         unit,
@@ -99,7 +100,6 @@ export default function AddEstimateItemForm({ estimateId, item, onSave, onCancel
         vat_rate: vatRate,
         vat_amount: vatAmount,
         total_with_vat: totalWithVat,
-        notes: notes.trim() || undefined,
         order_index: item?.order_index || 0,
       };
 
@@ -138,6 +138,21 @@ export default function AddEstimateItemForm({ estimateId, item, onSave, onCancel
 
         <form onSubmit={handleSubmit} className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Name - REQUIRED */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold mb-1">
+                שם הפריט <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-3 py-2 border border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-800"
+                placeholder="עבודות בטון ליסודות, חשמל, אינסטלציה..."
+                required
+              />
+            </div>
+
             {/* Code (optional) */}
             <div>
               <label className="block text-sm font-semibold mb-1">
@@ -171,17 +186,17 @@ export default function AddEstimateItemForm({ estimateId, item, onSave, onCancel
               </select>
             </div>
 
-            {/* Description */}
+            {/* Description - OPTIONAL */}
             <div className="md:col-span-2">
               <label className="block text-sm font-semibold mb-1">
-                תיאור <span className="text-red-500">*</span>
+                תיאור (אופציונלי)
               </label>
-              <input
-                type="text"
+              <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full px-3 py-2 border border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-800"
-                required
+                placeholder="פרטים נוספים על הפריט..."
+                rows={3}
               />
             </div>
 
@@ -304,18 +319,6 @@ export default function AddEstimateItemForm({ estimateId, item, onSave, onCancel
               </div>
             </div>
 
-            {/* Notes */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-semibold mb-1">
-                הערות (אופציונלי)
-              </label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-                className="w-full px-3 py-2 border border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-800"
-              />
-            </div>
           </div>
 
           {/* Form Actions */}

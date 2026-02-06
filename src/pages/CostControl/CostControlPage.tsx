@@ -2,14 +2,12 @@ import { useState, useEffect, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 // Lazy load tab components
-const EstimatesTabContent = lazy(() => import('./tabs/EstimatesTabContent'));
 const TendersTabContent = lazy(() => import('./tabs/TendersTabContent'));
 const BudgetTabContent = lazy(() => import('./tabs/BudgetTabContent'));
 
-type TabValue = 'estimates' | 'tenders' | 'budget';
+type TabValue = 'tenders' | 'budget';
 
 const tabs: { label: string; value: TabValue; icon: string }[] = [
-  { label: 'אומדן', value: 'estimates', icon: 'assessment' },
   { label: 'מכרזים', value: 'tenders', icon: 'gavel' },
   { label: 'תקציב', value: 'budget', icon: 'payments' },
 ];
@@ -29,12 +27,12 @@ export default function CostControlPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab') as TabValue | null;
 
-  // Default to 'estimates' if no tab in URL or invalid tab
+  // Default to 'tenders' if no tab in URL or invalid tab
   const [activeTab, setActiveTab] = useState<TabValue>(() => {
     if (tabFromUrl && tabs.some(t => t.value === tabFromUrl)) {
       return tabFromUrl;
     }
-    return 'estimates';
+    return 'tenders';
   });
 
   // Update URL when tab changes
@@ -65,7 +63,7 @@ export default function CostControlPage() {
             בקרת עלויות
           </h1>
           <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            Cost Control - ניהול אומדנים, מכרזים ותקציב
+            Cost Control - ניהול מכרזים ותקציב
           </p>
         </div>
       </div>
@@ -109,11 +107,6 @@ export default function CostControlPage() {
       {/* Tab Content */}
       <div className="animate-fade-in">
         <Suspense fallback={<TabLoadingSpinner />}>
-          {activeTab === 'estimates' && (
-            <div role="tabpanel" id="estimates-panel" aria-labelledby="estimates-tab">
-              <EstimatesTabContent />
-            </div>
-          )}
           {activeTab === 'tenders' && (
             <div role="tabpanel" id="tenders-panel" aria-labelledby="tenders-tab">
               <TendersTabContent />

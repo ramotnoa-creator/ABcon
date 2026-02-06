@@ -91,6 +91,9 @@ export async function createProjectProfessional(
       `INSERT INTO project_professionals (
         project_id, professional_id, project_role, source, start_date, is_active, notes
       ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      ON CONFLICT (project_id, professional_id) DO UPDATE SET
+        is_active = EXCLUDED.is_active,
+        source = EXCLUDED.source
       RETURNING *`,
       [
         projectProfessional.project_id,
