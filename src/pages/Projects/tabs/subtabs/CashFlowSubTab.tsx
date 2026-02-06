@@ -142,7 +142,6 @@ export default function CashFlowSubTab({ project }: CashFlowSubTabProps) {
 
     // Style header
     const headerRow = sheet.getRow(1);
-    headerRow.font = { bold: true, size: 12 };
     headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
     headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
 
@@ -299,42 +298,45 @@ export default function CashFlowSubTab({ project }: CashFlowSubTabProps) {
             </div>
 
             {/* Cumulative line overlay using SVG */}
-            {monthlyData.length > 1 && (
-              <svg
-                className="absolute top-0 left-0 w-full h-52 pointer-events-none"
-                viewBox={`0 0 ${monthlyData.length * 100} 100`}
-                preserveAspectRatio="none"
-              >
-                <polyline
-                  fill="none"
-                  stroke="#ef4444"
-                  strokeWidth="2"
-                  strokeLinejoin="round"
-                  vectorEffect="non-scaling-stroke"
-                  points={monthlyData.map((m, i) => {
-                    const maxCum = Math.max(...monthlyData.map(d => d.cumulative), 1);
+            {monthlyData.length > 1 && (() => {
+              const maxCum = Math.max(...monthlyData.map(d => d.cumulative), 1);
+              return (
+                <svg
+                  className="absolute top-0 left-0 w-full h-52 pointer-events-none"
+                  viewBox={`0 0 ${monthlyData.length * 100} 100`}
+                  preserveAspectRatio="none"
+                  role="img"
+                  aria-label="קו מצטבר"
+                >
+                  <polyline
+                    fill="none"
+                    stroke="#ef4444"
+                    strokeWidth="2"
+                    strokeLinejoin="round"
+                    vectorEffect="non-scaling-stroke"
+                    points={monthlyData.map((m, i) => {
+                      const x = i * 100 + 50;
+                      const y = 100 - (m.cumulative / maxCum) * 100;
+                      return `${x},${y}`;
+                    }).join(' ')}
+                  />
+                  {monthlyData.map((m, i) => {
                     const x = i * 100 + 50;
                     const y = 100 - (m.cumulative / maxCum) * 100;
-                    return `${x},${y}`;
-                  }).join(' ')}
-                />
-                {monthlyData.map((m, i) => {
-                  const maxCum = Math.max(...monthlyData.map(d => d.cumulative), 1);
-                  const x = i * 100 + 50;
-                  const y = 100 - (m.cumulative / maxCum) * 100;
-                  return (
-                    <circle
-                      key={i}
-                      cx={x}
-                      cy={y}
-                      r="4"
-                      fill="#ef4444"
-                      vectorEffect="non-scaling-stroke"
-                    />
-                  );
-                })}
-              </svg>
-            )}
+                    return (
+                      <circle
+                        key={i}
+                        cx={x}
+                        cy={y}
+                        r="4"
+                        fill="#ef4444"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    );
+                  })}
+                </svg>
+              );
+            })()}
           </div>
         </div>
       </div>

@@ -2077,4 +2077,4 @@ export const seedDataSummary = {
   scheduleItems: seedScheduleItems.length,
 };
 
-console.log('Seed Data Summary:', seedDataSummary);
+// seedDataSummary is exported — consumers can log it if needed

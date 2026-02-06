@@ -359,23 +359,24 @@ export default function PaymentsSubTab({ projectId }: PaymentsSubTabProps) {
                             <tr key={si.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                               <td className="px-4 py-3 text-sm font-semibold">{si.description}</td>
                               <td className="px-4 py-3 text-sm font-bold">{formatCurrency(si.amount)}</td>
-                              <td className={`px-4 py-3 text-sm ${getDateUrgency(si.target_date).className}`}>
-                                {si.target_date ? (
-                                  <span className="flex items-center gap-1">
-                                    {getDateUrgency(si.target_date).icon ? (
-                                      <span className="material-symbols-outlined text-[14px]">{getDateUrgency(si.target_date).icon}</span>
+                              {(() => {
+                                const urgency = getDateUrgency(si.target_date);
+                                return (
+                                  <td className={`px-4 py-3 text-sm ${urgency.className}`}>
+                                    {si.target_date ? (
+                                      <span className="flex items-center gap-1">
+                                        <span className="material-symbols-outlined text-[14px]">{urgency.icon || 'event'}</span>
+                                        {formatDate(si.target_date)}
+                                        {urgency.label && (
+                                          <span className="text-[10px]">({urgency.label})</span>
+                                        )}
+                                      </span>
                                     ) : (
-                                      <span className="material-symbols-outlined text-[14px]">event</span>
+                                      <span className="text-slate-400">-</span>
                                     )}
-                                    {formatDate(si.target_date)}
-                                    {getDateUrgency(si.target_date).label && (
-                                      <span className="text-[10px]">({getDateUrgency(si.target_date).label})</span>
-                                    )}
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-400">-</span>
-                                )}
-                              </td>
+                                  </td>
+                                );
+                              })()}
                               <td className="px-4 py-3 text-sm">
                                 {si.milestone_name ? (
                                   <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">

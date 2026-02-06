@@ -16,6 +16,7 @@ interface InstallmentRow {
   milestoneId: string;
   milestoneName: string;
   targetDate: string;
+  existingStatus?: string; // Preserve status from existing items on edit
 }
 
 interface PaymentScheduleModalProps {
@@ -61,6 +62,7 @@ export default function PaymentScheduleModal({
         milestoneId: item.milestone_id || '',
         milestoneName: item.milestone_name || '',
         targetDate: item.target_date || '',
+        existingStatus: item.status,
       }));
     }
     return [createEmptyRow()];
@@ -110,7 +112,7 @@ export default function PaymentScheduleModal({
   };
 
   const distributeEvenly = () => {
-    if (rows.length === 0) return;
+    if (rows.length === 0 || contractAmount <= 0) return;
     const perRow = Math.floor(contractAmount / rows.length);
     const remainder = contractAmount - perRow * rows.length;
 
@@ -161,6 +163,7 @@ export default function PaymentScheduleModal({
         scheduleId = schedule.id;
       }
 
+      const validStatuses = ['pending', 'milestone_confirmed', 'invoice_received', 'approved', 'paid'] as const;
       const itemsToCreate = rows.map((row, idx) => ({
         schedule_id: scheduleId,
         cost_item_id: costItem.id,
@@ -172,7 +175,9 @@ export default function PaymentScheduleModal({
         milestone_name: row.milestoneName || undefined,
         target_date: row.targetDate || undefined,
         order: idx + 1,
-        status: 'pending' as const,
+        status: (row.existingStatus && validStatuses.includes(row.existingStatus as any)
+          ? row.existingStatus
+          : 'pending') as typeof validStatuses[number],
       }));
 
       await createScheduleItemsBatch(itemsToCreate);
