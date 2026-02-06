@@ -205,6 +205,14 @@ export default function CostsTab({ project, onProjectUpdate }: CostsTabProps) {
       ? totalActual / project.sales_sqm
       : 0;
 
+    // Category breakdown
+    const byCategory = (['consultant', 'supplier', 'contractor'] as const).map(cat => {
+      const catItems = items.filter(i => i.category === cat);
+      const estimated = catItems.reduce((s, i) => s + (i.estimated_amount || 0), 0);
+      const actual = catItems.reduce((s, i) => s + (i.actual_amount || 0), 0);
+      return { category: cat, count: catItems.length, estimated, actual };
+    });
+
     return {
       generalEstimate,
       totalEstimated,
@@ -220,6 +228,7 @@ export default function CostsTab({ project, onProjectUpdate }: CostsTabProps) {
       bestEstimateTotal,
       gapEstimatedVsGeneral,
       gapBestVsGeneral,
+      byCategory,
     };
   }, [items, project.general_estimate, project.built_sqm, project.sales_sqm]);
 
@@ -279,87 +288,106 @@ export default function CostsTab({ project, onProjectUpdate }: CostsTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards — 4 focused cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {/* 1. General Estimate */}
-        <div className="bg-white dark:bg-surface-dark rounded-lg p-4 border border-border-light dark:border-border-dark">
-          <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark mb-1 font-medium">
-            אומדן כללי
-          </div>
-          <div className="text-xl font-bold text-text-main-light dark:text-text-main-dark">
-            {formatCurrency(summary.generalEstimate)}
-          </div>
-        </div>
-
-        {/* 2. Total Estimated */}
+      {/* Summary Cards — 3 cards: Estimate, Current State, Difference */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* 1. Total Estimate (אומדן) */}
         <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800/40">
           <div className="text-xs text-blue-600 dark:text-blue-400 mb-1 font-medium">
-            סה"כ אומדנים
+            אומדן
           </div>
-          <div className="text-xl font-bold text-blue-700 dark:text-blue-300">
+          <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
             {formatCurrency(summary.totalEstimated)}
           </div>
-          {summary.generalEstimate > 0 && (
-            <div className={`text-xs font-semibold mt-1 ${
-              summary.gapEstimatedVsGeneral > 0
-                ? 'text-red-600 dark:text-red-400'
-                : summary.gapEstimatedVsGeneral < 0
-                ? 'text-green-600 dark:text-green-400'
-                : 'text-gray-500'
-            }`}>
-              {summary.gapEstimatedVsGeneral > 0 ? '+' : ''}{summary.gapEstimatedVsGeneral.toFixed(1)}% מול אומדן כללי
-            </div>
-          )}
+          <div className="text-xs text-blue-500 dark:text-blue-400 mt-1">
+            {items.length} פריטים
+          </div>
         </div>
 
-        {/* 3. Actual (contracted) */}
-        <div className={`rounded-lg p-4 border ${
-          summary.gapBestVsGeneral > 0
-            ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800/40'
-            : 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40'
-        }`}>
-          <div className={`text-xs mb-1 font-medium ${
-            summary.gapBestVsGeneral > 0
-              ? 'text-red-600 dark:text-red-400'
-              : 'text-emerald-600 dark:text-emerald-400'
-          }`}>
-            מחיר בפועל
+        {/* 2. Current State = actual where available + estimate where not */}
+        <div className="bg-white dark:bg-surface-dark rounded-lg p-4 border border-border-light dark:border-border-dark">
+          <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark mb-1 font-medium">
+            מצב נוכחי
           </div>
-          <div className={`text-xl font-bold ${
-            summary.gapBestVsGeneral > 0
-              ? 'text-red-700 dark:text-red-300'
-              : 'text-emerald-700 dark:text-emerald-300'
-          }`}>
-            {formatCurrency(summary.totalContracted)}
+          <div className="text-2xl font-bold text-text-main-light dark:text-text-main-dark">
+            {formatCurrency(summary.bestEstimateTotal)}
           </div>
-          {summary.generalEstimate > 0 && (
-            <div className={`text-xs font-semibold mt-1 ${
-              summary.gapBestVsGeneral > 0
-                ? 'text-red-600 dark:text-red-400'
-                : summary.gapBestVsGeneral < 0
-                ? 'text-green-600 dark:text-green-400'
-                : 'text-gray-500'
-            }`}>
-              {summary.gapBestVsGeneral > 0 ? '+' : ''}{summary.gapBestVsGeneral.toFixed(1)}% מול אומדן כללי
-              <span className="text-gray-400 dark:text-gray-500 mx-1">·</span>
-              {summary.itemsWithActualCount} פריטים
-            </div>
-          )}
+          <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1 flex items-center gap-2 flex-wrap">
+            <span className="text-emerald-600 dark:text-emerald-400">{summary.itemsWithActualCount} בפועל</span>
+            <span className="text-gray-300 dark:text-gray-600">|</span>
+            <span className="text-amber-600 dark:text-amber-400">{summary.itemsWithoutActualCount} באומדן</span>
+          </div>
         </div>
 
-        {/* 4. Without Actual (risk zone) */}
-        <div className="bg-amber-50 dark:bg-amber-950/20 rounded-lg p-4 border border-amber-200 dark:border-amber-800/40">
-          <div className="text-xs text-amber-600 dark:text-amber-400 mb-1 font-medium">
-            ללא מחיר בפועל
-          </div>
-          <div className="text-xl font-bold text-amber-700 dark:text-amber-300">
-            {formatCurrency(summary.totalWithoutActual)}
-          </div>
-          <div className="text-xs font-semibold mt-1 text-amber-600 dark:text-amber-400">
-            {summary.itemsWithoutActualCount} פריטים
-          </div>
-        </div>
+        {/* 3. Difference (הפרש) */}
+        {(() => {
+          const diff = summary.bestEstimateTotal - summary.totalEstimated;
+          const diffPercent = summary.totalEstimated > 0 ? (diff / summary.totalEstimated) * 100 : 0;
+          const isOver = diff > 0;
+          const isExact = diff === 0;
+          return (
+            <div className={`rounded-lg p-4 border ${
+              isExact
+                ? 'bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-700'
+                : isOver
+                ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800/40'
+                : 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40'
+            }`}>
+              <div className={`text-xs mb-1 font-medium ${
+                isExact ? 'text-gray-500' : isOver ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'
+              }`}>
+                הפרש מאומדן
+              </div>
+              <div className={`text-2xl font-bold ${
+                isExact ? 'text-gray-600 dark:text-gray-400' : isOver ? 'text-red-700 dark:text-red-300' : 'text-emerald-700 dark:text-emerald-300'
+              }`}>
+                {diff > 0 ? '+' : ''}{formatCurrency(diff)}
+              </div>
+              <div className={`text-xs font-semibold mt-1 ${
+                isExact ? 'text-gray-500' : isOver ? 'text-red-500 dark:text-red-400' : 'text-emerald-500 dark:text-emerald-400'
+              }`}>
+                {isExact ? 'בדיוק על האומדן' : `${diff > 0 ? '+' : ''}${diffPercent.toFixed(1)}%`}
+              </div>
+            </div>
+          );
+        })()}
       </div>
+
+      {/* Category breakdown */}
+      {items.length > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          {summary.byCategory.filter(c => c.count > 0).map(({ category, count, estimated, actual }) => {
+            const colors = {
+              consultant: { bg: 'bg-purple-50 dark:bg-purple-950/20', border: 'border-purple-200 dark:border-purple-800/40', dot: 'bg-purple-500', text: 'text-purple-700 dark:text-purple-300', sub: 'text-purple-500 dark:text-purple-400' },
+              supplier: { bg: 'bg-blue-50 dark:bg-blue-950/20', border: 'border-blue-200 dark:border-blue-800/40', dot: 'bg-blue-500', text: 'text-blue-700 dark:text-blue-300', sub: 'text-blue-500 dark:text-blue-400' },
+              contractor: { bg: 'bg-orange-50 dark:bg-orange-950/20', border: 'border-orange-200 dark:border-orange-800/40', dot: 'bg-orange-500', text: 'text-orange-700 dark:text-orange-300', sub: 'text-orange-500 dark:text-orange-400' },
+            }[category];
+            const pct = summary.totalEstimated > 0 ? (estimated / summary.totalEstimated) * 100 : 0;
+            return (
+              <div key={category} className={`${colors.bg} rounded-lg px-4 py-3 border ${colors.border}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`size-2 rounded-full ${colors.dot}`} />
+                  <span className={`text-xs font-bold ${colors.sub}`}>{categoryLabels[category]}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">{count} פריטים</span>
+                </div>
+                <div className={`text-lg font-bold ${colors.text}`}>
+                  {formatCurrency(estimated)}
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div className={`h-full ${colors.dot} rounded-full`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">{pct.toFixed(0)}%</span>
+                </div>
+                {actual > 0 && (
+                  <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                    בפועל: {formatCurrency(actual)}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* SQM compact row */}
       {(project.built_sqm || project.sales_sqm) && (

@@ -62,6 +62,17 @@ const MOCK_USERS: User[] = [
     created_at: '2025-05-01T00:00:00Z',
     assignedProjects: ['3'],
   },
+  {
+    id: '6',
+    email: 'ramotnoa@gmail.com',
+    full_name: 'נעה רמות',
+    phone: '',
+    role: 'admin',
+    is_active: true,
+    last_login: '2026-02-06T10:00:00Z',
+    created_at: '2025-01-01T00:00:00Z',
+    assignedProjects: [],
+  },
 ];
 
 // Storage keys
@@ -92,6 +103,7 @@ function getUsers(): User[] {
     'entrepreneur@client.com': 'client123',
     'accountant@office.com': 'account123',
     'inactive@example.com': 'inactive123',
+    'ramotnoa@gmail.com': 'test123',
   };
   localStorage.setItem(CREDENTIALS_STORAGE_KEY, JSON.stringify(defaultCredentials));
   return MOCK_USERS;

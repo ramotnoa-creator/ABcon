@@ -35,20 +35,19 @@ export default function CostControlPage() {
     return 'tenders';
   });
 
-  // Update URL when tab changes
+  // Sync URL ↔ tab state (single effect to avoid loop)
   useEffect(() => {
-    const currentTab = searchParams.get('tab');
-    if (currentTab !== activeTab) {
+    const urlTab = searchParams.get('tab') as TabValue | null;
+    const validUrlTab = urlTab && tabs.some(t => t.value === urlTab) ? urlTab : null;
+
+    if (validUrlTab && validUrlTab !== activeTab) {
+      // URL changed externally (browser back/forward) → update state
+      setActiveTab(validUrlTab);
+    } else if (!validUrlTab || urlTab !== activeTab) {
+      // State changed → update URL
       setSearchParams({ tab: activeTab }, { replace: true });
     }
   }, [activeTab, searchParams, setSearchParams]);
-
-  // Update active tab when URL changes (browser back/forward)
-  useEffect(() => {
-    if (tabFromUrl && tabs.some(t => t.value === tabFromUrl) && tabFromUrl !== activeTab) {
-      setActiveTab(tabFromUrl);
-    }
-  }, [tabFromUrl, activeTab]);
 
   const handleTabChange = (newTab: TabValue) => {
     setActiveTab(newTab);
