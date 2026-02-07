@@ -116,8 +116,9 @@ export async function createTender(
         winner_professional_id, winner_professional_name, milestone_id,
         notes, estimated_budget, contract_amount, management_remarks,
         estimate_id, bom_file_id, project_item_id, attempt_number,
-        previous_tender_id, retry_reason, cost_item_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
+        previous_tender_id, retry_reason, cost_item_id,
+        bom_sent_date, winner_selected_date
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
       RETURNING *`,
       [
         tender.project_id,
@@ -143,6 +144,8 @@ export async function createTender(
         (tender as any).previous_tender_id || null,
         (tender as any).retry_reason || null,
         (tender as any).cost_item_id || null,
+        tender.bom_sent_date || null,
+        tender.winner_selected_date || null,
       ]
     );
 
@@ -268,6 +271,14 @@ export async function updateTender(
       setClauses.push(`is_estimate_outdated = $${paramIndex++}`);
       values.push(updates.is_estimate_outdated);
     }
+    if (updates.bom_sent_date !== undefined) {
+      setClauses.push(`bom_sent_date = $${paramIndex++}`);
+      values.push(updates.bom_sent_date);
+    }
+    if (updates.winner_selected_date !== undefined) {
+      setClauses.push(`winner_selected_date = $${paramIndex++}`);
+      values.push(updates.winner_selected_date);
+    }
 
     if (setClauses.length === 0) {
       return; // Nothing to update
@@ -339,6 +350,8 @@ function transformTenderFromDB(dbTender: any): Tender {
     estimate_version: dbTender.estimate_version ?? undefined,
     is_estimate_outdated: dbTender.is_estimate_outdated ?? undefined,
     cost_item_id: dbTender.cost_item_id || undefined,
+    bom_sent_date: dbTender.bom_sent_date || undefined,
+    winner_selected_date: dbTender.winner_selected_date || undefined,
     created_at: dbTender.created_at,
     updated_at: dbTender.updated_at,
   };

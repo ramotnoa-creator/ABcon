@@ -117,7 +117,7 @@ export interface Task {
   updated_at: string; // ISO date string
 }
 
-export type TenderStatus = 'Draft' | 'Open' | 'Closed' | 'WinnerSelected' | 'Canceled';
+export type TenderStatus = 'Draft' | 'Open' | 'WinnerSelected' | 'Canceled';
 
 export type TenderType = 'architect' | 'engineer' | 'contractor' | 'electrician' | 'plumber' | 'interior_designer' | 'other';
 
@@ -129,8 +129,10 @@ export interface Tender {
   category?: string;
   description?: string;
   status: TenderStatus;
-  publish_date?: string; // ISO date string
-  due_date?: string; // ISO date string (deadline)
+  publish_date?: string; // ISO date string — set when BOM sent & tender opened
+  due_date?: string; // ISO date string — target date for receiving quotes
+  bom_sent_date?: string; // ISO date string — when BOM was sent to participants
+  winner_selected_date?: string; // ISO date string — when winner was chosen
   candidate_professional_ids: string[]; // Array of professional IDs
   winner_professional_id?: string; // Reference to Professional
   winner_professional_name?: string; // Display name (lookup)

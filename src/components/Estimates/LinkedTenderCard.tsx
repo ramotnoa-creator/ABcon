@@ -79,13 +79,6 @@ export default function LinkedTenderCard({
             פתוח
           </span>
         );
-      case 'Closed':
-        return (
-          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200">
-            <span className="material-symbols-outlined text-[14px]">lock</span>
-            סגור
-          </span>
-        );
       case 'Draft':
         return (
           <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200">

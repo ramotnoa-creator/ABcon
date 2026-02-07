@@ -9,6 +9,7 @@ interface SendBOMEmailModalProps {
   participants: Array<TenderParticipant & { professional?: Professional }>;
   bomFile: BOMFile;
   onClose: () => void;
+  onSent?: () => void;
 }
 
 export default function SendBOMEmailModal({
@@ -16,6 +17,7 @@ export default function SendBOMEmailModal({
   participants,
   bomFile,
   onClose,
+  onSent,
 }: SendBOMEmailModalProps) {
   const { showToast } = useToast();
 
@@ -167,18 +169,20 @@ export default function SendBOMEmailModal({
           <div className="p-6 border-t border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark">
             <div className="flex gap-3 justify-end">
               <button
-                disabled
-                title="שליחת אימייל אוטומטית תהיה זמינה בשלב 2"
-                className="px-4 py-2 rounded-lg bg-gray-300 text-gray-500 cursor-not-allowed text-sm font-bold"
-              >
-                <span className="material-symbols-outlined text-[16px] align-middle me-1">send</span>
-                שלח אימיילים (בקרוב)
-              </button>
-              <button
                 onClick={onClose}
                 className="px-4 py-2 rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition-colors text-sm font-bold"
               >
-                סגור
+                ביטול
+              </button>
+              <button
+                onClick={() => {
+                  onSent?.();
+                  onClose();
+                }}
+                className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors text-sm font-bold"
+              >
+                <span className="material-symbols-outlined text-[16px] align-middle me-1">check_circle</span>
+                שלחתי — סמן כפורסם
               </button>
             </div>
           </div>

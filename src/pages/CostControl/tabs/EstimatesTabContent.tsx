@@ -482,8 +482,6 @@ export default function EstimatesTabContent() {
                                 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200'
                                 : estimate.tender.status === 'Open'
                                 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200'
-                                : estimate.tender.status === 'Closed'
-                                ? 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200'
                                 : estimate.tender.status === 'Draft'
                                 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200'
                                 : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
@@ -491,7 +489,6 @@ export default function EstimatesTabContent() {
                           >
                             {estimate.tender.status === 'WinnerSelected' && '🏆 זוכה נבחר'}
                             {estimate.tender.status === 'Open' && '📋 פתוח'}
-                            {estimate.tender.status === 'Closed' && '🔒 סגור'}
                             {estimate.tender.status === 'Draft' && '✏️ טיוטה'}
                             {estimate.tender.status === 'Canceled' && '❌ בוטל'}
                             {estimate.tender.is_estimate_outdated && (

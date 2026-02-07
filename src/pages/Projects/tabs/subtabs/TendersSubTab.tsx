@@ -40,7 +40,6 @@ interface TendersSubTabProps {
 const statusLabels: Record<TenderStatus, string> = {
   Draft: 'טיוטה',
   Open: 'פתוח',
-  Closed: 'סגור',
   WinnerSelected: 'זוכה נבחר',
   Canceled: 'בוטל',
 };
@@ -48,7 +47,6 @@ const statusLabels: Record<TenderStatus, string> = {
 const statusColors: Record<TenderStatus, string> = {
   Draft: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200',
   Open: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200',
-  Closed: 'bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-200',
   WinnerSelected: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200',
   Canceled: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200',
 };
@@ -182,9 +180,6 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
   const [selectedTender, setSelectedTender] = useState<Tender | null>(null);
   const [selectedParticipant, setSelectedParticipant] = useState<TenderParticipant | null>(null);
 
-  // File upload state
-  const [,] = useState(false);
-
   // Form states
   const [tenderForm, setTenderForm] = useState({
     tender_name: '',
@@ -315,8 +310,7 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
       tender_name: tenderForm.tender_name.trim(),
       tender_type: tenderForm.tender_type,
       description: tenderForm.description.trim() || undefined,
-      status: 'Open',
-      publish_date: new Date().toISOString(),
+      status: 'Draft',
       due_date: tenderForm.due_date || undefined,
       candidate_professional_ids: [],
       milestone_id: tenderForm.milestone_id || undefined,
@@ -433,13 +427,14 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
       // Update participant as winner
       await setTenderWinner(selectedTender.id, participant.id);
 
-      // Update tender with contract_amount and management_remarks
+      // Update tender with contract_amount, management_remarks, and winner_selected_date
       await updateTender(selectedTender.id, {
         winner_professional_id: participant.professional_id,
         winner_professional_name: professional.professional_name,
         status: 'WinnerSelected',
         contract_amount: contractAmount,
         management_remarks: winnerForm.management_remarks.trim() || undefined,
+        winner_selected_date: new Date().toISOString(),
       });
 
       const tender = selectedTender;
@@ -697,7 +692,6 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                     tender.status === 'WinnerSelected' ? 'bg-emerald-500' :
                     tender.status === 'Open' ? 'bg-blue-500' :
                     tender.status === 'Draft' ? 'bg-gray-400' :
-                    tender.status === 'Closed' ? 'bg-slate-500' :
                     'bg-red-500'
                   }`} />
 
@@ -838,10 +832,10 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                   );
                 })()}
 
-                {/* SECTION 4: DATES & ACTIONS - Same Line */}
+                {/* SECTION 4: DATES & ACTIONS */}
                 <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl mx-6 mt-6 p-6">
                   <div className="flex flex-wrap gap-4 items-center justify-start">
-                    {/* Dates - Left Side */}
+                    {/* Dates */}
                     {tender.created_at && (
                       <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
                         <span className="text-xs text-gray-500 dark:text-gray-400 font-medium block mb-0.5">תאריך יצירה</span>
@@ -852,7 +846,7 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                     )}
                     {tender.publish_date && (
                       <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg px-3 py-2 border border-blue-200 dark:border-blue-800">
-                        <span className="text-xs text-blue-600 dark:text-blue-400 font-medium block mb-0.5">תאריך פרסום</span>
+                        <span className="text-xs text-blue-600 dark:text-blue-400 font-medium block mb-0.5">תאריך שליחה ופרסום</span>
                         <span className="text-xs font-bold text-blue-900 dark:text-blue-200">
                           {formatDateForDisplay(tender.publish_date)}
                         </span>
@@ -869,8 +863,7 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                             ? 'text-red-600 dark:text-red-400'
                             : 'text-amber-600 dark:text-amber-400'
                         }`}>
-                          דדליין
-                          {deadlinePassed && tender.status === 'Open' && ' (עבר!)'}
+                          יעד קבלת הצעות
                         </span>
                         <span className={`text-xs font-bold ${
                           deadlinePassed && tender.status === 'Open'
@@ -881,11 +874,46 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                         </span>
                       </div>
                     )}
+                    {/* Follow-up indicator */}
+                    {tender.due_date && tender.status === 'Open' && (() => {
+                      const now = new Date();
+                      const due = new Date(tender.due_date);
+                      const diffMs = due.getTime() - now.getTime();
+                      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                      if (diffDays < 0) {
+                        return (
+                          <div className="bg-red-100 dark:bg-red-900/30 rounded-lg px-3 py-2 border border-red-300 dark:border-red-700">
+                            <span className="text-xs font-bold text-red-700 dark:text-red-300 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[14px]">warning</span>
+                              איחור של {Math.abs(diffDays)} ימים
+                            </span>
+                          </div>
+                        );
+                      } else if (diffDays <= 3) {
+                        return (
+                          <div className="bg-amber-100 dark:bg-amber-900/30 rounded-lg px-3 py-2 border border-amber-300 dark:border-amber-700">
+                            <span className="text-xs font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[14px]">schedule</span>
+                              {diffDays === 0 ? 'היום הדדליין!' : diffDays === 1 ? 'מחר הדדליין' : `נותרו ${diffDays} ימים`}
+                            </span>
+                          </div>
+                        );
+                      } else {
+                        return (
+                          <div className="bg-green-50 dark:bg-green-900/20 rounded-lg px-3 py-2 border border-green-200 dark:border-green-800">
+                            <span className="text-xs font-bold text-green-700 dark:text-green-300 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[14px]">schedule</span>
+                              נותרו {diffDays} ימים
+                            </span>
+                          </div>
+                        );
+                      }
+                    })()}
                     {tender.status === 'WinnerSelected' && winner && (
                       <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg px-3 py-2 border border-emerald-200 dark:border-emerald-800">
                         <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium block mb-0.5">זוכה נבחר</span>
                         <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200">
-                          {formatDateForDisplay(tender.updated_at)}
+                          {formatDateForDisplay(tender.winner_selected_date || tender.updated_at)}
                         </span>
                       </div>
                     )}
@@ -893,8 +921,8 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                     {/* Divider */}
                     <div className="h-12 w-px bg-gray-200 dark:bg-gray-700 mx-2"></div>
 
-                    {/* Action Icons - Right Side */}
-                  {/* Add Participant */}
+                    {/* Action Icons */}
+                  {/* Add Participant (Draft or Open) */}
                   {tender.status !== 'WinnerSelected' && tender.status !== 'Canceled' && (
                     <button
                       onClick={(e) => {
@@ -912,12 +940,12 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                     </button>
                   )}
 
-                  {/* Send BOM Email */}
-                  {bomFilesMap[tender.id] && (
+                  {/* Send BOM & Publish (Draft only — this is THE action that opens the tender) */}
+                  {tender.status === 'Draft' && bomFilesMap[tender.id] && (
                     <button
                       onClick={() => {
                         if (participantsWithProf.length === 0) {
-                          showError('אין משתתפים במכרז. הוסף משתתפים לפני שליחת בל"מ.');
+                          showError('אין משתתפים במכרז. הוסף משתתפים לפני שליחה.');
                           return;
                         }
                         setSelectedTender(tender);
@@ -927,7 +955,7 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                       className={`flex flex-col items-center gap-1 group w-24 ${
                         participantsWithProf.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
                       }`}
-                      title={participantsWithProf.length === 0 ? 'אין משתתפים במכרז' : 'שלח בל"מ למשתתפים'}
+                      title={participantsWithProf.length === 0 ? 'אין משתתפים במכרז' : 'שלח בל"מ ופרסם מכרז'}
                     >
                       <div className={`p-3 rounded-full transition-all ${
                         participantsWithProf.length === 0
@@ -939,78 +967,52 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                       <span className={`text-xs font-bold ${
                         participantsWithProf.length === 0 ? 'text-gray-400' : 'text-primary'
                       }`}>
-                        שליחת בל"מ
+                        שלח ופרסם
                       </span>
                     </button>
                   )}
 
-                  {/* Publish Tender (Draft -> Open) */}
-                  {tender.status === 'Draft' && (
+                  {/* Re-send BOM (Open — already published, allow re-sending) */}
+                  {tender.status === 'Open' && bomFilesMap[tender.id] && (
                     <button
-                      onClick={async () => {
-                        try {
-                          await updateTender(tender.id, {
-                            status: 'Open',
-                            publish_date: new Date().toISOString()
-                          });
-                          await loadTenders();
-                          showSuccess('המכרז פורסם בהצלחה!');
-                        } catch (error) {
-                          console.error('Error publishing tender:', error);
-                          showError('שגיאה בפרסום המכרז');
+                      onClick={() => {
+                        if (participantsWithProf.length === 0) {
+                          showError('אין משתתפים במכרז.');
+                          return;
                         }
+                        setSelectedTender(tender);
+                        setIsSendBOMModalOpen(true);
                       }}
                       className="flex flex-col items-center gap-1 group w-24"
-                    >
-                      <div className="p-3 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full group-hover:bg-green-200 dark:group-hover:bg-green-900/50 transition-all">
-                        <span className="material-symbols-outlined">campaign</span>
-                      </div>
-                      <span className="text-xs font-semibold text-green-600 dark:text-green-400">פרסום מכרז</span>
-                    </button>
-                  )}
-
-                  {/* Close Tender */}
-                  {(tender.status === 'Open' || tender.status === 'Draft') && (
-                    <button
-                      onClick={async () => {
-                        if (!confirm('האם לסגור את המכרז? לא ניתן יהיה להוסיף משתתפים חדשים')) return;
-                        try {
-                          await updateTender(tender.id, { status: 'Closed' });
-                          await loadTenders();
-                          showSuccess('המכרז נסגר בהצלחה');
-                        } catch (error) {
-                          console.error('Error closing tender:', error);
-                          showError('שגיאה בסגירת המכרז');
-                        }
-                      }}
-                      className="flex flex-col items-center gap-1 group w-24"
-                    >
-                      <div className="p-3 bg-slate-100 dark:bg-slate-900/30 text-slate-600 dark:text-slate-400 rounded-full group-hover:bg-slate-200 dark:group-hover:bg-slate-900/50 transition-all">
-                        <span className="material-symbols-outlined">lock</span>
-                      </div>
-                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">סגירת מכרז</span>
-                    </button>
-                  )}
-
-                  {/* Reopen Tender */}
-                  {tender.status === 'Closed' && (
-                    <button
-                      onClick={async () => {
-                        try {
-                          await updateTender(tender.id, { status: 'Open' });
-                          await loadTenders();
-                          showSuccess('המכרז נפתח מחדש');
-                        } catch (error) {
-                          console.error('Error reopening tender:', error);
-                          showError('שגיאה בפתיחת המכרז מחדש');
-                        }
-                      }}
-                      className="flex flex-col items-center gap-1 group w-24"
+                      title="שלח בל״מ שוב למשתתפים"
                     >
                       <div className="p-3 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-all">
-                        <span className="material-symbols-outlined">lock_open</span>
+                        <span className="material-symbols-outlined">forward_to_inbox</span>
                       </div>
-                      <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">פתיחה מחדש</span>
+                      <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">שלח שוב</span>
+                    </button>
+                  )}
+
+                  {/* Cancel Tender */}
+                  {(tender.status === 'Draft' || tender.status === 'Open') && (
+                    <button
+                      onClick={async () => {
+                        if (!confirm('האם לבטל את המכרז?')) return;
+                        try {
+                          await updateTender(tender.id, { status: 'Canceled' });
+                          await loadTenders();
+                          showSuccess('המכרז בוטל');
+                        } catch (error) {
+                          console.error('Error canceling tender:', error);
+                          showError('שגיאה בביטול המכרז');
+                        }
+                      }}
+                      className="flex flex-col items-center gap-1 group w-24"
+                    >
+                      <div className="p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full group-hover:bg-red-200 dark:group-hover:bg-red-900/50 transition-all">
+                        <span className="material-symbols-outlined">cancel</span>
+                      </div>
+                      <span className="text-xs font-semibold text-red-600 dark:text-red-400">ביטול מכרז</span>
                     </button>
                   )}
 
@@ -1691,6 +1693,22 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
           onClose={() => {
             setIsSendBOMModalOpen(false);
             setSelectedTender(null);
+          }}
+          onSent={async () => {
+            // When user confirms they sent the BOM — publish the tender
+            const now = new Date().toISOString();
+            try {
+              await updateTender(selectedTender.id, {
+                status: 'Open',
+                publish_date: selectedTender.publish_date || now,
+                bom_sent_date: now,
+              });
+              await loadTenders();
+              showSuccess('המכרז פורסם בהצלחה! הבל"מ נשלח למשתתפים.');
+            } catch (error) {
+              console.error('Error publishing tender:', error);
+              showError('שגיאה בפרסום המכרז');
+            }
           }}
         />
       )}

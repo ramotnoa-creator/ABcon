@@ -383,7 +383,7 @@ export default function AddBudgetItemForm({ projectId: initialProjectId, onSucce
               .filter((t) => t.status !== 'Canceled')
               .map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.tender_name} ({t.status === 'Open' ? 'פתוח' : t.status === 'WinnerSelected' ? 'נבחר זוכה' : t.status === 'Closed' ? 'סגור' : 'טיוטה'})
+                  {t.tender_name} ({t.status === 'Open' ? 'פתוח' : t.status === 'WinnerSelected' ? 'נבחר זוכה' : t.status === 'Canceled' ? 'בוטל' : 'טיוטה'})
                 </option>
               ))}
           </select>
