@@ -21,20 +21,19 @@ const loadInitialProjectProfessionals = async (projectId: string): Promise<Proje
     getProfessionals(),
   ]);
 
-  return projectProfessionals
-    .map((pp) => {
-      const professional = professionals.find((p) => p.id === pp.professional_id);
-      if (professional) {
-        return {
-          professional,
-          projectRole: pp.project_role,
-          source: pp.source,
-          relatedTenderId: pp.related_tender_id,
-        };
-      }
-      return null;
-    })
-    .filter((item): item is ProjectProfessionalItem => item !== null);
+  const result: ProjectProfessionalItem[] = [];
+  for (const pp of projectProfessionals) {
+    const professional = professionals.find((p) => p.id === pp.professional_id);
+    if (professional) {
+      result.push({
+        professional,
+        projectRole: pp.project_role,
+        source: pp.source,
+        relatedTenderId: pp.related_tender_id,
+      });
+    }
+  }
+  return result;
 };
 
 export default function ProfessionalsTab({ project }: ProfessionalsTabProps) {
