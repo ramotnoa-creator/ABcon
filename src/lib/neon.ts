@@ -4,9 +4,12 @@
  */
 
 import { neon } from '@neondatabase/serverless';
+import { logDbError } from './logger';
 
-// Get database URL from environment
-const databaseUrl = import.meta.env.VITE_NEON_DATABASE_URL;
+// Get database URL from environment — trim whitespace and strip query params
+// that the neon serverless driver (HTTP-based) cannot parse
+const rawUrl = import.meta.env.VITE_NEON_DATABASE_URL?.trim() ?? '';
+const databaseUrl = rawUrl ? rawUrl.split('?')[0] : '';
 
 // Check if we're in demo/dev mode (no database configured)
 export const isDemoMode = !databaseUrl || import.meta.env.VITE_DEV_MODE === 'true';
@@ -34,7 +37,7 @@ export async function executeQuery<T = unknown>(
 
     return result as T[];
   } catch (error) {
-    console.error('Database query error:', error);
+    logDbError('query', 'unknown', error);
     throw error;
   }
 }
