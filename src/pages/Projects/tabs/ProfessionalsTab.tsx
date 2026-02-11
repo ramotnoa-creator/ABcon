@@ -13,7 +13,7 @@ interface ProfessionalsTabProps {
   project: Project;
 }
 
-type ProjectProfessionalItem = { professional: Professional; projectRole: string | undefined; source: ProjectProfessionalSource };
+type ProjectProfessionalItem = { professional: Professional; projectRole: string | undefined; source: ProjectProfessionalSource; relatedTenderId?: string };
 
 const loadInitialProjectProfessionals = async (projectId: string): Promise<ProjectProfessionalItem[]> => {
   const [projectProfessionals, professionals] = await Promise.all([
@@ -29,6 +29,7 @@ const loadInitialProjectProfessionals = async (projectId: string): Promise<Proje
           professional,
           projectRole: pp.project_role,
           source: pp.source,
+          relatedTenderId: pp.related_tender_id,
         };
       }
       return null;
@@ -193,15 +194,26 @@ export default function ProfessionalsTab({ project }: ProfessionalsTabProps) {
                     </td>
                     <td className="px-6 py-4 text-sm">{item.projectRole || '-'}</td>
                     <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold ${
-                          item.source === 'Tender'
-                            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200'
-                            : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200'
-                        }`}
-                      >
-                        {item.source === 'Tender' ? '🏆 מכרז' : '✋ ידני'}
-                      </span>
+                      {item.source === 'Tender' && item.relatedTenderId ? (
+                        <button
+                          onClick={() => navigate(`/projects/${project.id}?tab=financial&subtab=tenders&tender=${item.relatedTenderId}`)}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200 hover:bg-yellow-200 dark:hover:bg-yellow-900/50 transition-colors cursor-pointer"
+                          title="צפה במכרז"
+                        >
+                          🏆 מכרז
+                          <span className="material-symbols-outlined text-[12px]">open_in_new</span>
+                        </button>
+                      ) : (
+                        <span
+                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold ${
+                            item.source === 'Tender'
+                              ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200'
+                              : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200'
+                          }`}
+                        >
+                          {item.source === 'Tender' ? '🏆 מכרז' : '✋ ידני'}
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <button
@@ -243,15 +255,26 @@ export default function ProfessionalsTab({ project }: ProfessionalsTabProps) {
                 >
                   {item.professional.professional_name}
                 </button>
-                <span
-                  className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold ms-2 ${
-                    item.source === 'Tender'
-                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200'
-                      : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200'
-                  }`}
-                >
-                  {item.source === 'Tender' ? '🏆 מכרז' : '✋ ידני'}
-                </span>
+                {item.source === 'Tender' && item.relatedTenderId ? (
+                  <button
+                    onClick={() => navigate(`/projects/${project.id}?tab=financial&subtab=tenders&tender=${item.relatedTenderId}`)}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ms-2 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200 hover:bg-yellow-200 dark:hover:bg-yellow-900/50 transition-colors"
+                    title="צפה במכרז"
+                  >
+                    🏆 מכרז
+                    <span className="material-symbols-outlined text-[12px]">open_in_new</span>
+                  </button>
+                ) : (
+                  <span
+                    className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold ms-2 ${
+                      item.source === 'Tender'
+                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200'
+                        : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200'
+                    }`}
+                  >
+                    {item.source === 'Tender' ? '🏆 מכרז' : '✋ ידני'}
+                  </span>
+                )}
               </div>
               <div className="space-y-2 text-sm mb-3">
                 {item.professional.company_name && (

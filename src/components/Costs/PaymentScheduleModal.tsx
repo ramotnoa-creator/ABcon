@@ -75,7 +75,17 @@ export default function PaymentScheduleModal({
   const totalRowPercentage = rows.reduce((sum, r) => sum + (parseFloat(r.percentage) || 0), 0);
   const amountDiff = contractAmount - totalRowAmount;
 
-  const addRow = () => setRows([...rows, createEmptyRow()]);
+  const addRow = () => {
+    // Find the last row with a date and default new row to the day after
+    const lastDate = [...rows].reverse().find(r => r.targetDate)?.targetDate;
+    const newRow = createEmptyRow();
+    if (lastDate) {
+      const next = new Date(lastDate);
+      next.setDate(next.getDate() + 1);
+      newRow.targetDate = next.toISOString().split('T')[0];
+    }
+    setRows([...rows, newRow]);
+  };
 
   const removeRow = (tempId: string) => {
     if (rows.length <= 1) return;
@@ -109,6 +119,25 @@ export default function PaymentScheduleModal({
 
       return updated;
     }));
+
+    // When a date changes, clear later rows' dates if they became earlier than the new date
+    if (field === 'targetDate' || field === 'milestoneId') {
+      setRows(prev => {
+        const changedIdx = prev.findIndex(r => r.tempId === tempId);
+        if (changedIdx < 0) return prev;
+        const changedDate = prev[changedIdx].targetDate;
+        if (!changedDate) return prev;
+        let needsUpdate = false;
+        const updated = prev.map((r, i) => {
+          if (i > changedIdx && r.targetDate && r.targetDate < changedDate) {
+            needsUpdate = true;
+            return { ...r, targetDate: '' };
+          }
+          return r;
+        });
+        return needsUpdate ? updated : prev;
+      });
+    }
   };
 
   const distributeEvenly = () => {
@@ -132,6 +161,16 @@ export default function PaymentScheduleModal({
       if (!row.amount || parseFloat(row.amount) <= 0) return 'כל שורה חייבת לכלול סכום חיובי';
     }
     if (Math.abs(amountDiff) > 1) return `סה"כ התשלומים (${formatCurrency(totalRowAmount)}) חייב להיות שווה לסכום החוזה (${formatCurrency(contractAmount)})`;
+    // Validate sequential dates
+    let prevDate = '';
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i].targetDate) {
+        if (prevDate && rows[i].targetDate < prevDate) {
+          return `תאריך תשלום #${i + 1} חייב להיות אחרי תשלום #${i}`;
+        }
+        prevDate = rows[i].targetDate;
+      }
+    }
     return null;
   };
 
@@ -330,6 +369,7 @@ export default function PaymentScheduleModal({
                         type="date"
                         value={row.targetDate}
                         onChange={(e) => updateRow(row.tempId, 'targetDate', e.target.value)}
+                        min={idx > 0 ? rows.slice(0, idx).reverse().find(r => r.targetDate)?.targetDate || '' : ''}
                         className="w-full px-3 py-2 rounded-lg border border-border-light dark:border-border-dark bg-surface-light dark:bg-background-dark text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
                       />
                     </div>

@@ -146,8 +146,8 @@ export async function createTenderParticipant(
 
     const data = await executeQuerySingle<Record<string, unknown>>(
       `INSERT INTO tender_participants (
-        tender_id, professional_id, quote_file, total_amount, notes, is_winner
-      ) VALUES ($1, $2, $3, $4, $5, $6)
+        tender_id, professional_id, quote_file, total_amount, notes, is_winner, bom_sent_date, bom_sent_status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *`,
       [
         participant.tender_id,
@@ -156,6 +156,8 @@ export async function createTenderParticipant(
         participant.total_amount ?? null,
         participant.notes || null,
         participant.is_winner,
+        participant.bom_sent_date || null,
+        participant.bom_sent_status || 'not_sent',
       ]
     );
 
@@ -199,9 +201,9 @@ export async function addTenderParticipants(
 
       if (!existing) {
         await executeQuery(
-          `INSERT INTO tender_participants (tender_id, professional_id, is_winner, created_at)
-           VALUES ($1, $2, $3, $4)`,
-          [tenderId, professionalId, false, now]
+          `INSERT INTO tender_participants (tender_id, professional_id, is_winner, bom_sent_status, created_at)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [tenderId, professionalId, false, 'not_sent', now]
         );
       }
     }
@@ -246,6 +248,14 @@ export async function updateTenderParticipant(
     if (updates.is_winner !== undefined) {
       setClauses.push(`is_winner = $${paramIndex++}`);
       values.push(updates.is_winner);
+    }
+    if (updates.bom_sent_date !== undefined) {
+      setClauses.push(`bom_sent_date = $${paramIndex++}`);
+      values.push(updates.bom_sent_date);
+    }
+    if (updates.bom_sent_status !== undefined) {
+      setClauses.push(`bom_sent_status = $${paramIndex++}`);
+      values.push(updates.bom_sent_status);
     }
 
     if (setClauses.length === 0) {
@@ -380,6 +390,8 @@ function transformTenderParticipantFromDB(dbParticipant: any): TenderParticipant
     total_amount: dbParticipant.total_amount ?? undefined,
     notes: dbParticipant.notes || undefined,
     is_winner: dbParticipant.is_winner,
+    bom_sent_date: dbParticipant.bom_sent_date || undefined,
+    bom_sent_status: dbParticipant.bom_sent_status || undefined,
     created_at: dbParticipant.created_at,
   };
 }

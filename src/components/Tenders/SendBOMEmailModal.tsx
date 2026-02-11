@@ -9,7 +9,8 @@ interface SendBOMEmailModalProps {
   participants: Array<TenderParticipant & { professional?: Professional }>;
   bomFile: BOMFile;
   onClose: () => void;
-  onSent?: () => void;
+  onSent?: (mode: 'all' | 'unsent') => void;
+  unsentCount?: number;
 }
 
 export default function SendBOMEmailModal({
@@ -18,6 +19,7 @@ export default function SendBOMEmailModal({
   bomFile,
   onClose,
   onSent,
+  unsentCount,
 }: SendBOMEmailModalProps) {
   const { showToast } = useToast();
 
@@ -94,6 +96,22 @@ export default function SendBOMEmailModal({
                         {p.professional?.email || 'אין כתובת אימייל'}
                       </p>
                     </div>
+                    {/* Send status badge */}
+                    {p.bom_sent_status === 'sent' ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                        <span className="material-symbols-outlined text-[12px]">check_circle</span>
+                        נשלח
+                      </span>
+                    ) : p.bom_sent_status === 'failed' ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                        <span className="material-symbols-outlined text-[12px]">error</span>
+                        נכשל
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                        טרם נשלח
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -174,15 +192,28 @@ export default function SendBOMEmailModal({
               >
                 ביטול
               </button>
+              {/* Show "send unsent only" if there are unsent participants AND some were already sent */}
+              {unsentCount !== undefined && unsentCount > 0 && unsentCount < participants.length && (
+                <button
+                  onClick={() => {
+                    onSent?.('unsent');
+                    onClose();
+                  }}
+                  className="px-4 py-2 rounded-lg bg-white dark:bg-gray-800 border border-primary text-primary hover:bg-primary/5 transition-colors text-sm font-bold"
+                >
+                  <span className="material-symbols-outlined text-[16px] align-middle me-1">person_add</span>
+                  שלחתי רק לחדשים ({unsentCount})
+                </button>
+              )}
               <button
                 onClick={() => {
-                  onSent?.();
+                  onSent?.('all');
                   onClose();
                 }}
                 className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors text-sm font-bold"
               >
                 <span className="material-symbols-outlined text-[16px] align-middle me-1">check_circle</span>
-                שלחתי — סמן כפורסם
+                {tender.status === 'Draft' ? 'שלחתי — סמן כפורסם' : 'שלחתי לכולם'}
               </button>
             </div>
           </div>

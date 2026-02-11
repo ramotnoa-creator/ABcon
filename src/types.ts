@@ -171,6 +171,8 @@ export interface TenderParticipant {
   total_amount?: number; // Quote amount in ILS
   notes?: string;
   is_winner: boolean;
+  bom_sent_date?: string; // ISO date — when BOM was sent to this participant
+  bom_sent_status?: 'not_sent' | 'sent' | 'failed'; // Send tracking
   created_at: string; // ISO date string
 }
 

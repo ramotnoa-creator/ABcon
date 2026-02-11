@@ -6,12 +6,13 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getCostItems, exportCostItemToTender } from '../../../services/costsService';
+import { getTenders } from '../../../services/tendersService';
 import { getSchedulesByProject, getScheduleItemsByProject } from '../../../services/paymentSchedulesService';
 import { getMilestones } from '../../../services/milestonesService';
 import AddCostItemForm from '../../../components/Costs/AddCostItemForm';
 import PaymentScheduleView from '../../../components/Costs/PaymentScheduleView';
 import PaymentScheduleModal from '../../../components/Costs/PaymentScheduleModal';
-import type { CostItem, Project, CostCategory, PaymentSchedule, ScheduleItem, ProjectMilestone } from '../../../types';
+import type { CostItem, Project, CostCategory, PaymentSchedule, ScheduleItem, ProjectMilestone, Tender } from '../../../types';
 
 interface CostsTabProps {
   project: Project;
@@ -53,6 +54,7 @@ export default function CostsTab({ project }: CostsTabProps) {
   const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([]);
   const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
   const [scheduleModalItem, setScheduleModalItem] = useState<CostItem | null>(null);
+  const [tendersMap, setTendersMap] = useState<Record<string, Tender>>({});
 
   // Get highlight parameter from URL
   const highlightItemId = searchParams.get('highlight');
@@ -103,15 +105,20 @@ export default function CostsTab({ project }: CostsTabProps) {
       const data = await getCostItems(project.id);
       setItems(data);
 
-      // Load schedule data in parallel - failures here shouldn't block cost items
-      const [scheds, sItems, ms] = await Promise.all([
+      // Load schedule data and tenders in parallel - failures here shouldn't block cost items
+      const [scheds, sItems, ms, loadedTenders] = await Promise.all([
         getSchedulesByProject(project.id).catch(() => [] as PaymentSchedule[]),
         getScheduleItemsByProject(project.id).catch(() => [] as ScheduleItem[]),
         getMilestones(project.id).catch(() => [] as ProjectMilestone[]),
+        getTenders(project.id).catch(() => [] as Tender[]),
       ]);
       setSchedules(scheds);
       setScheduleItems(sItems);
       setMilestones(ms);
+      // Build tenders map indexed by tender ID
+      const tMap: Record<string, Tender> = {};
+      loadedTenders.forEach(t => { tMap[t.id] = t; });
+      setTendersMap(tMap);
     } catch (error) {
       console.error('Error loading cost items:', error);
     } finally {
@@ -949,6 +956,70 @@ export default function CostsTab({ project }: CostsTabProps) {
                                     </p>
                                   </div>
                                 )}
+
+                                {/* Tender Winner Info */}
+                                {item.status === 'tender_winner' && item.tender_id && tendersMap[item.tender_id] && (() => {
+                                  const tender = tendersMap[item.tender_id!];
+                                  return (
+                                    <div className="md:col-span-2 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-lg p-4 border border-emerald-200 dark:border-emerald-800/40">
+                                      <div className="flex items-center gap-2 mb-3">
+                                        <span className="material-symbols-outlined text-[18px] text-emerald-600 dark:text-emerald-400">emoji_events</span>
+                                        <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">זוכה במכרז</span>
+                                        <button
+                                          onClick={() => navigate(`/projects/${project.id}?tab=financial&subtab=tenders&tender=${item.tender_id}`)}
+                                          className="mr-auto text-[10px] text-purple-600 dark:text-purple-400 font-semibold hover:underline flex items-center gap-1"
+                                        >
+                                          <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                                          צפה במכרז
+                                        </button>
+                                      </div>
+                                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        {tender.winner_professional_name && (
+                                          <div>
+                                            <div className="text-[10px] text-emerald-600 dark:text-emerald-500 font-medium mb-0.5">זוכה</div>
+                                            <div className="text-sm font-bold text-slate-900 dark:text-slate-100">{tender.winner_professional_name}</div>
+                                          </div>
+                                        )}
+                                        {tender.contract_amount != null && (
+                                          <div>
+                                            <div className="text-[10px] text-emerald-600 dark:text-emerald-500 font-medium mb-0.5">סכום חוזה</div>
+                                            <div className="text-sm font-bold text-slate-900 dark:text-slate-100">{formatCurrency(tender.contract_amount)}</div>
+                                          </div>
+                                        )}
+                                        {tender.estimated_budget != null && (
+                                          <div>
+                                            <div className="text-[10px] text-emerald-600 dark:text-emerald-500 font-medium mb-0.5">אומדן מכרז</div>
+                                            <div className="text-sm font-bold text-slate-900 dark:text-slate-100">{formatCurrency(tender.estimated_budget)}</div>
+                                          </div>
+                                        )}
+                                        {tender.winner_selected_date && (
+                                          <div>
+                                            <div className="text-[10px] text-emerald-600 dark:text-emerald-500 font-medium mb-0.5">תאריך בחירה</div>
+                                            <div className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                                              {new Date(tender.winner_selected_date).toLocaleDateString('he-IL')}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                      {(tender.management_remarks || tender.notes) && (
+                                        <div className="mt-3 pt-3 border-t border-emerald-200 dark:border-emerald-800/40 space-y-2">
+                                          {tender.management_remarks && (
+                                            <div>
+                                              <span className="text-[10px] text-emerald-600 dark:text-emerald-500 font-medium">הערות ניהול: </span>
+                                              <span className="text-xs text-slate-600 dark:text-slate-400">{tender.management_remarks}</span>
+                                            </div>
+                                          )}
+                                          {tender.notes && (
+                                            <div>
+                                              <span className="text-[10px] text-emerald-600 dark:text-emerald-500 font-medium">הערות מכרז: </span>
+                                              <span className="text-xs text-slate-600 dark:text-slate-400">{tender.notes}</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
 
                                 {/* Timestamps */}
                                 <div className="bg-white dark:bg-slate-950/30 rounded-lg p-4 border border-slate-200 dark:border-slate-800">

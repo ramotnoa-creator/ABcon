@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '../../../../contexts/ToastContext';
 import {
   getTenders,
@@ -120,8 +120,10 @@ async function loadParticipantsMap(tenders: Tender[]): Promise<Record<string, Te
 
 export default function TendersSubTab({ project }: TendersSubTabProps) {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { showSuccess, showError } = useToast();
   const [tenders, setTenders] = useState<Tender[]>([]);
+  const highlightedTenderRef = useRef<string | null>(null);
   const [allProfessionals, setAllProfessionals] = useState<Professional[]>([]);
   const [participantsMap, setParticipantsMap] = useState<Record<string, TenderParticipant[]>>({});
   const [milestones, setMilestones] = useState<any[]>([]);
@@ -258,6 +260,31 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
     };
     loadData();
   }, [project.id]);
+
+  // Scroll to specific tender when navigated from CostsTab (via ?tender=xxx)
+  useEffect(() => {
+    if (isLoading) return;
+    const targetTenderId = searchParams.get('tender');
+    if (targetTenderId && targetTenderId !== highlightedTenderRef.current) {
+      highlightedTenderRef.current = targetTenderId;
+      setTimeout(() => {
+        const el = document.getElementById(`tender-card-${targetTenderId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+          // Remove highlight after 3 seconds
+          setTimeout(() => {
+            el.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
+            // Clean up URL param
+            const newParams = new URLSearchParams(searchParams);
+            newParams.delete('tender');
+            setSearchParams(newParams, { replace: true });
+            highlightedTenderRef.current = null;
+          }, 3000);
+        }
+      }, 200);
+    }
+  }, [isLoading, searchParams, setSearchParams]);
 
   const loadTenders = useCallback(async () => {
     const loaded = await loadInitialTenders(project.id);
@@ -683,7 +710,8 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
             return (
               <div
                 key={tender.id}
-                className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden"
+                id={`tender-card-${tender.id}`}
+                className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden transition-all duration-300"
               >
                 {/* SECTION 1: HEADER - Stitch-Inspired Design */}
                 <div className="relative bg-white dark:bg-gray-900 p-6 border-b border-gray-200 dark:border-gray-800">
@@ -776,6 +804,81 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                   )}
                 </div>
 
+                {/* SECTION 1.5: MORE INFO — type, notes, management remarks, milestone, contract */}
+                {(tender.tender_type || tender.notes || tender.management_remarks || tender.milestone_id || (tender.status === 'WinnerSelected' && tender.contract_amount)) && (
+                  <div className="mx-6 mt-4 bg-gray-50 dark:bg-gray-800/40 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <span className="material-symbols-outlined text-[14px] text-gray-400 dark:text-gray-500">info</span>
+                      <span className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">פרטים נוספים</span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-6 gap-y-3">
+                      {/* Tender Type */}
+                      {tender.tender_type && (
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[16px] text-gray-400">category</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">סוג:</span>
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                            {tenderTypeLabels[tender.tender_type] || tender.tender_type}
+                          </span>
+                        </div>
+                      )}
+                      {/* Linked Milestone */}
+                      {tender.milestone_id && (() => {
+                        const ms = milestones.find(m => m.id === tender.milestone_id);
+                        return ms ? (
+                          <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-[16px] text-gray-400">flag</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">אבן דרך:</span>
+                            <span className="text-xs font-bold text-gray-700 dark:text-gray-300">{ms.name}</span>
+                            <span className="text-xs text-gray-400">({formatDateForDisplay(ms.date)})</span>
+                          </div>
+                        ) : null;
+                      })()}
+                      {/* Contract Amount vs Estimated */}
+                      {tender.status === 'WinnerSelected' && tender.contract_amount && (
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[16px] text-gray-400">receipt_long</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">סכום חוזה:</span>
+                          <span className="text-xs font-black text-emerald-700 dark:text-emerald-400">{formatCurrency(tender.contract_amount)}</span>
+                          {tender.estimated_budget && (
+                            <span className={`text-xs font-bold ${
+                              tender.contract_amount <= tender.estimated_budget
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : 'text-red-600 dark:text-red-400'
+                            }`}>
+                              ({tender.contract_amount <= tender.estimated_budget ? '−' : '+'}{formatCurrency(Math.abs(tender.contract_amount - tender.estimated_budget))} {tender.contract_amount <= tender.estimated_budget ? 'חיסכון' : 'חריגה'})
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {/* Notes */}
+                    {tender.notes && (
+                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                        <div className="flex items-start gap-2">
+                          <span className="material-symbols-outlined text-[16px] text-amber-500 mt-0.5">sticky_note_2</span>
+                          <div>
+                            <span className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-0.5">הערות מכרז</span>
+                            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{tender.notes}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {/* Management Remarks */}
+                    {tender.management_remarks && (
+                      <div className={`mt-3 pt-3 ${tender.notes ? '' : 'border-t border-gray-200 dark:border-gray-700'}`}>
+                        <div className="flex items-start gap-2">
+                          <span className="material-symbols-outlined text-[16px] text-purple-500 mt-0.5">admin_panel_settings</span>
+                          <div>
+                            <span className="text-xs font-bold text-purple-600 dark:text-purple-400 block mb-0.5">הערות ניהול</span>
+                            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{tender.management_remarks}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* SECTION 2: WINNER BANNER (if exists) */}
                 {winner && winner.professional && (
                   <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-5 mx-6 mt-6 rounded-xl flex items-center justify-between">
@@ -832,204 +935,254 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                   );
                 })()}
 
-                {/* SECTION 4: DATES & ACTIONS */}
-                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl mx-6 mt-6 p-6">
-                  <div className="flex flex-wrap gap-4 items-center justify-start">
-                    {/* Dates */}
-                    {tender.created_at && (
-                      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
-                        <span className="text-xs text-gray-500 dark:text-gray-400 font-medium block mb-0.5">תאריך יצירה</span>
-                        <span className="text-xs font-bold text-gray-900 dark:text-white">
-                          {formatDateForDisplay(tender.created_at)}
-                        </span>
+                {/* SECTION 4: DATES + ACTIONS — Unified row (dates right, actions left in RTL) */}
+                <div className="mx-6 mt-6">
+                  <div className="flex flex-col lg:flex-row lg:items-stretch gap-4">
+
+                    {/* RIGHT SIDE (RTL): Timeline Dates */}
+                    <div className="flex-1 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                      <div className="flex items-center gap-1.5 mb-3">
+                        <span className="material-symbols-outlined text-[14px] text-gray-400 dark:text-gray-500">timeline</span>
+                        <span className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">ציר זמן</span>
                       </div>
-                    )}
-                    {tender.publish_date && (
-                      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg px-3 py-2 border border-blue-200 dark:border-blue-800">
-                        <span className="text-xs text-blue-600 dark:text-blue-400 font-medium block mb-0.5">תאריך שליחה ופרסום</span>
-                        <span className="text-xs font-bold text-blue-900 dark:text-blue-200">
-                          {formatDateForDisplay(tender.publish_date)}
-                        </span>
-                      </div>
-                    )}
-                    {tender.due_date && (
-                      <div className={`rounded-lg px-3 py-2 border ${
-                        deadlinePassed && tender.status === 'Open'
-                          ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                          : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
-                      }`}>
-                        <span className={`text-xs font-medium block mb-0.5 ${
-                          deadlinePassed && tender.status === 'Open'
-                            ? 'text-red-600 dark:text-red-400'
-                            : 'text-amber-600 dark:text-amber-400'
-                        }`}>
-                          יעד קבלת הצעות
-                        </span>
-                        <span className={`text-xs font-bold ${
-                          deadlinePassed && tender.status === 'Open'
-                            ? 'text-red-900 dark:text-red-200'
-                            : 'text-amber-900 dark:text-amber-200'
-                        }`}>
-                          {formatDateForDisplay(tender.due_date)}
-                        </span>
-                      </div>
-                    )}
-                    {/* Follow-up indicator */}
-                    {tender.due_date && tender.status === 'Open' && (() => {
-                      const now = new Date();
-                      const due = new Date(tender.due_date);
-                      const diffMs = due.getTime() - now.getTime();
-                      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-                      if (diffDays < 0) {
-                        return (
-                          <div className="bg-red-100 dark:bg-red-900/30 rounded-lg px-3 py-2 border border-red-300 dark:border-red-700">
-                            <span className="text-xs font-bold text-red-700 dark:text-red-300 flex items-center gap-1">
-                              <span className="material-symbols-outlined text-[14px]">warning</span>
-                              איחור של {Math.abs(diffDays)} ימים
-                            </span>
+                      <div className="flex items-center gap-0 overflow-x-auto pb-1">
+                        {/* Step 1: Created */}
+                        <div className="flex items-center min-w-0 flex-shrink-0">
+                          <div className="flex items-center gap-2 rounded-lg px-3 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                            <div className="size-7 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                              <span className="material-symbols-outlined text-[14px] text-gray-700 dark:text-gray-200">edit_note</span>
+                            </div>
+                            <div className="min-w-0">
+                              <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium block leading-tight">תאריך יצירה</span>
+                              <span className="text-xs font-bold text-gray-900 dark:text-white whitespace-nowrap">{formatDateForDisplay(tender.created_at)}</span>
+                            </div>
                           </div>
-                        );
-                      } else if (diffDays <= 3) {
-                        return (
-                          <div className="bg-amber-100 dark:bg-amber-900/30 rounded-lg px-3 py-2 border border-amber-300 dark:border-amber-700">
-                            <span className="text-xs font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1">
-                              <span className="material-symbols-outlined text-[14px]">schedule</span>
-                              {diffDays === 0 ? 'היום הדדליין!' : diffDays === 1 ? 'מחר הדדליין' : `נותרו ${diffDays} ימים`}
-                            </span>
+                          <span className="material-symbols-outlined text-gray-300 dark:text-gray-600 text-[18px] mx-0.5 flex-shrink-0">arrow_back</span>
+                        </div>
+
+                        {/* Step 2: Sent & Published */}
+                        <div className="flex items-center min-w-0 flex-shrink-0">
+                          <div className={`flex items-center gap-2 rounded-lg px-3 py-2.5 border ${
+                            tender.publish_date
+                              ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                              : 'bg-gray-50 dark:bg-gray-800/30 border-dashed border-gray-300 dark:border-gray-600'
+                          }`}>
+                            <div className={`size-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              tender.publish_date ? 'bg-blue-300 dark:bg-blue-700' : 'bg-gray-200 dark:bg-gray-700'
+                            }`}>
+                              <span className={`material-symbols-outlined text-[14px] ${
+                                tender.publish_date ? 'text-blue-800 dark:text-blue-200' : 'text-gray-400 dark:text-gray-500'
+                              }`}>send</span>
+                            </div>
+                            <div className="min-w-0">
+                              <span className={`text-[10px] font-medium block leading-tight ${
+                                tender.publish_date ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'
+                              }`}>נשלח ופורסם</span>
+                              <span className={`text-xs font-bold whitespace-nowrap ${
+                                tender.publish_date ? 'text-blue-900 dark:text-blue-200' : 'text-gray-400 dark:text-gray-500 italic'
+                              }`}>
+                                {tender.publish_date ? formatDateForDisplay(tender.publish_date) : 'ממתין'}
+                              </span>
+                            </div>
                           </div>
-                        );
-                      } else {
-                        return (
-                          <div className="bg-green-50 dark:bg-green-900/20 rounded-lg px-3 py-2 border border-green-200 dark:border-green-800">
-                            <span className="text-xs font-bold text-green-700 dark:text-green-300 flex items-center gap-1">
-                              <span className="material-symbols-outlined text-[14px]">schedule</span>
-                              נותרו {diffDays} ימים
-                            </span>
+                          <span className="material-symbols-outlined text-gray-300 dark:text-gray-600 text-[18px] mx-0.5 flex-shrink-0">arrow_back</span>
+                        </div>
+
+                        {/* Step 3: Quotes Due Date + Follow-up */}
+                        <div className="flex items-center min-w-0 flex-shrink-0">
+                          {(() => {
+                            const hasDue = !!tender.due_date;
+                            const isOverdue = hasDue && deadlinePassed && tender.status === 'Open';
+                            const diffDays = hasDue ? Math.ceil((new Date(tender.due_date!).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
+                            const isUrgent = hasDue && tender.status === 'Open' && diffDays >= 0 && diffDays <= 3;
+
+                            return (
+                              <div className={`flex items-center gap-2 rounded-lg px-3 py-2.5 border ${
+                                isOverdue
+                                  ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700'
+                                  : isUrgent
+                                  ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700'
+                                  : hasDue
+                                  ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+                                  : 'bg-gray-50 dark:bg-gray-800/30 border-dashed border-gray-300 dark:border-gray-600'
+                              }`}>
+                                <div className={`size-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                  isOverdue ? 'bg-red-300 dark:bg-red-700' :
+                                  isUrgent ? 'bg-amber-300 dark:bg-amber-700' :
+                                  hasDue ? 'bg-amber-200 dark:bg-amber-800' : 'bg-gray-200 dark:bg-gray-700'
+                                }`}>
+                                  <span className={`material-symbols-outlined text-[14px] ${
+                                    isOverdue ? 'text-red-800 dark:text-red-200' :
+                                    isUrgent ? 'text-amber-800 dark:text-amber-200' :
+                                    hasDue ? 'text-amber-700 dark:text-amber-300' : 'text-gray-400 dark:text-gray-500'
+                                  }`}>{isOverdue ? 'warning' : 'schedule'}</span>
+                                </div>
+                                <div className="min-w-0">
+                                  <span className={`text-[10px] font-medium block leading-tight ${
+                                    isOverdue ? 'text-red-600 dark:text-red-400' :
+                                    hasDue ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'
+                                  }`}>יעד הצעות</span>
+                                  <span className={`text-xs font-bold whitespace-nowrap ${
+                                    isOverdue ? 'text-red-900 dark:text-red-200' :
+                                    hasDue ? 'text-amber-900 dark:text-amber-200' : 'text-gray-400 dark:text-gray-500 italic'
+                                  }`}>
+                                    {hasDue ? formatDateForDisplay(tender.due_date!) : 'לא נקבע'}
+                                  </span>
+                                  {/* Follow-up countdown badge */}
+                                  {tender.status === 'Open' && hasDue && (
+                                    <span className={`text-[10px] font-bold block leading-tight mt-0.5 ${
+                                      isOverdue ? 'text-red-600 dark:text-red-400' :
+                                      isUrgent ? 'text-amber-600 dark:text-amber-400' :
+                                      'text-green-600 dark:text-green-400'
+                                    }`}>
+                                      {isOverdue ? `איחור ${Math.abs(diffDays)} ימים` :
+                                       diffDays === 0 ? 'היום!' :
+                                       diffDays === 1 ? 'מחר' :
+                                       `עוד ${diffDays} ימים`}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                          <span className="material-symbols-outlined text-gray-300 dark:text-gray-600 text-[18px] mx-0.5 flex-shrink-0">arrow_back</span>
+                        </div>
+
+                        {/* Step 4: Winner Selected */}
+                        <div className="flex items-center min-w-0 flex-shrink-0">
+                          <div className={`flex items-center gap-2 rounded-lg px-3 py-2.5 border ${
+                            tender.status === 'WinnerSelected'
+                              ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+                              : 'bg-gray-50 dark:bg-gray-800/30 border-dashed border-gray-300 dark:border-gray-600'
+                          }`}>
+                            <div className={`size-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              tender.status === 'WinnerSelected' ? 'bg-emerald-300 dark:bg-emerald-700' : 'bg-gray-200 dark:bg-gray-700'
+                            }`}>
+                              <span className={`material-symbols-outlined text-[14px] ${
+                                tender.status === 'WinnerSelected' ? 'text-emerald-800 dark:text-emerald-200' : 'text-gray-400 dark:text-gray-500'
+                              }`}>emoji_events</span>
+                            </div>
+                            <div className="min-w-0">
+                              <span className={`text-[10px] font-medium block leading-tight ${
+                                tender.status === 'WinnerSelected' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400 dark:text-gray-500'
+                              }`}>זוכה נבחר</span>
+                              <span className={`text-xs font-bold whitespace-nowrap ${
+                                tender.status === 'WinnerSelected' ? 'text-emerald-900 dark:text-emerald-200' : 'text-gray-400 dark:text-gray-500 italic'
+                              }`}>
+                                {tender.status === 'WinnerSelected'
+                                  ? formatDateForDisplay(tender.winner_selected_date || tender.updated_at)
+                                  : 'ממתין'}
+                              </span>
+                            </div>
                           </div>
-                        );
-                      }
-                    })()}
-                    {tender.status === 'WinnerSelected' && winner && (
-                      <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg px-3 py-2 border border-emerald-200 dark:border-emerald-800">
-                        <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium block mb-0.5">זוכה נבחר</span>
-                        <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200">
-                          {formatDateForDisplay(tender.winner_selected_date || tender.updated_at)}
-                        </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* LEFT SIDE (RTL): Actions */}
+                    {tender.status !== 'WinnerSelected' && tender.status !== 'Canceled' && (
+                      <div className="flex-shrink-0 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 flex flex-col min-w-[220px]">
+                        <div className="mb-4">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="material-symbols-outlined text-[16px] text-primary">bolt</span>
+                            <span className="text-xs font-bold text-gray-700 dark:text-gray-300 tracking-wide">פעולות מכרז</span>
+                          </div>
+                          <p className="text-[11px] text-gray-400 dark:text-gray-500 leading-snug">
+                            {tender.status === 'Draft' ? 'הוסף משתתפים ושלח בל"מ לפרסום' : 'נהל את המכרז הפתוח'}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2.5 flex-1 content-center">
+                          {/* Add Participant */}
+                          <button
+                            onClick={(e) => {
+                              setSelectedTender(tender);
+                              setProfessionalPickerFilter(tender.tender_type);
+                              setSelectedProfessionalIds([]);
+                              openModalNearButton(e, setIsProfessionalPickerOpen);
+                            }}
+                            title="הוסף אנשי מקצוע כמשתתפים במכרז"
+                            className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary hover:text-primary transition-all text-sm font-semibold text-gray-700 dark:text-gray-300"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">person_add</span>
+                            <span>הוספת משתתף</span>
+                          </button>
+
+                          {/* Send BOM & Publish (Draft only — primary CTA) */}
+                          {tender.status === 'Draft' && bomFilesMap[tender.id] && (
+                            <button
+                              onClick={() => {
+                                if (participantsWithProf.length === 0) {
+                                  showError('אין משתתפים במכרז. הוסף משתתפים לפני שליחה.');
+                                  return;
+                                }
+                                setSelectedTender(tender);
+                                setIsSendBOMModalOpen(true);
+                              }}
+                              disabled={participantsWithProf.length === 0}
+                              title={participantsWithProf.length === 0 ? 'הוסף משתתפים לפני שליחת בל"מ' : 'שלח כתב כמויות לכל המשתתפים ופרסם את המכרז'}
+                              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                                participantsWithProf.length === 0
+                                  ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                                  : 'bg-primary text-white hover:bg-primary-hover shadow-sm shadow-primary/20'
+                              }`}
+                            >
+                              <span className="material-symbols-outlined text-[16px]">send</span>
+                              <span>שלח בל"מ ופרסם</span>
+                            </button>
+                          )}
+
+                          {/* Re-send BOM (Open) */}
+                          {tender.status === 'Open' && bomFilesMap[tender.id] && (
+                            <button
+                              onClick={() => {
+                                setSelectedTender(tender);
+                                setIsSendBOMModalOpen(true);
+                              }}
+                              title="שלח מחדש את כתב הכמויות למשתתפים שלא קיבלו"
+                              className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all text-sm font-semibold text-blue-600 dark:text-blue-400"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">forward_to_inbox</span>
+                              <span>שלח בל"מ שוב</span>
+                            </button>
+                          )}
+
+                          {/* Export */}
+                          {tender.status === 'Open' && participantsWithProf.length > 0 && (
+                            <button
+                              onClick={() => showError('ייצוא Excel/PDF - בקרוב')}
+                              title="ייצוא טבלת השוואת הצעות מחיר לקובץ"
+                              className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-purple-400 hover:text-purple-600 transition-all text-sm font-semibold text-gray-700 dark:text-gray-300"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">download</span>
+                              <span>ייצוא</span>
+                            </button>
+                          )}
+
+                          {/* Visual separator before cancel */}
+                          <div className="hidden lg:block w-px h-7 bg-gray-200 dark:bg-gray-700 mx-1" />
+
+                          {/* Cancel */}
+                          <button
+                            onClick={async () => {
+                              if (!confirm('האם לבטל את המכרז?')) return;
+                              try {
+                                await updateTender(tender.id, { status: 'Canceled' });
+                                await loadTenders();
+                                showSuccess('המכרז בוטל');
+                              } catch (error) {
+                                console.error('Error canceling tender:', error);
+                                showError('שגיאה בביטול המכרז');
+                              }
+                            }}
+                            title="ביטול המכרז — לא ניתן לשחזר לאחר ביטול"
+                            className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-all text-sm font-semibold text-gray-400 dark:text-gray-500"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">cancel</span>
+                            <span>ביטול</span>
+                          </button>
+                        </div>
                       </div>
                     )}
-
-                    {/* Divider */}
-                    <div className="h-12 w-px bg-gray-200 dark:bg-gray-700 mx-2"></div>
-
-                    {/* Action Icons */}
-                  {/* Add Participant (Draft or Open) */}
-                  {tender.status !== 'WinnerSelected' && tender.status !== 'Canceled' && (
-                    <button
-                      onClick={(e) => {
-                        setSelectedTender(tender);
-                        setProfessionalPickerFilter(tender.tender_type);
-                        setSelectedProfessionalIds([]);
-                        openModalNearButton(e, setIsProfessionalPickerOpen);
-                      }}
-                      className="flex flex-col items-center gap-1 group w-24"
-                    >
-                      <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-full group-hover:bg-primary/10 group-hover:text-primary transition-all">
-                        <span className="material-symbols-outlined">person_add</span>
-                      </div>
-                      <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">הוספת משתתף</span>
-                    </button>
-                  )}
-
-                  {/* Send BOM & Publish (Draft only — this is THE action that opens the tender) */}
-                  {tender.status === 'Draft' && bomFilesMap[tender.id] && (
-                    <button
-                      onClick={() => {
-                        if (participantsWithProf.length === 0) {
-                          showError('אין משתתפים במכרז. הוסף משתתפים לפני שליחה.');
-                          return;
-                        }
-                        setSelectedTender(tender);
-                        setIsSendBOMModalOpen(true);
-                      }}
-                      disabled={participantsWithProf.length === 0}
-                      className={`flex flex-col items-center gap-1 group w-24 ${
-                        participantsWithProf.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
-                      title={participantsWithProf.length === 0 ? 'אין משתתפים במכרז' : 'שלח בל"מ ופרסם מכרז'}
-                    >
-                      <div className={`p-3 rounded-full transition-all ${
-                        participantsWithProf.length === 0
-                          ? 'bg-gray-300 dark:bg-gray-700 text-gray-500'
-                          : 'bg-primary text-white hover:scale-105 shadow-md shadow-primary/20'
-                      }`}>
-                        <span className="material-symbols-outlined">send</span>
-                      </div>
-                      <span className={`text-xs font-bold ${
-                        participantsWithProf.length === 0 ? 'text-gray-400' : 'text-primary'
-                      }`}>
-                        שלח ופרסם
-                      </span>
-                    </button>
-                  )}
-
-                  {/* Re-send BOM (Open — already published, allow re-sending) */}
-                  {tender.status === 'Open' && bomFilesMap[tender.id] && (
-                    <button
-                      onClick={() => {
-                        if (participantsWithProf.length === 0) {
-                          showError('אין משתתפים במכרז.');
-                          return;
-                        }
-                        setSelectedTender(tender);
-                        setIsSendBOMModalOpen(true);
-                      }}
-                      className="flex flex-col items-center gap-1 group w-24"
-                      title="שלח בל״מ שוב למשתתפים"
-                    >
-                      <div className="p-3 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-all">
-                        <span className="material-symbols-outlined">forward_to_inbox</span>
-                      </div>
-                      <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">שלח שוב</span>
-                    </button>
-                  )}
-
-                  {/* Cancel Tender */}
-                  {(tender.status === 'Draft' || tender.status === 'Open') && (
-                    <button
-                      onClick={async () => {
-                        if (!confirm('האם לבטל את המכרז?')) return;
-                        try {
-                          await updateTender(tender.id, { status: 'Canceled' });
-                          await loadTenders();
-                          showSuccess('המכרז בוטל');
-                        } catch (error) {
-                          console.error('Error canceling tender:', error);
-                          showError('שגיאה בביטול המכרז');
-                        }
-                      }}
-                      className="flex flex-col items-center gap-1 group w-24"
-                    >
-                      <div className="p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full group-hover:bg-red-200 dark:group-hover:bg-red-900/50 transition-all">
-                        <span className="material-symbols-outlined">cancel</span>
-                      </div>
-                      <span className="text-xs font-semibold text-red-600 dark:text-red-400">ביטול מכרז</span>
-                    </button>
-                  )}
-
-                  {/* Export to Excel/PDF */}
-                  {participantsWithProf.length > 0 && (
-                    <button
-                      onClick={() => {
-                        showError('ייצוא Excel/PDF - בקרוב');
-                      }}
-                      className="flex flex-col items-center gap-1 group w-24"
-                    >
-                      <div className="p-3 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-full group-hover:bg-purple-200 dark:group-hover:bg-purple-900/50 transition-all">
-                        <span className="material-symbols-outlined">download</span>
-                      </div>
-                      <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">ייצוא</span>
-                    </button>
-                  )}
                   </div>
                 </div>
 
@@ -1096,6 +1249,9 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                             </th>
                             <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                               סטטוס הצעה
+                            </th>
+                            <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                              סטטוס שליחה
                             </th>
                             <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                               פעולות
@@ -1210,6 +1366,42 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                                         <span className="text-xs text-gray-400">אין קובץ</span>
                                       )}
                                     </div>
+                                  </td>
+
+                                  {/* BOM Send Status Column */}
+                                  <td className="px-4 py-3">
+                                    {participant.bom_sent_status === 'sent' ? (
+                                      <button
+                                        onClick={async () => {
+                                          await updateTenderParticipant(participant.id, { bom_sent_status: 'failed' });
+                                          await loadTenders();
+                                        }}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-900/30 dark:hover:text-red-300 transition-colors cursor-pointer"
+                                        title="לחץ לסמן כנכשל"
+                                      >
+                                        <span className="material-symbols-outlined text-[12px]">check_circle</span>
+                                        נשלח
+                                        {participant.bom_sent_date && (
+                                          <span className="text-[9px] opacity-70 mr-1">{formatDateForDisplay(participant.bom_sent_date)}</span>
+                                        )}
+                                      </button>
+                                    ) : participant.bom_sent_status === 'failed' ? (
+                                      <button
+                                        onClick={async () => {
+                                          await updateTenderParticipant(participant.id, { bom_sent_status: 'not_sent', bom_sent_date: undefined });
+                                          await loadTenders();
+                                        }}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-400 transition-colors cursor-pointer"
+                                        title="לחץ לאפס סטטוס"
+                                      >
+                                        <span className="material-symbols-outlined text-[12px]">error</span>
+                                        נכשל
+                                      </button>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                                        טרם נשלח
+                                      </span>
+                                    )}
                                   </td>
 
                                   {/* Actions Column */}
@@ -1690,21 +1882,44 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
           tender={selectedTender}
           participants={getParticipantsWithProfessionals(selectedTender)}
           bomFile={bomFilesMap[selectedTender.id]!}
+          unsentCount={getParticipantsWithProfessionals(selectedTender).filter(p => p.bom_sent_status !== 'sent').length}
           onClose={() => {
             setIsSendBOMModalOpen(false);
             setSelectedTender(null);
           }}
-          onSent={async () => {
-            // When user confirms they sent the BOM — publish the tender
+          onSent={async (mode: 'all' | 'unsent') => {
+            // When user confirms they sent the BOM — publish the tender + mark participants
             const now = new Date().toISOString();
             try {
-              await updateTender(selectedTender.id, {
-                status: 'Open',
-                publish_date: selectedTender.publish_date || now,
-                bom_sent_date: now,
-              });
+              // Update tender status (only if still Draft)
+              if (selectedTender.status === 'Draft') {
+                await updateTender(selectedTender.id, {
+                  status: 'Open',
+                  publish_date: selectedTender.publish_date || now,
+                  bom_sent_date: now,
+                });
+              } else {
+                // Re-send — just update bom_sent_date
+                await updateTender(selectedTender.id, {
+                  bom_sent_date: now,
+                });
+              }
+
+              // Mark participants as sent
+              const participants = getParticipantsWithProfessionals(selectedTender);
+              for (const p of participants) {
+                if (mode === 'all' || p.bom_sent_status !== 'sent') {
+                  await updateTenderParticipant(p.id, {
+                    bom_sent_date: now,
+                    bom_sent_status: 'sent',
+                  });
+                }
+              }
+
               await loadTenders();
-              showSuccess('המכרז פורסם בהצלחה! הבל"מ נשלח למשתתפים.');
+              showSuccess(selectedTender.status === 'Draft'
+                ? 'המכרז פורסם בהצלחה! הבל"מ נשלח למשתתפים.'
+                : 'הבל"מ נשלח שוב למשתתפים.');
             } catch (error) {
               console.error('Error publishing tender:', error);
               showError('שגיאה בפרסום המכרז');

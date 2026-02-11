@@ -177,6 +177,13 @@ export default function PaymentsSubTab({ projectId }: PaymentsSubTabProps) {
     return { total, paid, approvedConfirmed, pending };
   }, [scheduleItems]);
 
+  // Upcoming payments - not paid, sorted by nearest date first
+  const upcomingPayments = useMemo(() => {
+    return scheduleItems
+      .filter(si => si.status !== 'paid' && si.target_date)
+      .sort((a, b) => new Date(a.target_date!).getTime() - new Date(b.target_date!).getTime());
+  }, [scheduleItems]);
+
   // Filtered schedule items
   const filteredScheduleItems = useMemo(() => {
     if (scheduleFilterStatus === 'all') return scheduleItems;
@@ -225,6 +232,107 @@ export default function PaymentsSubTab({ projectId }: PaymentsSubTabProps) {
           <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark max-w-md mx-auto">
             צור לוח תשלומים דרך טאב "עלויות" עבור פריטי עלות עם מכרז זוכה, או הוסף תשלומי תקציב דרך טאב "תקציב".
           </p>
+        </div>
+      )}
+
+      {/* Upcoming Payments */}
+      {upcomingPayments.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <span className="material-symbols-outlined text-[20px] text-amber-600 dark:text-amber-400">upcoming</span>
+            <h3 className="text-lg font-bold text-text-main-light dark:text-text-main-dark">
+              תשלומים קרובים
+            </h3>
+            <span className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs font-bold px-2 py-0.5 rounded-full">
+              {upcomingPayments.length}
+            </span>
+          </div>
+
+          <div className="bg-white dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark overflow-hidden">
+            <div className="divide-y divide-border-light dark:divide-border-dark">
+              {upcomingPayments.map((si) => {
+                const costItem = costItems.find(c => c.id === si.cost_item_id);
+                const urgency = getDateUrgency(si.target_date);
+                const targetDate = new Date(si.target_date!);
+                const now = new Date();
+                now.setHours(0, 0, 0, 0);
+                targetDate.setHours(0, 0, 0, 0);
+                const diffDays = Math.round((targetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+                return (
+                  <div key={si.id} className={`flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${diffDays < 0 ? 'bg-red-50/50 dark:bg-red-950/10' : diffDays <= 7 ? 'bg-amber-50/50 dark:bg-amber-950/10' : ''}`}>
+                    {/* Date circle */}
+                    <div className={`shrink-0 w-14 h-14 rounded-xl flex flex-col items-center justify-center border ${
+                      diffDays < 0
+                        ? 'bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-800'
+                        : diffDays <= 7
+                        ? 'bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-800'
+                        : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                    }`}>
+                      <span className={`text-lg font-black leading-none ${
+                        diffDays < 0 ? 'text-red-600 dark:text-red-400' : diffDays <= 7 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-slate-200'
+                      }`}>
+                        {new Date(si.target_date!).getDate()}
+                      </span>
+                      <span className={`text-[10px] font-semibold ${
+                        diffDays < 0 ? 'text-red-500 dark:text-red-400' : diffDays <= 7 ? 'text-amber-500 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'
+                      }`}>
+                        {new Date(si.target_date!).toLocaleDateString('he-IL', { month: 'short' })}
+                      </span>
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-text-main-light dark:text-text-main-dark truncate">
+                          {si.description}
+                        </span>
+                        <ScheduleItemStatusBadge status={si.status} />
+                      </div>
+                      <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-0.5 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[12px]">receipt_long</span>
+                        {costItem?.name || 'פריט לא נמצא'}
+                        {si.milestone_name && (
+                          <>
+                            <span className="text-slate-300 dark:text-slate-600">|</span>
+                            <span className="material-symbols-outlined text-[12px] text-emerald-500">flag</span>
+                            {si.milestone_name}
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Amount */}
+                    <div className="shrink-0 text-left">
+                      <div className="text-sm font-black text-text-main-light dark:text-text-main-dark">
+                        {formatCurrency(si.amount)}
+                      </div>
+                      <div className={`text-[10px] font-semibold ${urgency.className || 'text-slate-500 dark:text-slate-400'}`}>
+                        {diffDays < 0
+                          ? `באיחור ${Math.abs(diffDays)} ימים`
+                          : diffDays === 0
+                          ? 'היום'
+                          : diffDays === 1
+                          ? 'מחר'
+                          : `בעוד ${diffDays} ימים`
+                        }
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Total upcoming */}
+            <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/50 border-t border-border-light dark:border-border-dark flex items-center justify-between">
+              <span className="text-xs font-bold text-text-secondary-light dark:text-text-secondary-dark">
+                סה"כ תשלומים מתוכננים
+              </span>
+              <span className="text-sm font-black text-text-main-light dark:text-text-main-dark">
+                {formatCurrency(upcomingPayments.reduce((s, i) => s + i.amount, 0))}
+              </span>
+            </div>
+          </div>
         </div>
       )}
 
