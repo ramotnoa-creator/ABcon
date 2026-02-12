@@ -1,10 +1,10 @@
 /**
  * DB Connection Health Check
- * Runs SELECT 1 against Neon to verify connectivity.
+ * Runs SELECT 1 via executeQuery (API proxy in prod, direct in local dev).
  * Called once on app load; status exposed for SystemStatusBanner.
  */
 
-import { sql, isDemoMode } from './neon';
+import { executeQuery, isDemoMode } from './neon';
 import { log } from './logger';
 
 export type DbStatus = 'connected' | 'disconnected' | 'demo_mode' | 'checking';
@@ -13,7 +13,7 @@ let currentStatus: DbStatus = 'checking';
 let lastCheckedAt: string | null = null;
 
 export async function checkDbHealth(): Promise<DbStatus> {
-  if (isDemoMode || !sql) {
+  if (isDemoMode) {
     currentStatus = 'demo_mode';
     log('info', 'system', 'DB health check: demo mode (no DB configured)');
     lastCheckedAt = new Date().toISOString();
@@ -21,7 +21,7 @@ export async function checkDbHealth(): Promise<DbStatus> {
   }
 
   try {
-    await sql`SELECT 1`;
+    await executeQuery('SELECT 1');
     currentStatus = 'connected';
     log('info', 'system', 'DB health check: connected');
   } catch (error) {
