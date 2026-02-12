@@ -10,6 +10,10 @@
 - `CostsTab`: Edit button now opens edit modal with pre-populated form
 - `EditProjectPage`: New "Cost Parameters" section with general_estimate, built_sqm, sales_sqm fields
 - `projectsService`: updateProject now handles general_estimate, built_sqm, sales_sqm fields
+- API fix: auth endpoints now use tagged template literals (fixes TS2345 errors on Vercel)
+
+**Follow-up:**
+- UX: Edit button in CostsTab expanded row is confusing — user expects it to edit tender/participant info, but it edits the cost item. Need to either add a separate edit action inside the tender winner section, or make the "View Tender" link more prominent for managing participants/roles.
 
 ---
 
