@@ -1090,7 +1090,7 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                             <span className="text-xs font-bold text-gray-700 dark:text-gray-300 tracking-wide">פעולות מכרז</span>
                           </div>
                           <p className="text-[11px] text-gray-400 dark:text-gray-500 leading-snug">
-                            {tender.status === 'Draft' ? 'הוסף משתתפים ושלח בל"מ לפרסום' : 'נהל את המכרז הפתוח'}
+                            {tender.status === 'Draft' ? 'הוסף משתתפים, שלח בל"מ או בחר זוכה ישירות' : 'נהל את המכרז הפתוח'}
                           </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-2.5 flex-1 content-center">
@@ -1109,7 +1109,7 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                             <span>הוספת משתתף</span>
                           </button>
 
-                          {/* Send BOM & Publish (Draft only — primary CTA) */}
+                          {/* Send BOM & Publish (Draft only, with BOM file) */}
                           {tender.status === 'Draft' && bomFilesMap[tender.id] && (
                             <button
                               onClick={() => {
@@ -1130,6 +1130,47 @@ export default function TendersSubTab({ project }: TendersSubTabProps) {
                             >
                               <span className="material-symbols-outlined text-[16px]">send</span>
                               <span>שלח בל"מ ופרסם</span>
+                            </button>
+                          )}
+
+                          {/* Publish without BOM (Draft only, no BOM file) */}
+                          {tender.status === 'Draft' && !bomFilesMap[tender.id] && participantsWithProf.length > 0 && (
+                            <button
+                              onClick={async () => {
+                                if (!confirm('לפרסם את המכרז ללא בל"מ?')) return;
+                                try {
+                                  const now = new Date().toISOString();
+                                  await updateTender(tender.id, {
+                                    status: 'Open',
+                                    publish_date: now,
+                                  });
+                                  await loadTenders();
+                                  showSuccess('המכרז פורסם בהצלחה');
+                                } catch (error) {
+                                  console.error('Error publishing tender:', error);
+                                  showError('שגיאה בפרסום המכרז');
+                                }
+                              }}
+                              title={'פרסם את המכרז ללא שליחת בל"מ'}
+                              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-all bg-blue-50 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">publish</span>
+                              <span>פרסם ללא בל"מ</span>
+                            </button>
+                          )}
+
+                          {/* Select Winner — Direct Award (Draft or Open, with participants) */}
+                          {!winner && participantsWithProf.length > 0 && (
+                            <button
+                              onClick={(e) => {
+                                setSelectedTender(tender);
+                                openModalNearButton(e, setIsSelectWinnerModalOpen);
+                              }}
+                              title="בחר זוכה ישירות — ללא תהליך מכרז מלא"
+                              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-all bg-green-600 text-white hover:bg-green-700 shadow-sm shadow-green-600/20"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                              <span>בחר זוכה</span>
                             </button>
                           )}
 
