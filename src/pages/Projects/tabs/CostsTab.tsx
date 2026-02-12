@@ -24,6 +24,7 @@ const categoryLabels: Record<CostCategory, string> = {
   consultant: 'יועץ',
   supplier: 'ספק',
   contractor: 'קבלן',
+  agra: 'אגרה',
 };
 
 const statusLabels = {
@@ -147,11 +148,12 @@ export default function CostsTab({ project }: CostsTabProps) {
     try {
       setExportingItemId(item.id);
 
-      // Map cost category to tender type
+      // Map cost category to tender type (agra items should never reach here)
       const tenderTypeMap: Record<CostCategory, string> = {
         consultant: 'other',
         supplier: 'other',
         contractor: 'contractor',
+        agra: 'other',
       };
 
       const tenderId = await exportCostItemToTender(item.id, project.id, {
@@ -214,7 +216,7 @@ export default function CostsTab({ project }: CostsTabProps) {
       : 0;
 
     // Category breakdown
-    const byCategory = (['consultant', 'supplier', 'contractor'] as const).map(cat => {
+    const byCategory = (['consultant', 'supplier', 'contractor', 'agra'] as const).map(cat => {
       const catItems = items.filter(i => i.category === cat);
       const estimated = catItems.reduce((s, i) => s + (i.estimated_amount || 0), 0);
       const actual = catItems.reduce((s, i) => s + (i.actual_amount || 0), 0);
@@ -357,12 +359,13 @@ export default function CostsTab({ project }: CostsTabProps) {
 
       {/* Category breakdown */}
       {items.length > 0 && (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {summary.byCategory.filter(c => c.count > 0).map(({ category, count, estimated, actual }) => {
             const colors = {
               consultant: { bg: 'bg-purple-50 dark:bg-purple-950/20', border: 'border-purple-200 dark:border-purple-800/40', dot: 'bg-purple-500', text: 'text-purple-700 dark:text-purple-300', sub: 'text-purple-500 dark:text-purple-400' },
               supplier: { bg: 'bg-blue-50 dark:bg-blue-950/20', border: 'border-blue-200 dark:border-blue-800/40', dot: 'bg-blue-500', text: 'text-blue-700 dark:text-blue-300', sub: 'text-blue-500 dark:text-blue-400' },
               contractor: { bg: 'bg-orange-50 dark:bg-orange-950/20', border: 'border-orange-200 dark:border-orange-800/40', dot: 'bg-orange-500', text: 'text-orange-700 dark:text-orange-300', sub: 'text-orange-500 dark:text-orange-400' },
+              agra: { bg: 'bg-green-50 dark:bg-green-950/20', border: 'border-green-200 dark:border-green-800/40', dot: 'bg-green-500', text: 'text-green-700 dark:text-green-300', sub: 'text-green-500 dark:text-green-400' },
             }[category];
             const pct = summary.totalEstimated > 0 ? (estimated / summary.totalEstimated) * 100 : 0;
             return (
@@ -513,6 +516,7 @@ export default function CostsTab({ project }: CostsTabProps) {
             <option value="consultant">יועץ</option>
             <option value="supplier">ספק</option>
             <option value="contractor">קבלן</option>
+            <option value="agra">אגרה</option>
           </select>
 
           <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
@@ -670,6 +674,8 @@ export default function CostsTab({ project }: CostsTabProps) {
                             ? 'bg-purple-50 border-purple-200 text-purple-700 dark:bg-purple-950/30 dark:border-purple-800/50 dark:text-purple-400'
                             : item.category === 'supplier'
                             ? 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-950/30 dark:border-blue-800/50 dark:text-blue-400'
+                            : item.category === 'agra'
+                            ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-950/30 dark:border-green-800/50 dark:text-green-400'
                             : 'bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-950/30 dark:border-orange-800/50 dark:text-orange-400'
                         }`}>
                           <span className={`size-1.5 rounded-full ${
@@ -677,6 +683,8 @@ export default function CostsTab({ project }: CostsTabProps) {
                               ? 'bg-purple-500'
                               : item.category === 'supplier'
                               ? 'bg-blue-500'
+                              : item.category === 'agra'
+                              ? 'bg-green-500'
                               : 'bg-orange-500'
                           }`} />
                           {categoryLabels[item.category]}
@@ -854,8 +862,8 @@ export default function CostsTab({ project }: CostsTabProps) {
                               </span>
                             </button>
                           )}
-                          {/* Export to Tender Button - only for draft items */}
-                          {item.status === 'draft' && !item.tender_id && (
+                          {/* Export to Tender Button - only for draft items (not agra - those skip tenders) */}
+                          {item.status === 'draft' && !item.tender_id && item.category !== 'agra' && (
                             <button
                               onClick={() => handleExportToTender(item)}
                               disabled={exportingItemId === item.id}

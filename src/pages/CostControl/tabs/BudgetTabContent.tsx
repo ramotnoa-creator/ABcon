@@ -20,12 +20,14 @@ const categoryLabels: Record<CostCategory, string> = {
   consultant: 'יועץ',
   supplier: 'ספק',
   contractor: 'קבלן',
+  agra: 'אגרה',
 };
 
 const categoryIcons: Record<CostCategory, string> = {
   consultant: 'school',
   supplier: 'inventory_2',
   contractor: 'construction',
+  agra: 'account_balance',
 };
 
 const KPI_COLOR_CLASSES = {
@@ -63,6 +65,13 @@ const CATEGORY_COLORS = {
     dot: 'bg-orange-500',
     text: 'text-orange-700 dark:text-orange-300',
     sub: 'text-orange-500 dark:text-orange-400',
+  },
+  agra: {
+    bg: 'bg-green-50 dark:bg-green-950/20',
+    border: 'border-green-200 dark:border-green-800/40',
+    dot: 'bg-green-500',
+    text: 'text-green-700 dark:text-green-300',
+    sub: 'text-green-500 dark:text-green-400',
   },
 } as const;
 
@@ -224,7 +233,7 @@ export default function BudgetTabContent() {
 
   // Category breakdown from filtered items
   const categoryBreakdown = useMemo(() => {
-    return (['consultant', 'supplier', 'contractor'] as const).map((cat) => {
+    return (['consultant', 'supplier', 'contractor', 'agra'] as const).map((cat) => {
       const catItems = filteredItems.filter((i) => i.category === cat);
       const estimated = catItems.reduce((s, i) => s + i.estimated_amount, 0);
       const actual = catItems.reduce((s, i) => s + (i.actual_amount ?? 0), 0);
@@ -419,7 +428,7 @@ export default function BudgetTabContent() {
 
       {/* Category Breakdown */}
       {costItems.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {categoryBreakdown
             .filter((c) => c.count > 0)
             .map(({ category, count, estimated, actual, pct }) => {
@@ -507,6 +516,7 @@ export default function BudgetTabContent() {
           <option value="consultant">יועץ</option>
           <option value="supplier">ספק</option>
           <option value="contractor">קבלן</option>
+          <option value="agra">אגרה</option>
         </select>
 
         {/* Export Button */}
@@ -846,6 +856,8 @@ function ProjectRow({ agg, isExpanded, onToggleExpand, onProjectClick, onItemCli
                           ? 'bg-purple-500'
                           : item.category === 'supplier'
                           ? 'bg-blue-500'
+                          : item.category === 'agra'
+                          ? 'bg-green-500'
                           : 'bg-orange-500'
                       }`}
                     />

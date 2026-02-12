@@ -1,5 +1,21 @@
 # Changelog - ANcon
 
+## 2026-02-12 - Agra Category for Municipal Fees
+
+**What:** Added 4th cost category "Agra" (אגרה) for municipal fees and levies
+**Why:** Agra costs (building permits, improvement levies, development levies) are fixed fees that don't go through tender process
+**Changes:**
+- `types.ts`: Added `'agra'` to `CostCategory` union type
+- `AddCostItemForm`: Agra option in dropdown; actual_amount field shown when creating agra items (since cost is known upfront)
+- `CostsTab`: Green color scheme for agra; "Export to Tender" button hidden for agra items; 4-column category grid
+- `BudgetTabContent`: Agra in labels, icons (`account_balance`), colors (green), filter dropdown
+- `TendersSubTab`: Agra labels and colors added
+- `seedData`: Added agra items (building permits, improvement levy, development levy) for both projects
+- Migration 010: Updated CHECK constraint to allow 'agra' category
+- Database: Constraint applied to production
+
+---
+
 ## 2026-02-12 - Cost Item Editing + Project Parameters
 
 **What:** Added cost item editing and project cost parameter fields (built_sqm, general_estimate, sales_sqm)

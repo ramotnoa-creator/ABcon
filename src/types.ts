@@ -438,7 +438,7 @@ export interface Permit {
 // COSTS MODULE (NEW UNIFIED SYSTEM)
 // ============================================================
 
-export type CostCategory = 'consultant' | 'supplier' | 'contractor'; // יועץ / ספק / קבלן
+export type CostCategory = 'consultant' | 'supplier' | 'contractor' | 'agra'; // יועץ / ספק / קבלן / אגרה
 export type CostStatus =
   | 'draft'           // אומדן - לא יצא למכרז
   | 'tender_draft'    // טיוטת מכרז - יצא למכרז שעדיין ב-Draft
@@ -450,7 +450,7 @@ export interface CostItem {
   project_id: string;
   name: string; // Short name - REQUIRED
   description?: string; // Detailed description - OPTIONAL
-  category: CostCategory; // consultant, supplier, contractor
+  category: CostCategory; // consultant, supplier, contractor, agra
   estimated_amount: number; // The ONE sum (no breakdown)
   actual_amount?: number; // After tender/contract
   vat_included: boolean; // Is VAT included in the amount?

@@ -23,6 +23,7 @@ const categories: { value: CostCategory; label: string }[] = [
   { value: 'consultant', label: 'יועץ' },
   { value: 'supplier', label: 'ספק' },
   { value: 'contractor', label: 'קבלן' },
+  { value: 'agra', label: 'אגרה' },
 ];
 
 export default function AddCostItemForm({ projectId, vatRate = 17, onSave, onCancel, editItem, tendersMap }: AddCostItemFormProps) {
@@ -103,7 +104,7 @@ export default function AddCostItemForm({ projectId, vatRate = 17, onSave, onCan
           description: description.trim() || undefined,
           category,
           estimated_amount: parseFloat(amount),
-          actual_amount: undefined,
+          actual_amount: actualAmount ? parseFloat(actualAmount) : undefined,
           vat_included: vatIncluded,
           vat_rate: vatRate,
           status: 'draft',
@@ -207,8 +208,8 @@ export default function AddCostItemForm({ projectId, vatRate = 17, onSave, onCan
               </div>
             </div>
 
-            {/* Actual Amount - EDIT MODE ONLY */}
-            {isEditMode && (
+            {/* Actual Amount - EDIT MODE or AGRA items (known cost, no tender) */}
+            {(isEditMode || category === 'agra') && (
               <div>
                 <label className="block text-sm font-bold text-text-main-light dark:text-text-main-dark mb-2">
                   עלות בפועל
@@ -226,7 +227,7 @@ export default function AddCostItemForm({ projectId, vatRate = 17, onSave, onCan
                   />
                 </div>
                 <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
-                  העלות הממשית מהקבלן/ספק
+                  {category === 'agra' ? 'הסכום הסופי לתשלום (אגרה קבועה)' : 'העלות הממשית מהקבלן/ספק'}
                 </p>
               </div>
             )}
