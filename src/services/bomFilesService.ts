@@ -21,6 +21,98 @@ const SUPPORTED_MIME_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
 ];
 
+// Supported file extensions
+const SUPPORTED_EXTENSIONS = ['.doc', '.docx'];
+
+// Known file signatures (magic bytes)
+const FILE_SIGNATURES: { extension: string; bytes: number[] }[] = [
+  { extension: '.docx', bytes: [0x50, 0x4b, 0x03, 0x04] }, // ZIP/PK header
+  { extension: '.doc', bytes: [0xd0, 0xcf, 0x11, 0xe0] },  // OLE2 header
+];
+
+// ============================================================
+// VALIDATION: FILE SIGNATURE (MAGIC BYTES)
+// ============================================================
+
+/**
+ * Reads the first 8 bytes of a File and validates that the magic bytes
+ * match a known .doc or .docx signature.
+ */
+async function validateFileSignature(file: File): Promise<void> {
+  const headerSlice = file.slice(0, 8);
+  const buffer = await headerSlice.arrayBuffer();
+  const headerBytes = new Uint8Array(buffer);
+
+  const matchesKnownSignature = FILE_SIGNATURES.some((sig) =>
+    sig.bytes.every((byte, index) => headerBytes[index] === byte)
+  );
+
+  if (!matchesKnownSignature) {
+    throw new Error(
+      'File signature does not match a valid .doc or .docx file. The file may be corrupted or incorrectly renamed.'
+    );
+  }
+}
+
+// ============================================================
+// VALIDATION: FILE EXTENSION
+// ============================================================
+
+/**
+ * Validates that the file name ends with a supported extension (.doc or .docx).
+ */
+function validateFileExtension(fileName: string): void {
+  const lowerName = fileName.toLowerCase();
+  const hasValidExtension = SUPPORTED_EXTENSIONS.some((ext) =>
+    lowerName.endsWith(ext)
+  );
+
+  if (!hasValidExtension) {
+    throw new Error(
+      `Unsupported file extension. Only ${SUPPORTED_EXTENSIONS.join(', ')} files are allowed.`
+    );
+  }
+}
+
+// ============================================================
+// SANITIZE FILENAME
+// ============================================================
+
+/**
+ * Sanitizes a file name by removing dangerous characters, path traversal
+ * sequences, and replacing spaces with underscores.
+ */
+function sanitizeFilename(fileName: string): string {
+  let sanitized = fileName;
+
+  // Remove path traversal characters
+  sanitized = sanitized.replace(/[/\\]/g, '');
+
+  // Remove leading dots (prevents hidden files / directory traversal)
+  sanitized = sanitized.replace(/^\.+/, '');
+
+  // Remove dangerous characters: < > : " | ? *
+  sanitized = sanitized.replace(/[<>:"|?*]/g, '');
+
+  // Replace spaces with underscores
+  sanitized = sanitized.replace(/\s+/g, '_');
+
+  // Limit length to 255 characters
+  if (sanitized.length > 255) {
+    // Preserve the file extension when truncating
+    const lastDot = sanitized.lastIndexOf('.');
+    if (lastDot > 0) {
+      const ext = sanitized.slice(lastDot);
+      const name = sanitized.slice(0, 255 - ext.length);
+      sanitized = name + ext;
+    } else {
+      sanitized = sanitized.slice(0, 255);
+    }
+  }
+
+  return sanitized;
+}
+
 function getFilesFromStorage(): BOMFile[] {
   if (typeof window === 'undefined') return [];
   const data = localStorage.getItem(STORAGE_KEY);
@@ -45,17 +137,26 @@ export async function uploadBOMFile(
     throw new Error('File size exceeds 10MB limit');
   }
 
-  // Validate file type
+  // Validate file extension
+  validateFileExtension(file.name);
+
+  // Validate file type (MIME)
   if (!SUPPORTED_MIME_TYPES.includes(file.type)) {
     throw new Error('Only .doc and .docx files are supported');
   }
+
+  // Validate file signature (magic bytes)
+  await validateFileSignature(file);
+
+  // Sanitize the file name for safe storage
+  const safeName = sanitizeFilename(file.name);
 
   // Convert file to base64 for storage
   const base64Data = await fileToBase64(file);
 
   const bomFile: Omit<BOMFile, 'id' | 'uploaded_at'> = {
     tender_id: tenderId,
-    file_name: file.name,
+    file_name: safeName,
     file_path: base64Data, // Store as base64 in Phase 1
     file_size: file.size,
     mime_type: file.type,
