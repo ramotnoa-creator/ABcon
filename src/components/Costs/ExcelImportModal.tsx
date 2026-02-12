@@ -195,17 +195,6 @@ export default function ExcelImportModal({ projectId, vatRate, onComplete, onCan
         return;
       }
 
-      // Map the expected Hebrew headers to our fields
-      const headerMap: Record<string, string> = {
-        'שם פריט': 'name',
-        'תיאור': 'description',
-        'קטגוריה': 'category',
-        'סכום מוערך': 'estimated_amount',
-        'עלות בפועל': 'actual_amount',
-        'כולל מעמ': 'vat_included',
-        'הערות': 'notes',
-      };
-
       const rows: ParsedRow[] = jsonData
         .filter(row => {
           // Skip completely empty rows and the example row
