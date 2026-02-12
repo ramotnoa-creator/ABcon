@@ -1,11 +1,18 @@
 /**
- * Authentication Service - Neon Database
- * Handles user authentication with password hashing
+ * Authentication Service
+ *
+ * In production: auth operations go through /api/auth/* serverless functions.
+ * Password hashing/verification happens server-side only.
+ *
+ * In local dev: if VITE_NEON_DATABASE_URL is set, uses direct connection
+ * with client-side bcrypt (acceptable for development).
  */
 
-import bcrypt from 'bcryptjs';
-import { sql, executeQuerySingle, executeQuery, isDemoMode } from '../lib/neon';
+import { executeQuerySingle, executeQuery, isDemoMode } from '../lib/neon';
 import type { User, LoginCredentials, RegisterData } from '../types/auth';
+
+// Determine if we should use API endpoints (production) or direct DB (local dev)
+const useApiEndpoints = !import.meta.env.VITE_NEON_DATABASE_URL?.trim();
 
 /**
  * Authenticate user with email and password
@@ -13,12 +20,38 @@ import type { User, LoginCredentials, RegisterData } from '../types/auth';
 export async function authenticateUser(
   credentials: LoginCredentials
 ): Promise<User | null> {
-  if (isDemoMode || !sql) {
+  if (isDemoMode) {
     return null;
   }
 
+  if (useApiEndpoints) {
+    // Production: use server-side auth endpoint
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: credentials.email, password: credentials.password }),
+    });
+
+    if (response.status === 401) {
+      return null;
+    }
+
+    if (response.status === 403) {
+      throw new Error('חשבון זה אינו פעיל. אנא פנה למנהל המערכת.');
+    }
+
+    if (!response.ok) {
+      throw new Error('Authentication failed');
+    }
+
+    const { user } = await response.json();
+    return user;
+  }
+
+  // Local dev: direct DB connection with client-side bcrypt
+  const bcrypt = await import('bcryptjs');
+
   try {
-    // Fetch user by email
     const result = await executeQuerySingle<{
       id: string;
       email: string;
@@ -42,7 +75,6 @@ export async function authenticateUser(
       return null;
     }
 
-    // Verify password with bcrypt
     const passwordMatch = await bcrypt.compare(
       credentials.password,
       result.password_hash
@@ -52,24 +84,20 @@ export async function authenticateUser(
       return null;
     }
 
-    // Check if user is active
     if (!result.is_active) {
       throw new Error('חשבון זה אינו פעיל. אנא פנה למנהל המערכת.');
     }
 
-    // Update last login
     await executeQuery(
       `UPDATE user_profiles SET last_login = NOW() WHERE id = $1`,
       [result.id]
     );
 
-    // Fetch user's assigned projects
     const assignments = await executeQuery<{ project_id: string }>(
       `SELECT project_id FROM project_assignments WHERE user_id = $1`,
       [result.id]
     );
 
-    // Return user object (without password_hash)
     const user: User = {
       id: result.id,
       email: result.email,
@@ -94,7 +122,7 @@ export async function authenticateUser(
  * Get user by ID
  */
 export async function getUserById(userId: string): Promise<User | null> {
-  if (isDemoMode || !sql) {
+  if (isDemoMode) {
     return null;
   }
 
@@ -121,7 +149,6 @@ export async function getUserById(userId: string): Promise<User | null> {
       return null;
     }
 
-    // Fetch user's assigned projects
     const assignments = await executeQuery<{ project_id: string }>(
       `SELECT project_id FROM project_assignments WHERE user_id = $1`,
       [userId]
@@ -151,16 +178,40 @@ export async function getUserById(userId: string): Promise<User | null> {
  * Register a new user (admin only)
  */
 export async function registerUser(data: RegisterData): Promise<User> {
-  if (isDemoMode || !sql) {
+  if (isDemoMode) {
     throw new Error('Registration not available in demo mode');
   }
 
+  if (useApiEndpoints) {
+    // Production: use server-side register endpoint
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: data.email,
+        password: data.password,
+        full_name: data.full_name,
+        phone: data.phone || null,
+        role: data.role,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Registration failed' }));
+      throw new Error(errorData.error || 'Registration failed');
+    }
+
+    const { user } = await response.json();
+    return user;
+  }
+
+  // Local dev: direct DB connection with client-side bcrypt
+  const bcrypt = await import('bcryptjs');
+
   try {
-    // Hash password with bcrypt
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(data.password, salt);
 
-    // Insert user
     const result = await executeQuerySingle<{
       id: string;
       email: string;
@@ -208,16 +259,31 @@ export async function updateUserPassword(
   userId: string,
   newPassword: string
 ): Promise<void> {
-  if (isDemoMode || !sql) {
+  if (isDemoMode) {
     throw new Error('Password update not available in demo mode');
   }
 
+  if (useApiEndpoints) {
+    // Production: use server-side endpoint
+    const response = await fetch('/api/auth/update-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, newPassword }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Password update failed');
+    }
+    return;
+  }
+
+  // Local dev: direct DB connection with client-side bcrypt
+  const bcrypt = await import('bcryptjs');
+
   try {
-    // Hash new password
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(newPassword, salt);
 
-    // Update password
     await executeQuery(
       `UPDATE user_profiles SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
       [password_hash, userId]
@@ -256,7 +322,6 @@ export function getSession(): AuthSession | null {
   try {
     const session: AuthSession = JSON.parse(sessionData);
 
-    // Check if session expired
     if (Date.now() > session.expiresAt) {
       clearSession();
       return null;

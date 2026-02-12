@@ -1,41 +1,72 @@
 /**
  * Neon Database Client
  * PostgreSQL connection for AB Projects
+ *
+ * In production (Vercel): queries go through /api/query serverless function.
+ * DB credentials stay server-side only (NEON_DATABASE_URL).
+ *
+ * In local dev: if VITE_NEON_DATABASE_URL is set, connects directly
+ * (developer already has credentials locally).
  */
 
-import { neon } from '@neondatabase/serverless';
 import { logDbError } from './logger';
 
-// Get database URL from environment — trim whitespace and strip query params
-// that the neon serverless driver (HTTP-based) cannot parse
+// Local dev: direct connection if VITE_NEON_DATABASE_URL is set
 const rawUrl = import.meta.env.VITE_NEON_DATABASE_URL?.trim() ?? '';
-const databaseUrl = rawUrl ? rawUrl.split('?')[0] : '';
+const localDatabaseUrl = rawUrl ? rawUrl.split('?')[0] : '';
 
-// Check if we're in demo/dev mode (no database configured)
-export const isDemoMode = !databaseUrl || import.meta.env.VITE_DEV_MODE === 'true';
+// Check if we're in demo/dev mode
+export const isDemoMode = import.meta.env.VITE_DEV_MODE === 'true';
 
-// Create Neon SQL client (serverless-compatible)
-export const sql = databaseUrl ? neon(databaseUrl) : null;
+// Determine connection mode
+const useDirectConnection = !!localDatabaseUrl && !isDemoMode;
+
+// Only import neon driver for local dev (not loaded in production)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let sql: any = null;
+let sqlReady: Promise<void> | null = null;
+
+if (useDirectConnection) {
+  sqlReady = import('@neondatabase/serverless').then(({ neon }) => {
+    sql = neon(localDatabaseUrl);
+  });
+}
 
 /**
- * Execute a SQL query with type safety
- * @param query SQL query string with $1, $2, etc. placeholders
- * @param params Query parameters (optional)
- * @returns Query results
+ * Execute a SQL query with type safety.
+ * Routes through /api/query in production, direct connection in local dev.
  */
 export async function executeQuery<T = unknown>(
   query: string,
   params?: unknown[]
 ): Promise<T[]> {
-  if (!sql) {
-    throw new Error('Database not configured - check VITE_NEON_DATABASE_URL');
+  if (isDemoMode) {
+    throw new Error('Database not available in demo mode');
   }
 
   try {
-    // Use sql.query() for all queries (supports parameterized queries with $1, $2, etc.)
-    const result = await sql.query(query, params || []);
+    if (useDirectConnection) {
+      // Local dev: direct Neon connection
+      if (sqlReady) await sqlReady;
+      if (!sql) throw new Error('Database not configured - check VITE_NEON_DATABASE_URL');
+      const result = await sql.query(query, params || []);
+      return result as T[];
+    } else {
+      // Production: proxy through Vercel serverless function
+      const response = await fetch('/api/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, params: params || [] }),
+      });
 
-    return result as T[];
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Database query failed' }));
+        throw new Error(errorData.error || `Database query failed (${response.status})`);
+      }
+
+      const { data } = await response.json();
+      return data as T[];
+    }
   } catch (error) {
     logDbError('query', 'unknown', error);
     throw error;
@@ -44,9 +75,6 @@ export async function executeQuery<T = unknown>(
 
 /**
  * Execute a SQL query and return a single row
- * @param query SQL query string
- * @param params Query parameters (optional)
- * @returns Single row or null
  */
 export async function executeQuerySingle<T = unknown>(
   query: string,
@@ -55,6 +83,9 @@ export async function executeQuerySingle<T = unknown>(
   const result = await executeQuery<T>(query, params);
   return result.length > 0 ? result[0] : null;
 }
+
+// Re-export sql for backward compatibility (used by authService for isDemoMode check)
+export { sql };
 
 // Database types matching our Neon schema
 export interface UserProfile {
