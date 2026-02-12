@@ -5,6 +5,8 @@ import { ToastProvider } from './contexts/ToastContext';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import Header from './components/Layout/Header';
 import DevToolsPanel from './components/DevTools/DevToolsPanel';
+import ErrorBoundary from './components/ErrorBoundary';
+import SystemStatusBanner from './components/SystemStatusBanner';
 
 // Lazy load all page components for code splitting
 const LoginPage = lazy(() => import('./pages/Auth/LoginPage'));
@@ -49,41 +51,44 @@ function AppLayout() {
 
 function App() {
   return (
-    <ToastProvider>
-      <AuthProvider>
-        <Router>
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
-              {/* Public routes */}
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
+    <ErrorBoundary>
+      <ToastProvider>
+        <AuthProvider>
+          <Router>
+            <SystemStatusBanner />
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                {/* Public routes */}
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-              {/* Protected routes - require authentication */}
-              <Route element={<ProtectedRoute />}>
-                <Route element={<AppLayout />}>
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/dashboard" element={<DashboardPage />} />
-                  <Route path="/projects" element={<ProjectsPage />} />
-                  <Route path="/projects/new" element={<CreateProjectPage />} />
-                  <Route path="/projects/:id" element={<ProjectDetailPage />} />
-                  <Route path="/projects/:id/edit" element={<EditProjectPage />} />
-                  <Route path="/cost-control" element={<CostControlPage />} />
-                  <Route path="/professionals" element={<ProfessionalsListPage />} />
-                  <Route path="/professionals/:id" element={<ProfessionalDetailPage />} />
-                  <Route path="/professionals/new" element={<CreateProfessionalPage />} />
-                  <Route path="/files" element={<GlobalFilesPage />} />
-                  {/* Redirects for old URLs (bookmarks) */}
-                  <Route path="/budget" element={<Navigate to="/cost-control?tab=budget" replace />} />
-                  <Route path="/tenders" element={<Navigate to="/cost-control?tab=tenders" replace />} />
-                  <Route path="/admin/users" element={<UsersPage />} />
+                {/* Protected routes - require authentication */}
+                <Route element={<ProtectedRoute />}>
+                  <Route element={<AppLayout />}>
+                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/dashboard" element={<DashboardPage />} />
+                    <Route path="/projects" element={<ProjectsPage />} />
+                    <Route path="/projects/new" element={<CreateProjectPage />} />
+                    <Route path="/projects/:id" element={<ProjectDetailPage />} />
+                    <Route path="/projects/:id/edit" element={<EditProjectPage />} />
+                    <Route path="/cost-control" element={<CostControlPage />} />
+                    <Route path="/professionals" element={<ProfessionalsListPage />} />
+                    <Route path="/professionals/:id" element={<ProfessionalDetailPage />} />
+                    <Route path="/professionals/new" element={<CreateProfessionalPage />} />
+                    <Route path="/files" element={<GlobalFilesPage />} />
+                    {/* Redirects for old URLs (bookmarks) */}
+                    <Route path="/budget" element={<Navigate to="/cost-control?tab=costs" replace />} />
+                    <Route path="/tenders" element={<Navigate to="/cost-control?tab=tenders" replace />} />
+                    <Route path="/admin/users" element={<UsersPage />} />
+                  </Route>
                 </Route>
-              </Route>
-            </Routes>
-          </Suspense>
-        </Router>
-      </AuthProvider>
-    </ToastProvider>
+              </Routes>
+            </Suspense>
+          </Router>
+        </AuthProvider>
+      </ToastProvider>
+    </ErrorBoundary>
   );
 }
 

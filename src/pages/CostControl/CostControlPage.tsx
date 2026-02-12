@@ -2,14 +2,18 @@ import { useState, useEffect, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 // Lazy load tab components
+const CostsTabContent = lazy(() => import('./tabs/BudgetTabContent'));
 const TendersTabContent = lazy(() => import('./tabs/TendersTabContent'));
-const BudgetTabContent = lazy(() => import('./tabs/BudgetTabContent'));
+const PaymentsTabContent = lazy(() => import('./tabs/PaymentsTabContent'));
+const CashFlowTabContent = lazy(() => import('./tabs/CashFlowTabContent'));
 
-type TabValue = 'tenders' | 'budget';
+type TabValue = 'costs' | 'tenders' | 'payments' | 'cashflow';
 
 const tabs: { label: string; value: TabValue; icon: string }[] = [
+  { label: 'עלויות', value: 'costs', icon: 'receipt_long' },
   { label: 'מכרזים', value: 'tenders', icon: 'gavel' },
-  { label: 'תקציב', value: 'budget', icon: 'payments' },
+  { label: 'תשלומים', value: 'payments', icon: 'calendar_month' },
+  { label: 'תזרים מזומנים', value: 'cashflow', icon: 'trending_up' },
 ];
 
 function TabLoadingSpinner() {
@@ -25,25 +29,29 @@ function TabLoadingSpinner() {
 
 export default function CostControlPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const tabFromUrl = searchParams.get('tab') as TabValue | null;
+  const rawTab = searchParams.get('tab');
 
-  // Default to 'tenders' if no tab in URL or invalid tab
+  // Support old 'budget' URL param → redirect to 'costs'
+  const tabFromUrl = (rawTab === 'budget' ? 'costs' : rawTab) as TabValue | null;
+
+  // Default to 'costs' if no tab in URL or invalid tab
   const [activeTab, setActiveTab] = useState<TabValue>(() => {
     if (tabFromUrl && tabs.some(t => t.value === tabFromUrl)) {
       return tabFromUrl;
     }
-    return 'tenders';
+    return 'costs';
   });
 
   // Sync URL ↔ tab state (single effect to avoid loop)
   useEffect(() => {
-    const urlTab = searchParams.get('tab') as TabValue | null;
-    const validUrlTab = urlTab && tabs.some(t => t.value === urlTab) ? urlTab : null;
+    const rawUrlTab = searchParams.get('tab');
+    const mapped = (rawUrlTab === 'budget' ? 'costs' : rawUrlTab) as TabValue | null;
+    const validUrlTab = mapped && tabs.some(t => t.value === mapped) ? mapped : null;
 
     if (validUrlTab && validUrlTab !== activeTab) {
       // URL changed externally (browser back/forward) → update state
       setActiveTab(validUrlTab);
-    } else if (!validUrlTab || urlTab !== activeTab) {
+    } else if (!validUrlTab || mapped !== activeTab) {
       // State changed → update URL
       setSearchParams({ tab: activeTab }, { replace: true });
     }
@@ -62,7 +70,7 @@ export default function CostControlPage() {
             בקרת עלויות
           </h1>
           <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            Cost Control - ניהול מכרזים ותקציב
+            Cost Control - עלויות, מכרזים, תשלומים ותזרים מזומנים
           </p>
         </div>
       </div>
@@ -106,14 +114,24 @@ export default function CostControlPage() {
       {/* Tab Content */}
       <div className="animate-fade-in">
         <Suspense fallback={<TabLoadingSpinner />}>
+          {activeTab === 'costs' && (
+            <div role="tabpanel" id="costs-panel" aria-labelledby="costs-tab">
+              <CostsTabContent />
+            </div>
+          )}
           {activeTab === 'tenders' && (
             <div role="tabpanel" id="tenders-panel" aria-labelledby="tenders-tab">
               <TendersTabContent />
             </div>
           )}
-          {activeTab === 'budget' && (
-            <div role="tabpanel" id="budget-panel" aria-labelledby="budget-tab">
-              <BudgetTabContent />
+          {activeTab === 'payments' && (
+            <div role="tabpanel" id="payments-panel" aria-labelledby="payments-tab">
+              <PaymentsTabContent />
+            </div>
+          )}
+          {activeTab === 'cashflow' && (
+            <div role="tabpanel" id="cashflow-panel" aria-labelledby="cashflow-tab">
+              <CashFlowTabContent />
             </div>
           )}
         </Suspense>

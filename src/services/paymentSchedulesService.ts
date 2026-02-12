@@ -6,6 +6,7 @@
 import { executeQuery, executeQuerySingle, isDemoMode as isNeonDemoMode } from '../lib/neon';
 import type { PaymentSchedule, ScheduleItem } from '../types';
 import {
+  getAllSchedules as getAllSchedulesLocal,
   getSchedulesByProject as getSchedulesByProjectLocal,
   getScheduleByCostItem as getScheduleByCostItemLocal,
   getScheduleById as getScheduleByIdLocal,
@@ -32,6 +33,34 @@ const isDemoMode = isNeonDemoMode;
 // ============================================================
 // PAYMENT SCHEDULES
 // ============================================================
+
+export async function getAllSchedules(): Promise<PaymentSchedule[]> {
+  if (isDemoMode) return getAllSchedulesLocal();
+
+  try {
+    const data = await executeQuery<Record<string, unknown>>(
+      `SELECT * FROM payment_schedules ORDER BY created_at DESC`
+    );
+    return (data || []).map(transformScheduleFromDB);
+  } catch (error) {
+    console.error('Error fetching all payment schedules:', error);
+    return getAllSchedulesLocal();
+  }
+}
+
+export async function getAllScheduleItems(): Promise<ScheduleItem[]> {
+  if (isDemoMode) return getAllScheduleItemsLocal();
+
+  try {
+    const data = await executeQuery<Record<string, unknown>>(
+      `SELECT * FROM schedule_items ORDER BY "order" ASC`
+    );
+    return (data || []).map(transformScheduleItemFromDB);
+  } catch (error) {
+    console.error('Error fetching all schedule items:', error);
+    return getAllScheduleItemsLocal();
+  }
+}
 
 export async function getSchedulesByProject(projectId: string): Promise<PaymentSchedule[]> {
   if (isDemoMode) return getSchedulesByProjectLocal(projectId);
