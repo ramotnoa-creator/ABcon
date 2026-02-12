@@ -54,7 +54,9 @@ export default function MobileMenu({ onClose }: MobileMenuProps) {
       />
       
       {/* Slide-in panel */}
-      <div 
+      <div
+        role="dialog"
+        aria-modal="true"
         className={`absolute right-0 top-0 bottom-0 w-72 bg-surface-light dark:bg-surface-dark border-l border-border-light dark:border-border-dark shadow-2xl transition-transform duration-250 ease-smooth ${
           isClosing ? 'translate-x-full' : 'animate-slide-in-right'
         }`}

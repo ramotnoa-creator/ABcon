@@ -97,8 +97,10 @@ const StatusChart = memo(function StatusChart({ distribution }: StatusChartProps
         </div>
         <div className="flex-1 space-y-3">
           {distribution.map((item, index) => (
-            <div 
-              key={index} 
+            <div
+              key={index}
+              role="button"
+              tabIndex={0}
               className={`flex items-center gap-3 p-2 rounded-lg transition-all duration-300 hover:bg-background-light dark:hover:bg-background-dark cursor-pointer ${
                 isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
               }`}

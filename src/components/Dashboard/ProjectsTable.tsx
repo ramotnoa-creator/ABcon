@@ -52,22 +52,22 @@ const ProjectsTable = memo(function ProjectsTable({ projects }: ProjectsTablePro
         <table className="w-full">
           <thead className="bg-background-light dark:bg-background-dark border-b border-border-light dark:border-border-dark">
             <tr>
-              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
+              <th scope="col" className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
                 שם הפרויקט
               </th>
-              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
+              <th scope="col" className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
                 מנהל פרויקט
               </th>
-              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
+              <th scope="col" className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
                 סטטוס
               </th>
-              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
+              <th scope="col" className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
                 סוגיה קריטית
               </th>
-              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
+              <th scope="col" className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
                 התקדמות
               </th>
-              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
+              <th scope="col" className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark">
                 פעולות
               </th>
             </tr>

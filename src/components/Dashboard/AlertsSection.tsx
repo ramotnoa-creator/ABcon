@@ -54,7 +54,9 @@ const AlertsSection = memo(function AlertsSection({ alerts }: AlertsSectionProps
         {alerts.map((alert, index) => (
           <div
             key={alert.id}
-            className={`bg-background-light dark:bg-background-dark rounded-lg p-4 ${alertTypeColors[alert.type]} 
+            role="button"
+            tabIndex={0}
+            className={`bg-background-light dark:bg-background-dark rounded-lg p-4 ${alertTypeColors[alert.type]}
               transition-all duration-300 hover:shadow-md hover:-translate-x-1 cursor-pointer group
               ${isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'}`}
             style={{ transitionDelay: `${300 + index * 100}ms` }}

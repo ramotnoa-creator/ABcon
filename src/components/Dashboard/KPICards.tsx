@@ -40,10 +40,12 @@ const KPICards = memo(function KPICards({ kpis }: KPICardsProps) {
       {kpis.map((kpi, index) => (
         <div
           key={kpi.id}
-          className={`rounded-xl border-2 p-4 ${colorClasses[kpi.color]} ${hoverColors[kpi.color]} 
+          role="button"
+          tabIndex={0}
+          className={`rounded-xl border-2 p-4 ${colorClasses[kpi.color]} ${hoverColors[kpi.color]}
             transition-all duration-300 ease-smooth hover:shadow-lg hover:-translate-y-1 cursor-pointer
             ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
-          style={{ 
+          style={{
             transitionDelay: `${index * 75}ms`,
           }}
         >

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { getRoleDisplayName, canManageUsers } from '../../utils/permissions';
 import { isDemoMode } from '../../lib/neon';
+import { log } from '../../lib/logger';
 import MobileMenu from './MobileMenu';
 
 const navItems = [
@@ -51,8 +52,7 @@ export default function Header() {
 
   const handleLogout = async () => {
     if (isDevMode) {
-      // In dev mode, just log to console
-      console.log('Logout (dev mode)');
+      log('info', 'auth', 'Logout (dev mode)');
       setIsUserMenuOpen(false);
       return;
     }
@@ -62,7 +62,7 @@ export default function Header() {
       setIsUserMenuOpen(false);
       navigate('/login');
     } catch (error) {
-      console.error('Logout failed:', error);
+      log('error', 'auth', 'Logout failed', { error: error instanceof Error ? error.message : String(error) });
     }
   };
 
@@ -141,6 +141,8 @@ export default function Header() {
             <button
               onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
               className="flex items-center gap-3 px-2 py-2 min-h-11 rounded-lg hover:bg-background-light dark:hover:bg-background-dark transition-all duration-200 group"
+              aria-label="תפריט משתמש"
+              aria-expanded={isUserMenuOpen}
             >
               {/* Avatar */}
               <div className="size-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm transition-transform duration-200 group-hover:scale-105">
@@ -165,9 +167,10 @@ export default function Header() {
             {isUserMenuOpen && (
               <>
                 {/* Backdrop */}
-                <div 
-                  className="fixed inset-0 z-40" 
+                <div
+                  className="fixed inset-0 z-40"
                   onClick={() => setIsUserMenuOpen(false)}
+                  aria-hidden="true"
                 />
                 {/* Menu */}
                 <div className="absolute left-0 top-full mt-2 w-56 bg-surface-light dark:bg-surface-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark z-50 overflow-hidden animate-scale-in origin-top-left">

@@ -56,7 +56,7 @@ export default function DashboardPage() {
   }, [user]);
 
   return (
-    <div className="flex-1 px-4 lg:px-10 py-6 max-w-[1400px] mx-auto w-full pb-20 lg:pb-6">
+    <main className="flex-1 px-4 lg:px-10 py-6 max-w-[1400px] mx-auto w-full pb-20 lg:pb-6">
       {/* Header with Actions */}
       <div 
         className={`flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 transition-all duration-500 ease-smooth ${
@@ -124,6 +124,6 @@ export default function DashboardPage() {
 
       {/* Projects Requiring Attention Table */}
       <ProjectsTable projects={projectsRequiringAttention} />
-    </div>
+    </main>
   );
 }

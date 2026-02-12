@@ -36,15 +36,15 @@ export default function WinnerSelectionModal({
 
   return createPortal(
     <>
-      <div className="fixed inset-0 z-50 bg-black/50" onClick={onCancel} />
+      <div className="fixed inset-0 z-50 bg-black/50" onClick={onCancel} aria-hidden="true" />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl border border-border-light dark:border-border-dark w-full max-w-md max-h-[85vh] overflow-y-auto">
+        <div role="dialog" aria-modal="true" aria-labelledby="winner-selection-modal-title" className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl border border-border-light dark:border-border-dark w-full max-w-md max-h-[85vh] overflow-y-auto">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-border-light dark:border-border-dark">
-            <h3 className="text-lg font-bold">בחירת זוכה במכרז</h3>
+            <h3 id="winner-selection-modal-title" className="text-lg font-bold">בחירת זוכה במכרז</h3>
             <button
               onClick={onCancel}
-              className="size-8 flex items-center justify-center hover:bg-background-light dark:hover:bg-background-dark rounded transition-colors"
+              className="size-10 flex items-center justify-center hover:bg-background-light dark:hover:bg-background-dark rounded transition-colors"
               aria-label="סגור"
             >
               <span className="material-symbols-outlined text-[24px]">close</span>
