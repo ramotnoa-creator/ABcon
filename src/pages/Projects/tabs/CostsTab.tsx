@@ -10,6 +10,7 @@ import { getTenders } from '../../../services/tendersService';
 import { getSchedulesByProject, getScheduleItemsByProject } from '../../../services/paymentSchedulesService';
 import { getMilestones } from '../../../services/milestonesService';
 import AddCostItemForm from '../../../components/Costs/AddCostItemForm';
+import ExcelImportModal from '../../../components/Costs/ExcelImportModal';
 import PaymentScheduleView from '../../../components/Costs/PaymentScheduleView';
 import PaymentScheduleModal from '../../../components/Costs/PaymentScheduleModal';
 import type { CostItem, Project, CostCategory, PaymentSchedule, ScheduleItem, ProjectMilestone, Tender } from '../../../types';
@@ -57,6 +58,7 @@ export default function CostsTab({ project }: CostsTabProps) {
   const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
   const [scheduleModalItem, setScheduleModalItem] = useState<CostItem | null>(null);
   const [tendersMap, setTendersMap] = useState<Record<string, Tender>>({});
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // Get highlight parameter from URL
   const highlightItemId = searchParams.get('highlight');
@@ -524,14 +526,25 @@ export default function CostsTab({ project }: CostsTabProps) {
           </div>
         </div>
 
-        {/* Add Button */}
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg flex items-center gap-2 text-sm font-medium transition-colors"
-        >
-          <span className="material-symbols-outlined text-[20px]">add</span>
-          הוסף פריט עלות
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Import from Excel Button */}
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="px-4 py-2 border border-primary text-primary hover:bg-primary/10 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors"
+          >
+            <span className="material-symbols-outlined text-[20px]">upload_file</span>
+            ייבוא מאקסל
+          </button>
+
+          {/* Add Button */}
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg flex items-center gap-2 text-sm font-medium transition-colors"
+          >
+            <span className="material-symbols-outlined text-[20px]">add</span>
+            הוסף פריט עלות
+          </button>
+        </div>
       </div>
 
       {/* Table - Financial Blueprint Design */}
@@ -1152,6 +1165,19 @@ export default function CostsTab({ project }: CostsTabProps) {
             loadItems();
           }}
           onCancel={() => setEditingItem(null)}
+        />
+      )}
+
+      {/* Excel Import Modal */}
+      {showImportModal && (
+        <ExcelImportModal
+          projectId={project.id}
+          vatRate={project.current_vat_rate ?? 17}
+          onComplete={() => {
+            setShowImportModal(false);
+            loadItems();
+          }}
+          onCancel={() => setShowImportModal(false)}
         />
       )}
 

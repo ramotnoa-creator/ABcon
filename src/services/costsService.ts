@@ -224,6 +224,32 @@ export async function deleteCostItem(id: string): Promise<void> {
 }
 
 // ============================================================
+// BULK CREATE COST ITEMS
+// ============================================================
+
+export async function bulkCreateCostItems(
+  items: Omit<CostItem, 'id' | 'created_at' | 'updated_at'>[]
+): Promise<{ success: number; errors: { index: number; name: string; error: string }[] }> {
+  const errors: { index: number; name: string; error: string }[] = [];
+  let success = 0;
+
+  for (let i = 0; i < items.length; i++) {
+    try {
+      await createCostItem(items[i]);
+      success++;
+    } catch (error) {
+      errors.push({
+        index: i,
+        name: items[i].name,
+        error: (error as Error).message || 'Unknown error',
+      });
+    }
+  }
+
+  return { success, errors };
+}
+
+// ============================================================
 // EXPORT COST ITEM TO TENDER
 // ============================================================
 
