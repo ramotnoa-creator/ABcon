@@ -53,7 +53,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const sql = neon(databaseUrl);
-    const result = await sql.query(query, params || []);
+    // Use .query() for dynamic parameterized queries from client
+    const result = await (sql.query as (q: string, p: unknown[]) => Promise<Record<string, unknown>[]>)(query, params || []);
     return res.status(200).json({ data: result });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Database query failed';

@@ -41,13 +41,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const password_hash = await bcrypt.hash(password, salt);
 
     // Insert user
-    const result = await sql.query(
-      `INSERT INTO user_profiles
+    const result = await sql`INSERT INTO user_profiles
        (email, password_hash, full_name, phone, role, is_active)
-       VALUES ($1, $2, $3, $4, $5, true)
-       RETURNING id, email, full_name, phone, role, is_active, created_at, updated_at`,
-      [email, password_hash, full_name, phone || null, role]
-    );
+       VALUES (${email}, ${password_hash}, ${full_name}, ${phone || null}, ${role}, true)
+       RETURNING id, email, full_name, phone, role, is_active, created_at, updated_at`;
 
     if (result.length === 0) {
       return res.status(500).json({ error: 'Failed to create user' });

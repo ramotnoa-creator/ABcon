@@ -37,13 +37,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const sql = neon(databaseUrl);
 
     // Fetch user by email
-    const users = await sql.query(
-      `SELECT id, email, password_hash, full_name, phone, role, is_active,
+    const users = await sql`SELECT id, email, password_hash, full_name, phone, role, is_active,
               last_login, created_at, updated_at
        FROM user_profiles
-       WHERE email = $1`,
-      [email]
-    );
+       WHERE email = ${email}`;
 
     if (users.length === 0) {
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -63,16 +60,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Update last login
-    await sql.query(
-      `UPDATE user_profiles SET last_login = NOW() WHERE id = $1`,
-      [dbUser.id]
-    );
+    await sql`UPDATE user_profiles SET last_login = NOW() WHERE id = ${dbUser.id}`;
 
     // Fetch user's assigned projects
-    const assignments = await sql.query(
-      `SELECT project_id FROM project_assignments WHERE user_id = $1`,
-      [dbUser.id]
-    );
+    const assignments = await sql`SELECT project_id FROM project_assignments WHERE user_id = ${dbUser.id}`;
 
     return res.status(200).json({
       user: {
@@ -85,7 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         last_login: new Date().toISOString(),
         created_at: dbUser.created_at,
         updated_at: dbUser.updated_at,
-        assignedProjects: assignments.map((a: { project_id: string }) => a.project_id),
+        assignedProjects: assignments.map((a: Record<string, unknown>) => a.project_id),
       }
     });
   } catch (error: unknown) {
