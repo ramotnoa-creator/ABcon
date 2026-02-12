@@ -41,7 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const password_hash = await bcrypt.hash(newPassword, salt);
 
     // Update password
-    await sql.query(
+    await sql(
       `UPDATE user_profiles SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
       [password_hash, userId]
     );

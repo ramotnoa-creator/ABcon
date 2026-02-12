@@ -53,11 +53,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const sql = neon(databaseUrl);
-    const result = await sql.query(query, params || []);
+    const result = await sql(query, params || []);
     return res.status(200).json({ data: result });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Database query failed';
     console.error('Database query error:', message);
-    return res.status(500).json({ error: 'Database query failed' });
+    return res.status(500).json({ error: message });
   }
 }

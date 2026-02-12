@@ -41,7 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const password_hash = await bcrypt.hash(password, salt);
 
     // Insert user
-    const result = await sql.query(
+    const result = await sql(
       `INSERT INTO user_profiles
        (email, password_hash, full_name, phone, role, is_active)
        VALUES ($1, $2, $3, $4, $5, true)

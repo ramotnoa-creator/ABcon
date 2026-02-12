@@ -37,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const sql = neon(databaseUrl);
 
     // Fetch user by email
-    const users = await sql.query(
+    const users = await sql(
       `SELECT id, email, password_hash, full_name, phone, role, is_active,
               last_login, created_at, updated_at
        FROM user_profiles
@@ -63,13 +63,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Update last login
-    await sql.query(
+    await sql(
       `UPDATE user_profiles SET last_login = NOW() WHERE id = $1`,
       [dbUser.id]
     );
 
     // Fetch user's assigned projects
-    const assignments = await sql.query(
+    const assignments = await sql(
       `SELECT project_id FROM project_assignments WHERE user_id = $1`,
       [dbUser.id]
     );
