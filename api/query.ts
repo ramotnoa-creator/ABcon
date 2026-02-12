@@ -46,7 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(403).json({ error: 'Operation not allowed' });
   }
 
-  const databaseUrl = process.env.NEON_DATABASE_URL;
+  const databaseUrl = process.env.NEON_DATABASE_URL?.replace(/\s+/g, '');
   if (!databaseUrl) {
     return res.status(500).json({ error: 'Database not configured' });
   }

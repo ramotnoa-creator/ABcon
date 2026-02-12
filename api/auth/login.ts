@@ -28,7 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Email and password required' });
   }
 
-  const databaseUrl = process.env.NEON_DATABASE_URL;
+  const databaseUrl = process.env.NEON_DATABASE_URL?.replace(/\s+/g, '');
   if (!databaseUrl) {
     return res.status(500).json({ error: 'Database not configured' });
   }
