@@ -1,5 +1,18 @@
 # Changelog - ANcon
 
+## 2026-02-12 - Cost Item Editing + Project Parameters
+
+**What:** Added cost item editing and project cost parameter fields (built_sqm, general_estimate, sales_sqm)
+**Why:** Edit button in CostsTab had no onClick handler; built_sqm/general_estimate/sales_sqm had no edit UI
+**Changes:**
+- `AddCostItemForm`: Now supports both Add and Edit modes via `editItem` prop
+  - Edit mode shows actual_amount field and tender fields (contract_amount, management_remarks) for tender_winner items
+- `CostsTab`: Edit button now opens edit modal with pre-populated form
+- `EditProjectPage`: New "Cost Parameters" section with general_estimate, built_sqm, sales_sqm fields
+- `projectsService`: updateProject now handles general_estimate, built_sqm, sales_sqm fields
+
+---
+
 ## 2026-02-11 - Vibe-System Adoption - DONE
 
 **What:** Adopted vibe-system documentation structure

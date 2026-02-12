@@ -47,6 +47,7 @@ export default function CostsTab({ project }: CostsTabProps) {
   const [items, setItems] = useState<CostItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingItem, setEditingItem] = useState<CostItem | null>(null);
   const [filterCategory, setFilterCategory] = useState<CostCategory | 'all'>('all');
   const [exportingItemId, setExportingItemId] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -911,6 +912,7 @@ export default function CostsTab({ project }: CostsTabProps) {
 
                           {/* Edit Button */}
                           <button
+                            onClick={() => setEditingItem(item)}
                             className="relative group p-2 rounded-lg bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-primary hover:border-primary/30 transition-all hover:scale-105 active:scale-95"
                             title="עריכה"
                           >
@@ -1127,6 +1129,21 @@ export default function CostsTab({ project }: CostsTabProps) {
             setShowAddForm(false);
           }}
           onCancel={() => setShowAddForm(false)}
+        />
+      )}
+
+      {/* Edit Form Modal */}
+      {editingItem && (
+        <AddCostItemForm
+          projectId={project.id}
+          vatRate={project.current_vat_rate ?? 17}
+          editItem={editingItem}
+          tendersMap={tendersMap}
+          onSave={() => {
+            setEditingItem(null);
+            loadItems();
+          }}
+          onCancel={() => setEditingItem(null)}
         />
       )}
 

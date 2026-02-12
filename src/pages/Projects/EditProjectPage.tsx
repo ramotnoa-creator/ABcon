@@ -33,6 +33,9 @@ export default function EditProjectPage() {
     permit_approval_date: '',
     current_vat_rate: 17,
     notes: '',
+    general_estimate: 0,
+    built_sqm: 0,
+    sales_sqm: 0,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -56,14 +59,17 @@ export default function EditProjectPage() {
         setProject(loadedProject);
         setFormData({
           project_name: loadedProject.project_name,
-      client_name: loadedProject.client_name,
-      address: loadedProject.address || '',
-      status: loadedProject.status,
-      permit_start_date: loadedProject.permit_start_date || '',
-      permit_duration_months: loadedProject.permit_duration_months || 12,
-      permit_approval_date: loadedProject.permit_approval_date || '',
-      current_vat_rate: loadedProject.current_vat_rate ?? 17,
-      notes: loadedProject.notes || '',
+          client_name: loadedProject.client_name,
+          address: loadedProject.address || '',
+          status: loadedProject.status,
+          permit_start_date: loadedProject.permit_start_date || '',
+          permit_duration_months: loadedProject.permit_duration_months || 12,
+          permit_approval_date: loadedProject.permit_approval_date || '',
+          current_vat_rate: loadedProject.current_vat_rate ?? 17,
+          notes: loadedProject.notes || '',
+          general_estimate: loadedProject.general_estimate || 0,
+          built_sqm: loadedProject.built_sqm || 0,
+          sales_sqm: loadedProject.sales_sqm || 0,
         });
         setLoading(false);
       } catch (error) {
@@ -92,7 +98,9 @@ export default function EditProjectPage() {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === 'permit_duration_months' || name === 'current_vat_rate' ? parseInt(value) || 0 : value,
+      [name]: ['permit_duration_months', 'current_vat_rate', 'general_estimate', 'built_sqm', 'sales_sqm'].includes(name)
+        ? parseFloat(value) || 0
+        : value,
     }));
 
     // Clear error for this field
@@ -143,6 +151,9 @@ export default function EditProjectPage() {
         current_vat_rate: newVatRate,
         updated_at_text: formatDateHebrew(new Date().toISOString()),
         notes: formData.notes.trim() || undefined,
+        general_estimate: formData.general_estimate || undefined,
+        built_sqm: formData.built_sqm || undefined,
+        sales_sqm: formData.sales_sqm || undefined,
       });
 
       // If VAT rate changed, update all cost items that aren't fully paid
@@ -442,7 +453,72 @@ export default function EditProjectPage() {
 
           <div className="h-px bg-slate-200 dark:bg-border-dark w-full my-4"></div>
 
-          {/* Section 3: Notes */}
+          {/* Section 3: Cost Parameters */}
+          <div>
+            <h3 className="text-royal-gray dark:text-text-main-dark font-bold text-lg flex items-center gap-2 mb-4">
+              <span className="material-symbols-outlined text-primary">payments</span>
+              נתוני עלות
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* General Estimate */}
+              <div className="flex flex-col gap-2">
+                <label className="text-royal-gray dark:text-text-main-dark text-sm font-bold leading-normal" htmlFor="general-estimate">
+                  אומדן כללי (₪)
+                </label>
+                <input
+                  className="form-input w-full rounded border border-slate-300 dark:border-border-dark bg-white dark:bg-background-dark px-4 py-3 text-slate-900 dark:text-text-main-dark focus:border-royal-gray focus:ring-1 focus:ring-royal-gray placeholder:text-slate-400 text-base"
+                  id="general-estimate"
+                  name="general_estimate"
+                  min={0}
+                  step="0.01"
+                  placeholder="0"
+                  type="number"
+                  value={formData.general_estimate || ''}
+                  onChange={handleChange}
+                />
+              </div>
+
+              {/* Built SQM */}
+              <div className="flex flex-col gap-2">
+                <label className="text-royal-gray dark:text-text-main-dark text-sm font-bold leading-normal" htmlFor="built-sqm">
+                  מ"ר בנוי
+                </label>
+                <input
+                  className="form-input w-full rounded border border-slate-300 dark:border-border-dark bg-white dark:bg-background-dark px-4 py-3 text-slate-900 dark:text-text-main-dark focus:border-royal-gray focus:ring-1 focus:ring-royal-gray placeholder:text-slate-400 text-base"
+                  id="built-sqm"
+                  name="built_sqm"
+                  min={0}
+                  step="0.01"
+                  placeholder="0"
+                  type="number"
+                  value={formData.built_sqm || ''}
+                  onChange={handleChange}
+                />
+              </div>
+
+              {/* Sales SQM */}
+              <div className="flex flex-col gap-2">
+                <label className="text-royal-gray dark:text-text-main-dark text-sm font-bold leading-normal" htmlFor="sales-sqm">
+                  מ"ר מכר
+                </label>
+                <input
+                  className="form-input w-full rounded border border-slate-300 dark:border-border-dark bg-white dark:bg-background-dark px-4 py-3 text-slate-900 dark:text-text-main-dark focus:border-royal-gray focus:ring-1 focus:ring-royal-gray placeholder:text-slate-400 text-base"
+                  id="sales-sqm"
+                  name="sales_sqm"
+                  min={0}
+                  step="0.01"
+                  placeholder="0"
+                  type="number"
+                  value={formData.sales_sqm || ''}
+                  onChange={handleChange}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="h-px bg-slate-200 dark:bg-border-dark w-full my-4"></div>
+
+          {/* Section 4: Notes */}
           <div className="flex flex-col gap-2">
             <label className="text-royal-gray dark:text-text-main-dark text-sm font-bold leading-normal" htmlFor="notes">
               הערות ודגשים

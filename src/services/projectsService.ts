@@ -190,6 +190,18 @@ export async function updateProject(id: string, updates: Partial<Project>): Prom
       setClauses.push(`notes = $${paramIndex++}`);
       values.push(updates.notes);
     }
+    if (updates.general_estimate !== undefined) {
+      setClauses.push(`general_estimate = $${paramIndex++}`);
+      values.push(updates.general_estimate);
+    }
+    if (updates.built_sqm !== undefined) {
+      setClauses.push(`built_sqm = $${paramIndex++}`);
+      values.push(updates.built_sqm);
+    }
+    if (updates.sales_sqm !== undefined) {
+      setClauses.push(`sales_sqm = $${paramIndex++}`);
+      values.push(updates.sales_sqm);
+    }
 
     if (setClauses.length === 0) {
       return; // Nothing to update

@@ -1,18 +1,22 @@
 /**
- * Add Cost Item Form - Simplified
- * Just name, type, category, and ONE amount
+ * Add/Edit Cost Item Form
+ * Supports both creating new cost items and editing existing ones.
+ * In edit mode: shows actual_amount field, and tender fields for tender_winner items.
  */
 
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { createCostItem } from '../../services/costsService';
-import type { CostItem, CostCategory } from '../../types';
+import { createCostItem, updateCostItem } from '../../services/costsService';
+import { updateTender } from '../../services/tendersService';
+import type { CostItem, CostCategory, Tender } from '../../types';
 
 interface AddCostItemFormProps {
   projectId: string;
   vatRate?: number;
   onSave: (item: CostItem) => void;
   onCancel: () => void;
+  editItem?: CostItem;
+  tendersMap?: Record<string, Tender>;
 }
 
 const categories: { value: CostCategory; label: string }[] = [
@@ -21,13 +25,19 @@ const categories: { value: CostCategory; label: string }[] = [
   { value: 'contractor', label: 'קבלן' },
 ];
 
-export default function AddCostItemForm({ projectId, vatRate = 17, onSave, onCancel }: AddCostItemFormProps) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState<CostCategory>('contractor');
-  const [amount, setAmount] = useState('');
-  const [vatIncluded, setVatIncluded] = useState(true);
-  const [notes, setNotes] = useState('');
+export default function AddCostItemForm({ projectId, vatRate = 17, onSave, onCancel, editItem, tendersMap }: AddCostItemFormProps) {
+  const isEditMode = !!editItem;
+  const linkedTender = editItem?.tender_id && tendersMap ? tendersMap[editItem.tender_id] : undefined;
+
+  const [name, setName] = useState(editItem?.name || '');
+  const [description, setDescription] = useState(editItem?.description || '');
+  const [category, setCategory] = useState<CostCategory>(editItem?.category || 'contractor');
+  const [amount, setAmount] = useState(editItem ? String(editItem.estimated_amount) : '');
+  const [actualAmount, setActualAmount] = useState(editItem?.actual_amount ? String(editItem.actual_amount) : '');
+  const [vatIncluded, setVatIncluded] = useState(editItem?.vat_included ?? true);
+  const [notes, setNotes] = useState(editItem?.notes || '');
+  const [contractAmount, setContractAmount] = useState(linkedTender?.contract_amount != null ? String(linkedTender.contract_amount) : '');
+  const [managementRemarks, setManagementRemarks] = useState(linkedTender?.management_remarks || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,23 +56,65 @@ export default function AddCostItemForm({ projectId, vatRate = 17, onSave, onCan
     try {
       setIsSubmitting(true);
 
-      const newItem = await createCostItem({
-        project_id: projectId,
-        name: name.trim(),
-        description: description.trim() || undefined,
-        category,
-        estimated_amount: parseFloat(amount),
-        actual_amount: undefined,
-        vat_included: vatIncluded,
-        vat_rate: vatRate,
-        status: 'draft',
-        notes: notes.trim() || undefined,
-      });
+      if (isEditMode && editItem) {
+        // Update existing cost item
+        const updates: Partial<CostItem> = {
+          name: name.trim(),
+          description: description.trim() || undefined,
+          category,
+          estimated_amount: parseFloat(amount),
+          actual_amount: actualAmount ? parseFloat(actualAmount) : undefined,
+          vat_included: vatIncluded,
+          notes: notes.trim() || undefined,
+        };
 
-      onSave(newItem);
+        await updateCostItem(editItem.id, updates);
+
+        // Update linked tender fields if applicable
+        if (linkedTender) {
+          const tenderUpdates: Partial<Tender> = {};
+          const newContractAmount = contractAmount ? parseFloat(contractAmount) : undefined;
+          const newManagementRemarks = managementRemarks.trim() || undefined;
+
+          if (newContractAmount !== linkedTender.contract_amount) {
+            tenderUpdates.contract_amount = newContractAmount;
+          }
+          if (newManagementRemarks !== linkedTender.management_remarks) {
+            tenderUpdates.management_remarks = newManagementRemarks;
+          }
+
+          if (Object.keys(tenderUpdates).length > 0) {
+            await updateTender(linkedTender.id, tenderUpdates);
+          }
+        }
+
+        // Return updated item
+        const updatedItem: CostItem = {
+          ...editItem,
+          ...updates,
+          updated_at: new Date().toISOString(),
+        };
+        onSave(updatedItem);
+      } else {
+        // Create new cost item
+        const newItem = await createCostItem({
+          project_id: projectId,
+          name: name.trim(),
+          description: description.trim() || undefined,
+          category,
+          estimated_amount: parseFloat(amount),
+          actual_amount: undefined,
+          vat_included: vatIncluded,
+          vat_rate: vatRate,
+          status: 'draft',
+          notes: notes.trim() || undefined,
+        });
+
+        onSave(newItem);
+      }
     } catch (error) {
-      console.error('Error creating cost item:', error);
-      alert('שגיאה ביצירת פריט. אנא נסה שוב.');
+      console.error(isEditMode ? 'Error updating cost item:' : 'Error creating cost item:', error);
+      alert(isEditMode ? 'שגיאה בעדכון פריט. אנא נסה שוב.' : 'שגיאה ביצירת פריט. אנא נסה שוב.');
     } finally {
       setIsSubmitting(false);
     }
@@ -75,7 +127,7 @@ export default function AddCostItemForm({ projectId, vatRate = 17, onSave, onCan
           {/* Header */}
           <div className="sticky top-0 bg-white dark:bg-surface-dark border-b border-border-light dark:border-border-dark p-6 flex items-center justify-between">
             <h2 className="text-2xl font-bold text-text-main-light dark:text-text-main-dark">
-              הוסף פריט עלות
+              {isEditMode ? 'עריכת פריט עלות' : 'הוסף פריט עלות'}
             </h2>
             <button
               type="button"
@@ -135,10 +187,10 @@ export default function AddCostItemForm({ projectId, vatRate = 17, onSave, onCan
               </select>
             </div>
 
-            {/* Amount - THE ONE FIELD */}
+            {/* Amount (Estimated) */}
             <div>
               <label className="block text-sm font-bold text-text-main-light dark:text-text-main-dark mb-2">
-                סכום <span className="text-red-600">*</span>
+                {isEditMode ? 'סכום אומדן' : 'סכום'} <span className="text-red-600">*</span>
               </label>
               <div className="relative">
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">₪</span>
@@ -154,6 +206,78 @@ export default function AddCostItemForm({ projectId, vatRate = 17, onSave, onCan
                 />
               </div>
             </div>
+
+            {/* Actual Amount - EDIT MODE ONLY */}
+            {isEditMode && (
+              <div>
+                <label className="block text-sm font-bold text-text-main-light dark:text-text-main-dark mb-2">
+                  עלות בפועל
+                </label>
+                <div className="relative">
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">₪</span>
+                  <input
+                    type="number"
+                    value={actualAmount}
+                    onChange={(e) => setActualAmount(e.target.value)}
+                    placeholder="0"
+                    min="0"
+                    step="0.01"
+                    className="w-full pr-10 pl-4 py-3 rounded-lg border border-border-light dark:border-border-dark bg-surface-light dark:bg-background-dark text-text-main-light dark:text-text-main-dark focus:ring-2 focus:ring-primary focus:border-transparent text-lg font-bold"
+                  />
+                </div>
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
+                  העלות הממשית מהקבלן/ספק
+                </p>
+              </div>
+            )}
+
+            {/* Tender Fields - EDIT MODE + TENDER_WINNER ONLY */}
+            {isEditMode && linkedTender && (
+              <div className="bg-emerald-50/50 dark:bg-emerald-950/20 rounded-lg p-4 border border-emerald-200 dark:border-emerald-800/40 space-y-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="material-symbols-outlined text-[18px] text-emerald-600 dark:text-emerald-400">emoji_events</span>
+                  <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300">נתוני מכרז</span>
+                  {linkedTender.winner_professional_name && (
+                    <span className="text-xs text-emerald-600 dark:text-emerald-400">
+                      — זוכה: {linkedTender.winner_professional_name}
+                    </span>
+                  )}
+                </div>
+
+                {/* Contract Amount */}
+                <div>
+                  <label className="block text-sm font-bold text-text-main-light dark:text-text-main-dark mb-2">
+                    סכום חוזה
+                  </label>
+                  <div className="relative">
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">₪</span>
+                    <input
+                      type="number"
+                      value={contractAmount}
+                      onChange={(e) => setContractAmount(e.target.value)}
+                      placeholder="0"
+                      min="0"
+                      step="0.01"
+                      className="w-full pr-10 pl-4 py-3 rounded-lg border border-emerald-200 dark:border-emerald-700 bg-white dark:bg-background-dark text-text-main-light dark:text-text-main-dark focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-lg font-bold"
+                    />
+                  </div>
+                </div>
+
+                {/* Management Remarks */}
+                <div>
+                  <label className="block text-sm font-bold text-text-main-light dark:text-text-main-dark mb-2">
+                    הערות ניהול
+                  </label>
+                  <textarea
+                    value={managementRemarks}
+                    onChange={(e) => setManagementRemarks(e.target.value)}
+                    placeholder="הערות ניהוליות פנימיות..."
+                    rows={2}
+                    className="w-full px-4 py-3 rounded-lg border border-emerald-200 dark:border-emerald-700 bg-white dark:bg-background-dark text-text-main-light dark:text-text-main-dark focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* VAT Included */}
             <div>
@@ -200,12 +324,12 @@ export default function AddCostItemForm({ projectId, vatRate = 17, onSave, onCan
               {isSubmitting ? (
                 <>
                   <div className="size-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  שומר...
+                  {isEditMode ? 'מעדכן...' : 'שומר...'}
                 </>
               ) : (
                 <>
                   <span className="material-symbols-outlined text-[18px]">check</span>
-                  שמור
+                  {isEditMode ? 'עדכן' : 'שמור'}
                 </>
               )}
             </button>
