@@ -4,6 +4,8 @@
  * with proper ID mapping for foreign key relationships
  */
 
+import { log as systemLog } from '../lib/logger';
+
 import {
   seedProjects,
   seedProfessionals,
@@ -69,7 +71,7 @@ export async function mergeSeedDataToNeon(
   onProgress?: (message: string) => void
 ): Promise<MigrationResult> {
   const log = (msg: string) => {
-    console.log(`[Migration] ${msg}`);
+    systemLog('info', 'db', `[Migration] ${msg}`);
     onProgress?.(msg);
   };
 
@@ -496,8 +498,8 @@ export async function mergeSeedDataToNeon(
     log(`\n🎉 Migration complete! Created ${totalCreated} records total.`);
 
     if (errors.length > 0) {
-      log(`⚠️ ${errors.length} errors occurred (see console)`);
-      console.error('Migration errors:', errors);
+      log(`⚠️ ${errors.length} errors occurred`);
+      systemLog('error', 'db', 'Migration errors', { errors });
     }
 
     return {

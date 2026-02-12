@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import type { BudgetItem } from '../../types';
+import type { BudgetItem, Project, BudgetCategory, BudgetChapter, Professional, Tender, ProjectMilestone } from '../../types';
 import { getBudgetCategories } from '../../services/budgetCategoriesService';
 import { getBudgetChapters } from '../../services/budgetChaptersService';
 import { createBudgetItem, getNextBudgetItemOrder, calculateBudgetItemTotals } from '../../services/budgetItemsService';
@@ -8,6 +8,7 @@ import { getTenders } from '../../services/tendersService';
 import { getMilestones } from '../../services/milestonesService';
 import { getProjects } from '../../services/projectsService';
 import { useToast } from '../../contexts/ToastContext';
+import { formatCurrency } from '../../utils/formatters';
 
 interface AddBudgetItemFormProps {
   projectId?: string; // Optional - if not provided, show project selector
@@ -15,30 +16,21 @@ interface AddBudgetItemFormProps {
   onCancel?: () => void;
 }
 
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('he-IL', {
-    style: 'currency',
-    currency: 'ILS',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-};
-
 export default function AddBudgetItemForm({ projectId: initialProjectId, onSuccess, onCancel }: AddBudgetItemFormProps) {
   const { showSuccess, showError } = useToast();
 
   // Project selection (for global budget page)
   const [selectedProjectId, setSelectedProjectId] = useState(initialProjectId || '');
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
 
   const effectiveProjectId = initialProjectId || selectedProjectId;
 
   // Load data based on selected project
-  const [categories, setCategories] = useState<any[]>([]);
-  const [chapters, setChapters] = useState<any[]>([]);
-  const [professionals, setProfessionals] = useState<any[]>([]);
-  const [tenders, setTenders] = useState<any[]>([]);
-  const [milestones, setMilestones] = useState<any[]>([]);
+  const [categories, setCategories] = useState<BudgetCategory[]>([]);
+  const [chapters, setChapters] = useState<BudgetChapter[]>([]);
+  const [professionals, setProfessionals] = useState<Professional[]>([]);
+  const [tenders, setTenders] = useState<Tender[]>([]);
+  const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
 
   // Load projects on mount
   useEffect(() => {

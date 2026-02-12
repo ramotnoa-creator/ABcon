@@ -34,6 +34,7 @@ const getFileNameFromUrl = (url: string | null | undefined): string => {
 import { findChapterForTender } from '../../../utils/tenderChapterMapping';
 import type { Project, Tender, TenderStatus, TenderType, TenderParticipant, Professional, Estimate } from '../../../types';
 import { formatDateForDisplay } from '../../../utils/dateUtils';
+import { formatCurrency as formatCurrencyBase } from '../../../utils/formatters';
 
 interface TendersTabProps {
   project: Project;
@@ -76,12 +77,7 @@ const professionalFieldToTenderType: Record<string, TenderType> = {
 
 const formatCurrency = (amount?: number): string => {
   if (amount === undefined || amount === null) return '-';
-  return new Intl.NumberFormat('he-IL', {
-    style: 'currency',
-    currency: 'ILS',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
+  return formatCurrencyBase(amount);
 };
 
 // Removed unused function getTodayISO
@@ -984,7 +980,7 @@ export default function TendersTab({ project }: TendersTabProps) {
             <div className="p-4 border-b border-border-light dark:border-border-dark">
               <label className="block text-sm font-bold mb-2">סנן לפי סוג</label>
               <select
-                className="w-full md:w-auto min-w-[200px] h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
+                className="w-full sm:w-auto sm:min-w-[200px] h-10 px-3 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
                 value={professionalPickerFilter}
                 onChange={(e) => setProfessionalPickerFilter(e.target.value as TenderType | 'all')}
               >

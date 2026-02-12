@@ -19,6 +19,23 @@ import {
 import { getCurrentEstimate, type ProjectItemEstimate } from '../../services/projectItemEstimatesService';
 import EstimateVersionHistory from './EstimateVersionHistory';
 
+/** Lifecycle data from vw_project_item_lifecycle view */
+interface ItemLifecycle {
+  id: string;
+  tender_name?: string;
+  current_contract_amount?: string;
+  variance_amount?: string;
+  [key: string]: unknown;
+}
+
+/** History event from get_item_full_history() function */
+interface ItemHistoryEvent {
+  event_type: string;
+  event_description?: string;
+  event_timestamp: string;
+  [key: string]: unknown;
+}
+
 interface ProjectItemDetailProps {
   itemId: string;
   onClose?: () => void;
@@ -28,8 +45,8 @@ export default function ProjectItemDetail({ itemId, onClose }: ProjectItemDetail
   // const navigate = useNavigate();
   const [item, setItem] = useState<ProjectItem | null>(null);
   const [currentEstimate, setCurrentEstimate] = useState<ProjectItemEstimate | null>(null);
-  const [lifecycle, setLifecycle] = useState<any | null>(null);
-  const [history, setHistory] = useState<any[]>([]);
+  const [lifecycle, setLifecycle] = useState<ItemLifecycle | null>(null);
+  const [history, setHistory] = useState<ItemHistoryEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'timeline'>('overview');
 
@@ -265,7 +282,7 @@ export default function ProjectItemDetail({ itemId, onClose }: ProjectItemDetail
               <p className="text-center text-gray-500 py-8">אין היסטוריה זמינה</p>
             ) : (
               <div className="space-y-3">
-                {history.map((event: any, index: number) => (
+                {history.map((event: ItemHistoryEvent, index: number) => (
                   <div key={index} className="flex gap-4 border-r-2 border-blue-500 pr-4 pb-4">
                     <div className="flex-1">
                       <div className="flex items-start justify-between">

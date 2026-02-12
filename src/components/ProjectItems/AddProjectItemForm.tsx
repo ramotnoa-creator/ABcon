@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { createProjectItem, updateProjectItem, type ProjectItem } from '../../services/projectItemsService';
 import { createEstimate } from '../../services/projectItemEstimatesService';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface AddProjectItemFormProps {
   projectId: string;
@@ -44,6 +45,8 @@ export default function AddProjectItemForm({
   onSave,
   onCancel
 }: AddProjectItemFormProps) {
+  const { user } = useAuth();
+
   const [name, setName] = useState(item?.name || '');
   const [description, setDescription] = useState(item?.description || '');
   const [category, setCategory] = useState(item?.category || 'contractors');
@@ -94,7 +97,7 @@ export default function AddProjectItemForm({
             description: description || undefined,
             category: `${category}:${subcategory}`,
             current_estimated_cost: totalWithVat,
-            updated_by: 'current-user' // TODO: Get from auth context
+            updated_by: user?.id || 'unknown'
           },
           item.version // Optimistic locking
         );
@@ -106,7 +109,7 @@ export default function AddProjectItemForm({
             estimated_cost: totalPrice,
             vat_rate: vatRate,
             revision_reason: 'Cost updated via edit form',
-            created_by: 'current-user' // TODO: Get from auth context
+            created_by: user?.id || 'unknown'
           });
         }
 
@@ -119,7 +122,7 @@ export default function AddProjectItemForm({
           description: description || undefined,
           type: itemType, // Auto-set from parent tab
           category: `${category}:${subcategory}`,
-          created_by: 'current-user' // TODO: Get from auth context
+          created_by: user?.id || 'unknown'
         });
 
         // Create initial estimate
@@ -128,7 +131,7 @@ export default function AddProjectItemForm({
           estimated_cost: totalPrice,
           vat_rate: vatRate,
           notes: `כמות: ${quantity} ${units.find(u => u.value === unit)?.label}, מחיר יחידה: ₪${unitPrice}`,
-          created_by: 'current-user' // TODO: Get from auth context
+          created_by: user?.id || 'unknown'
         });
 
         onSave(newItem);

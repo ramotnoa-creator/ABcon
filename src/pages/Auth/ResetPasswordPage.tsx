@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { log } from '../../lib/logger';
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ export default function ResetPasswordPage() {
     if (!hash || !hash.includes('access_token')) {
       // No token found - might be direct navigation or expired link
       // In production, you'd want to validate this more thoroughly
-      console.log('No access token found in URL');
+      log('warn', 'auth', 'No access token found in URL');
     }
 
     // Cleanup redirect timer on unmount
@@ -79,7 +80,7 @@ export default function ResetPasswordPage() {
         navigate('/login');
       }, 3000);
     } catch (err: unknown) {
-      console.error('Password update error:', err);
+      log('error', 'auth', 'Password update error', { error: err instanceof Error ? err.message : String(err) });
       const errorMessage = err instanceof Error ? err.message : 'שגיאה בעדכון הסיסמה';
       if (errorMessage.includes('expired') || errorMessage.includes('invalid')) {
         setTokenValid(false);

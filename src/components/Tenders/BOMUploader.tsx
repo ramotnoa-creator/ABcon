@@ -7,7 +7,7 @@ import type { BOMFile } from '../../types';
 interface BOMUploaderProps {
   tenderId: string;
   currentBOM?: BOMFile | null;
-  onUploadSuccess: (bomFile: BOMFile) => void;
+  onUploadSuccess: (bomFile: BOMFile | null) => void;
 }
 
 export default function BOMUploader({ tenderId, currentBOM, onUploadSuccess }: BOMUploaderProps) {
@@ -122,7 +122,7 @@ export default function BOMUploader({ tenderId, currentBOM, onUploadSuccess }: B
       await deleteBOMFile(currentBOM.id);
       await updateTender(tenderId, { bom_file_id: undefined });
       showToast('בל"מ נמחק בהצלחה', 'success');
-      onUploadSuccess(null as any);
+      onUploadSuccess(null);
     } catch (error) {
       console.error('Delete error:', error);
       showToast('שגיאה במחיקת הקובץ', 'error');
