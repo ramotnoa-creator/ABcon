@@ -1,48 +1,23 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAllTenders } from '../../../services/tendersService';
-import { getTenderParticipants } from '../../../services/tenderParticipantsService';
+import { getAllTenderParticipants } from '../../../services/tenderParticipantsService';
 import { getProjects } from '../../../services/projectsService';
 import { getProfessionals } from '../../../services/professionalsService';
 import { formatDateForDisplay } from '../../../utils/dateUtils';
 import type { Tender, TenderStatus, TenderType, TenderParticipant, Project, Professional } from '../../../types';
 import { useAuth } from '../../../contexts/AuthContext';
 import { canAccessProject, canViewAllProjects } from '../../../utils/permissions';
+import { formatCurrency as formatCurrencyBase } from '../../../utils/formatters';
+import { TENDER_STATUS_LABELS, TENDER_STATUS_COLORS, TENDER_TYPE_LABELS } from '../../../constants/tenders';
 
-const statusLabels: Record<TenderStatus, string> = {
-  Draft: 'טיוטה',
-  Open: 'פתוח',
-
-  WinnerSelected: 'זוכה נבחר',
-  Canceled: 'בוטל',
-};
-
-const statusColors: Record<TenderStatus, string> = {
-  Draft: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200',
-  Open: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200',
-
-  WinnerSelected: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200',
-  Canceled: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200',
-};
-
-const tenderTypeLabels: Record<TenderType, string> = {
-  architect: 'אדריכל',
-  engineer: 'מהנדס',
-  contractor: 'קבלן',
-  electrician: 'חשמלאי',
-  plumber: 'אינסטלטור',
-  interior_designer: 'מעצב פנים',
-  other: 'אחר',
-};
+const statusLabels = TENDER_STATUS_LABELS;
+const statusColors = TENDER_STATUS_COLORS;
+const tenderTypeLabels = TENDER_TYPE_LABELS;
 
 const formatCurrency = (amount?: number): string => {
   if (amount === undefined || amount === null) return '-';
-  return new Intl.NumberFormat('he-IL', {
-    style: 'currency',
-    currency: 'ILS',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
+  return formatCurrencyBase(amount);
 };
 
 // Export to CSV function
@@ -122,6 +97,14 @@ type TenderWithDetails = Tender & {
   savings?: number;
 };
 
+const KPI_COLOR_CLASSES = {
+  blue: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
+  green: 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400',
+  orange: 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400',
+  red: 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400',
+  purple: 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400',
+} as const;
+
 interface KPICardProps {
   icon: string;
   label: string;
@@ -131,18 +114,11 @@ interface KPICardProps {
 }
 
 function KPICard({ icon, label, value, subValue, color }: KPICardProps) {
-  const colorClasses = {
-    blue: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
-    green: 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400',
-    orange: 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400',
-    red: 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400',
-    purple: 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400',
-  };
 
   return (
     <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark p-4 flex flex-col">
       <div className="flex items-center gap-3 mb-3">
-        <div className={`size-10 rounded-lg flex items-center justify-center ${colorClasses[color]}`}>
+        <div className={`size-10 rounded-lg flex items-center justify-center ${KPI_COLOR_CLASSES[color]}`}>
           <span className="material-symbols-outlined text-[20px]">{icon}</span>
         </div>
         <span className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
@@ -171,15 +147,18 @@ export default function TendersTabContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const [tendersWithDetails, setTendersWithDetails] = useState<TenderWithDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const itemsPerPage = 10;
 
-  // Load all data
+  // Load all data in batch (single query per entity type — no N+1)
   useEffect(() => {
     const loadData = async () => {
       try {
         setIsLoading(true);
-        const [tenders, projects, professionals] = await Promise.all([
+        setLoadError(null);
+        const [tenders, allParticipants, projects, professionals] = await Promise.all([
           getAllTenders(),
+          getAllTenderParticipants(),
           getProjects(),
           getProfessionals(),
         ]);
@@ -191,10 +170,17 @@ export default function TendersTabContent() {
           return canAccessProject(user, tender.project_id);
         });
 
-        const tendersData = await Promise.all(
-          accessibleTenders.map(async (tender) => {
+        // Group participants by tender_id for O(1) lookup
+        const participantsByTender = new Map<string, TenderParticipant[]>();
+        for (const p of allParticipants) {
+          const list = participantsByTender.get(p.tender_id) || [];
+          list.push(p);
+          participantsByTender.set(p.tender_id, list);
+        }
+
+        const tendersData = accessibleTenders.map((tender) => {
             const project = projects.find((p) => p.id === tender.project_id);
-            const rawParticipants = await getTenderParticipants(tender.id);
+            const rawParticipants = participantsByTender.get(tender.id) || [];
 
             const participants: ParticipantWithProfessional[] = rawParticipants.map((p) => ({
               ...p,
@@ -239,12 +225,12 @@ export default function TendersTabContent() {
               priceStats,
               savings,
             };
-          })
-        );
+        });
 
         setTendersWithDetails(tendersData);
       } catch (error) {
         console.error('Error loading tenders data:', error);
+        setLoadError(error instanceof Error ? error.message : 'שגיאה בטעינת נתוני מכרזים');
       } finally {
         setIsLoading(false);
       }
@@ -341,6 +327,22 @@ export default function TendersTabContent() {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="size-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 gap-4">
+        <span className="material-symbols-outlined text-[48px] text-red-400">error</span>
+        <p className="text-red-600 dark:text-red-400 font-bold">שגיאה בטעינת מכרזים</p>
+        <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">{loadError}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors text-sm font-bold"
+        >
+          נסה שוב
+        </button>
       </div>
     );
   }
@@ -478,7 +480,10 @@ export default function TendersTabContent() {
               >
                 {/* Header - Clickable */}
                 <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => toggleExpand(tender.id)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(tender.id); } }}
                   className="p-5 cursor-pointer hover:bg-background-light/50 dark:hover:bg-background-dark/50 transition-colors"
                 >
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

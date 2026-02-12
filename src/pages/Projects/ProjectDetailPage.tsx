@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { getProjectById } from '../../services/projectsService';
 import { getOpenIssuesCount } from '../../services/specialIssuesService';
@@ -14,6 +14,15 @@ import PlanningChangesTab from './tabs/PlanningChangesTab';
 import SpecialIssuesTab from './tabs/SpecialIssuesTab';
 import PermitsTab from './tabs/PermitsTab';
 import DeveloperApprovalTab from './tabs/DeveloperApprovalTab';
+
+const STATUS_COLORS: Record<string, string> = {
+  'תכנון': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200',
+  'היתרים': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200',
+  'מכרזים': 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200',
+  'ביצוע': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200',
+  'מסירה': 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200',
+  'ארכיון': 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200',
+} as const;
 
 const tabs = [
   { id: 'overview', label: 'סקירה', icon: 'visibility', path: '' },
@@ -112,7 +121,7 @@ export default function ProjectDetailPage() {
     }
   }, [activeTab]);
 
-  const handleTabChange = (tabId: string) => {
+  const handleTabChange = useCallback((tabId: string) => {
     if (tabId === activeTab) return;
     // Brief fade for smooth transition
     setTabTransition(true);
@@ -125,7 +134,7 @@ export default function ProjectDetailPage() {
     }
     // Reset transition state after fade completes
     setTimeout(() => setTabTransition(false), 200);
-  };
+  }, [activeTab, setSearchParams]);
 
   // Sync tab from URL when it changes externally (e.g., browser back/forward)
   useEffect(() => {
@@ -135,6 +144,10 @@ export default function ProjectDetailPage() {
       setActiveTab(targetTab);
     }
   }, [searchParams, validTabIds, activeTab]);
+
+  const handleEdit = useCallback(() => {
+    navigate(`/projects/${id}/edit`);
+  }, [navigate, id]);
 
   if (isLoading || !project) {
     return (
@@ -147,24 +160,11 @@ export default function ProjectDetailPage() {
     );
   }
 
-  const handleEdit = () => {
-    navigate(`/projects/${id}/edit`);
-  };
-
-  const statusColors: Record<string, string> = {
-    'תכנון': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200',
-    'היתרים': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200',
-    'מכרזים': 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200',
-    'ביצוע': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200',
-    'מסירה': 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200',
-    'ארכיון': 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200',
-  };
-
   const renderTabContent = () => {
     const content = (() => {
       switch (activeTab) {
         case 'overview':
-          return <OverviewTab project={project} statusColors={statusColors} onTabChange={handleTabChange} />;
+          return <OverviewTab project={project} statusColors={STATUS_COLORS} onTabChange={handleTabChange} />;
         case 'professionals':
           return <ProfessionalsTab project={project} />;
         case 'tasks-milestones':

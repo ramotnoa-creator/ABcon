@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getLastMonthCompletedMilestones, getNextMonthPendingMilestones } from '../../data/milestonesQueries';
 import { getLastMonthPaidAmount, getNextMonthPlannedPayments } from '../../data/budgetPaymentsQueries';
 import { formatDateForDisplay } from '../../utils/dateUtils';
@@ -38,7 +38,7 @@ const colorClasses = {
   purple: 'bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800',
 };
 
-export default function ProjectKPICards({ projectId, onTabChange }: ProjectKPICardsProps) {
+function ProjectKPICards({ projectId, onTabChange }: ProjectKPICardsProps) {
   const [showModal, setShowModal] = useState<string | null>(null);
   const [lastMonthMilestones, setLastMonthMilestones] = useState<MilestoneWithProject[]>([]);
   const [nextMonthMilestones, setNextMonthMilestones] = useState<MilestoneWithProject[]>([]);
@@ -140,8 +140,11 @@ export default function ProjectKPICards({ projectId, onTabChange }: ProjectKPICa
         {cards.map((card) => (
           <div
             key={card.id}
+            role="button"
+            tabIndex={0}
             className={`rounded-xl border-2 p-4 cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 ${colorClasses[card.color]}`}
             onClick={() => setShowModal(card.id)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowModal(card.id); } }}
             title={card.subtitle}
           >
             <div className="flex items-center gap-2 mb-2">
@@ -272,3 +275,5 @@ export default function ProjectKPICards({ projectId, onTabChange }: ProjectKPICa
     </>
   );
 }
+
+export default React.memo(ProjectKPICards);

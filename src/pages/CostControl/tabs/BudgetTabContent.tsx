@@ -1,14 +1,11 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAllBudgetItems } from '../../../services/budgetItemsService';
+import { getAllCostItems } from '../../../services/costsService';
 import { getProjects } from '../../../services/projectsService';
-import { getAllBudgetCategories } from '../../../services/budgetCategoriesService';
-import { getAllBudgetChapters } from '../../../services/budgetChaptersService';
 import * as ExcelJS from 'exceljs';
-import type { BudgetItem, Project, BudgetCategory, BudgetChapter } from '../../../types';
+import type { CostItem, CostCategory, Project } from '../../../types';
 import { useAuth } from '../../../contexts/AuthContext';
 import { canAccessProject, canViewAllProjects } from '../../../utils/permissions';
-import VarianceCell from '../../../components/Budget/VarianceCell';
 
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('he-IL', {
@@ -18,6 +15,56 @@ const formatCurrency = (amount: number): string => {
     maximumFractionDigits: 0,
   }).format(amount);
 };
+
+const categoryLabels: Record<CostCategory, string> = {
+  consultant: 'יועץ',
+  supplier: 'ספק',
+  contractor: 'קבלן',
+};
+
+const categoryIcons: Record<CostCategory, string> = {
+  consultant: 'school',
+  supplier: 'inventory_2',
+  contractor: 'construction',
+};
+
+const KPI_COLOR_CLASSES = {
+  blue: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
+  green: 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400',
+  orange: 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400',
+  red: 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400',
+} as const;
+
+const KPI_PROGRESS_COLORS = {
+  blue: 'bg-blue-500',
+  green: 'bg-green-500',
+  orange: 'bg-orange-500',
+  red: 'bg-red-500',
+} as const;
+
+const CATEGORY_COLORS = {
+  consultant: {
+    bg: 'bg-purple-50 dark:bg-purple-950/20',
+    border: 'border-purple-200 dark:border-purple-800/40',
+    dot: 'bg-purple-500',
+    text: 'text-purple-700 dark:text-purple-300',
+    sub: 'text-purple-500 dark:text-purple-400',
+  },
+  supplier: {
+    bg: 'bg-blue-50 dark:bg-blue-950/20',
+    border: 'border-blue-200 dark:border-blue-800/40',
+    dot: 'bg-blue-500',
+    text: 'text-blue-700 dark:text-blue-300',
+    sub: 'text-blue-500 dark:text-blue-400',
+  },
+  contractor: {
+    bg: 'bg-orange-50 dark:bg-orange-950/20',
+    border: 'border-orange-200 dark:border-orange-800/40',
+    dot: 'bg-orange-500',
+    text: 'text-orange-700 dark:text-orange-300',
+    sub: 'text-orange-500 dark:text-orange-400',
+  },
+} as const;
 
 interface KPICardProps {
   icon: string;
@@ -29,24 +76,10 @@ interface KPICardProps {
 }
 
 function KPICard({ icon, label, value, subValue, color, progress }: KPICardProps) {
-  const colorClasses = {
-    blue: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
-    green: 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400',
-    orange: 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400',
-    red: 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400',
-  };
-
-  const progressColors = {
-    blue: 'bg-blue-500',
-    green: 'bg-green-500',
-    orange: 'bg-orange-500',
-    red: 'bg-red-500',
-  };
-
   return (
     <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark p-4 flex flex-col">
       <div className="flex items-center gap-3 mb-3">
-        <div className={`size-10 rounded-lg flex items-center justify-center ${colorClasses[color]}`}>
+        <div className={`size-10 rounded-lg flex items-center justify-center ${KPI_COLOR_CLASSES[color]}`}>
           <span className="material-symbols-outlined text-[20px]">{icon}</span>
         </div>
         <span className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
@@ -65,7 +98,7 @@ function KPICard({ icon, label, value, subValue, color, progress }: KPICardProps
         <div className="mt-3">
           <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
             <div
-              className={`h-full ${progressColors[color]} rounded-full transition-all`}
+              className={`h-full ${KPI_PROGRESS_COLORS[color]} rounded-full transition-all`}
               style={{ width: `${Math.min(progress, 100)}%` }}
             />
           </div>
@@ -75,52 +108,54 @@ function KPICard({ icon, label, value, subValue, color, progress }: KPICardProps
   );
 }
 
-type BudgetItemWithDetails = BudgetItem & {
+type CostItemWithProject = CostItem & {
   project?: Project;
-  category?: BudgetCategory;
-  chapter?: BudgetChapter;
 };
+
+interface ProjectAggregation {
+  project: Project;
+  items: CostItem[];
+  totalEstimated: number;
+  totalActual: number;
+  bestEstimate: number;
+  variance: number;
+  variancePercent: number;
+  itemsWithActual: number;
+}
 
 export default function BudgetTabContent() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
+  const [costItems, setCostItems] = useState<CostItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [categories, setCategories] = useState<BudgetCategory[]>([]);
-  const [chapters, setChapters] = useState<BudgetChapter[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [projectFilter, setProjectFilter] = useState<string>('all');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [varianceOnlyFilter, setVarianceOnlyFilter] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<CostCategory | 'all'>('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
+  const itemsPerPage = 10;
 
   // Load data
   useEffect(() => {
     const loadData = async () => {
       try {
         setIsLoading(true);
-        const [allItems, allProjects, allCategories, allChapters] = await Promise.all([
-          getAllBudgetItems(),
+        const [allItems, allProjects] = await Promise.all([
+          getAllCostItems(),
           getProjects(),
-          getAllBudgetCategories(),
-          getAllBudgetChapters(),
         ]);
 
-        // Filter budget items based on user permissions
+        // Filter cost items based on user permissions
         const accessibleItems = allItems.filter((item) => {
           if (!user) return false;
           if (canViewAllProjects(user)) return true;
           return canAccessProject(user, item.project_id);
         });
 
-        setBudgetItems(accessibleItems);
+        setCostItems(accessibleItems);
         setProjects(allProjects);
-        setCategories(allCategories);
-        setChapters(allChapters);
       } catch (error) {
-        console.error('Error loading budget data:', error);
+        console.error('Error loading cost data:', error);
       } finally {
         setIsLoading(false);
       }
@@ -129,182 +164,163 @@ export default function BudgetTabContent() {
     loadData();
   }, [user]);
 
-  // Combine budget items with related data
-  const budgetItemsWithDetails: BudgetItemWithDetails[] = useMemo(() => {
-    return budgetItems.map((item) => ({
+  // Combine cost items with project data
+  const costItemsWithProject: CostItemWithProject[] = useMemo(() => {
+    return costItems.map((item) => ({
       ...item,
       project: projects.find((p) => p.id === item.project_id),
-      chapter: chapters.find((c) => c.id === item.chapter_id),
-      category: categories.find((cat) =>
-        chapters.find((ch) => ch.id === item.chapter_id)?.category_id === cat.id
-      ),
     }));
-  }, [budgetItems, projects, chapters, categories]);
+  }, [costItems, projects]);
 
-  // Calculate KPIs
-  const kpiData = useMemo(() => {
-    const totalBudget = budgetItems.reduce((sum, item) => sum + item.total_with_vat, 0);
-    const totalPaid = budgetItems.reduce((sum, item) => sum + item.paid_amount, 0);
-    const remaining = totalBudget - totalPaid;
-    const spentPercentage = totalBudget > 0 ? (totalPaid / totalBudget) * 100 : 0;
+  // Filter items based on search and category
+  const filteredItems = useMemo(() => {
+    let filtered = costItemsWithProject;
 
-    // Calculate items with estimates and variance
-    const itemsWithEstimates = budgetItems.filter((item) => item.estimate_amount && item.estimate_amount > 0);
-    const totalEstimate = itemsWithEstimates.reduce((sum, item) => sum + (item.estimate_amount || 0), 0);
-    const totalVariance = itemsWithEstimates.reduce((sum, item) => sum + (item.variance_amount || 0), 0);
-
-    return {
-      totalBudget,
-      totalPaid,
-      remaining,
-      spentPercentage,
-      itemsCount: budgetItems.length,
-      itemsWithEstimates: itemsWithEstimates.length,
-      totalEstimate,
-      totalVariance,
-    };
-  }, [budgetItems]);
-
-  // Filter budget items
-  const filteredBudgetItems = useMemo(() => {
-    let filtered = budgetItemsWithDetails;
-
-    // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (item) =>
-          item.description.toLowerCase().includes(query) ||
-          item.code?.toLowerCase().includes(query) ||
-          item.project?.project_name.toLowerCase().includes(query) ||
-          item.category?.name.toLowerCase().includes(query) ||
-          item.chapter?.name.toLowerCase().includes(query)
+          item.name.toLowerCase().includes(query) ||
+          item.description?.toLowerCase().includes(query) ||
+          item.project?.project_name.toLowerCase().includes(query)
       );
     }
 
-    // Project filter
-    if (projectFilter !== 'all') {
-      filtered = filtered.filter((item) => item.project_id === projectFilter);
-    }
-
-    // Category filter
     if (categoryFilter !== 'all') {
-      filtered = filtered.filter((item) => item.category?.id === categoryFilter);
-    }
-
-    // Variance only filter
-    if (varianceOnlyFilter) {
-      filtered = filtered.filter((item) => item.estimate_amount && item.estimate_amount > 0);
+      filtered = filtered.filter((item) => item.category === categoryFilter);
     }
 
     return filtered;
-  }, [budgetItemsWithDetails, searchQuery, projectFilter, categoryFilter, varianceOnlyFilter]);
+  }, [costItemsWithProject, searchQuery, categoryFilter]);
 
-  // Pagination
-  const paginatedItems = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredBudgetItems.slice(start, start + itemsPerPage);
-  }, [filteredBudgetItems, currentPage]);
+  // Calculate KPIs from filtered items
+  const kpiData = useMemo(() => {
+    const totalEstimated = filteredItems.reduce((sum, item) => sum + item.estimated_amount, 0);
 
-  const totalPages = Math.ceil(filteredBudgetItems.length / itemsPerPage);
+    const itemsWithActual = filteredItems.filter(
+      (i) => i.actual_amount != null && i.actual_amount > 0
+    );
+    const itemsWithoutActual = filteredItems.filter(
+      (i) => i.actual_amount == null || i.actual_amount === 0
+    );
 
-  // Export to Excel with conditional formatting
-  const handleExport = useCallback(async () => {
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('תקציב');
+    const totalActual = itemsWithActual.reduce((sum, i) => sum + (i.actual_amount ?? 0), 0);
+    const totalWithoutActual = itemsWithoutActual.reduce((sum, i) => sum + i.estimated_amount, 0);
+    const bestEstimate = totalActual + totalWithoutActual;
+    const variance = bestEstimate - totalEstimated;
+    const variancePercent = totalEstimated > 0 ? (variance / totalEstimated) * 100 : 0;
 
-    // RTL direction
-    sheet.views = [{ rightToLeft: true }];
+    return {
+      totalEstimated,
+      totalActual,
+      bestEstimate,
+      variance,
+      variancePercent,
+      itemsCount: filteredItems.length,
+      itemsWithActualCount: itemsWithActual.length,
+      itemsWithoutActualCount: itemsWithoutActual.length,
+    };
+  }, [filteredItems]);
 
-    // Define columns with headers
-    sheet.columns = [
-      { header: 'פרויקט', key: 'project', width: 20 },
-      { header: 'קטגוריה', key: 'category', width: 15 },
-      { header: 'פרק', key: 'chapter', width: 15 },
-      { header: 'מקור', key: 'source', width: 12 },
-      { header: 'קוד', key: 'code', width: 10 },
-      { header: 'תיאור', key: 'description', width: 30 },
-      { header: 'חובה/אופציונלי', key: 'priority', width: 15 },
-      { header: 'אומדן', key: 'estimate', width: 15 },
-      { header: 'תקציב', key: 'budget', width: 15 },
-      { header: 'שולם', key: 'paid', width: 15 },
-      { header: 'יתרה', key: 'balance', width: 15 },
-      { header: 'חריגה ₪', key: 'variance_amount', width: 15 },
-      { header: 'חריגה %', key: 'variance_percent', width: 12 },
-      { header: 'סטטוס', key: 'status', width: 12 },
-    ];
+  // Category breakdown from filtered items
+  const categoryBreakdown = useMemo(() => {
+    return (['consultant', 'supplier', 'contractor'] as const).map((cat) => {
+      const catItems = filteredItems.filter((i) => i.category === cat);
+      const estimated = catItems.reduce((s, i) => s + i.estimated_amount, 0);
+      const actual = catItems.reduce((s, i) => s + (i.actual_amount ?? 0), 0);
+      const pct = kpiData.totalEstimated > 0 ? (estimated / kpiData.totalEstimated) * 100 : 0;
+      return { category: cat, count: catItems.length, estimated, actual, pct };
+    });
+  }, [filteredItems, kpiData.totalEstimated]);
 
-    // Add data rows
-    filteredBudgetItems.forEach(item => {
-      const hasEstimate = item.estimate_amount && item.estimate_amount > 0;
+  // Per-project aggregation from filtered items
+  const projectAggregations: ProjectAggregation[] = useMemo(() => {
+    const byProject = new Map<string, CostItemWithProject[]>();
 
-      sheet.addRow({
-        project: item.project?.project_name || '',
-        category: item.category?.name || '',
-        chapter: item.chapter?.name || '',
-        code: item.code || '',
-        description: item.description,
-        estimate: hasEstimate ? item.estimate_amount : '-',
-        budget: item.total_with_vat,
-        paid: item.paid_amount || 0,
-        balance: item.total_with_vat - (item.paid_amount || 0),
-        variance_amount: hasEstimate ? item.variance_amount : '-',
-        variance_percent: hasEstimate ? `${item.variance_percent?.toFixed(1)}%` : '-',
-        status: item.status,
+    filteredItems.forEach((item) => {
+      const existing = byProject.get(item.project_id) || [];
+      existing.push(item);
+      byProject.set(item.project_id, existing);
+    });
+
+    const aggregations: ProjectAggregation[] = [];
+
+    byProject.forEach((items, projectId) => {
+      const project = projects.find((p) => p.id === projectId);
+      if (!project) return;
+
+      const totalEstimated = items.reduce((s, i) => s + i.estimated_amount, 0);
+      const withActual = items.filter((i) => i.actual_amount != null && i.actual_amount > 0);
+      const withoutActual = items.filter((i) => i.actual_amount == null || i.actual_amount === 0);
+      const totalActual = withActual.reduce((s, i) => s + (i.actual_amount ?? 0), 0);
+      const bestEstimate = totalActual + withoutActual.reduce((s, i) => s + i.estimated_amount, 0);
+      const variance = bestEstimate - totalEstimated;
+      const variancePercent = totalEstimated > 0 ? (variance / totalEstimated) * 100 : 0;
+
+      aggregations.push({
+        project,
+        items,
+        totalEstimated,
+        totalActual,
+        bestEstimate,
+        variance,
+        variancePercent,
+        itemsWithActual: withActual.length,
       });
     });
 
-    // Apply conditional formatting to variance columns (column 10 = variance_amount)
-    sheet.getColumn(10).eachCell((cell, rowNumber) => {
-      if (rowNumber === 1) return; // Skip header
+    // Sort by bestEstimate descending (largest projects first)
+    aggregations.sort((a, b) => b.bestEstimate - a.bestEstimate);
 
-      const item = filteredBudgetItems[rowNumber - 2];
-      const hasEstimate = item.estimate_amount && item.estimate_amount > 0;
+    return aggregations;
+  }, [filteredItems, projects]);
 
-      if (!hasEstimate) {
-        // Gray for no estimate
-        cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FFE5E7EB' } // gray-200
-        };
-        cell.font = { color: { argb: 'FF9CA3AF' } }; // gray-400
-      } else if ((item.variance_amount || 0) < 0) {
-        // Green for savings
-        cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FFD1FAE5' } // green-100
-        };
-        cell.font = { color: { argb: 'FF059669' }, bold: true }; // green-600
-      } else if ((item.variance_amount || 0) > 0) {
-        // Red for overrun
-        cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FFFEE2E2' } // red-100
-        };
-        cell.font = { color: { argb: 'FFDC2626' }, bold: true }; // red-600
-      }
-    });
+  // Pagination
+  const paginatedProjects = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return projectAggregations.slice(start, start + itemsPerPage);
+  }, [projectAggregations, currentPage]);
 
-    // Apply same formatting to variance percent column (column 11)
-    sheet.getColumn(11).eachCell((cell, rowNumber) => {
-      if (rowNumber === 1) return;
+  const totalPages = Math.ceil(projectAggregations.length / itemsPerPage);
 
-      const item = filteredBudgetItems[rowNumber - 2];
-      const hasEstimate = item.estimate_amount && item.estimate_amount > 0;
+  // Export to Excel
+  const handleExport = useCallback(async () => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('עלויות');
 
-      if (!hasEstimate) {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE5E7EB' } };
-        cell.font = { color: { argb: 'FF9CA3AF' } };
-      } else if ((item.variance_amount || 0) < 0) {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
-        cell.font = { color: { argb: 'FF059669' }, bold: true };
-      } else if ((item.variance_amount || 0) > 0) {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
-        cell.font = { color: { argb: 'FFDC2626' }, bold: true };
-      }
+    sheet.views = [{ rightToLeft: true }];
+
+    sheet.columns = [
+      { header: 'פרויקט', key: 'project', width: 20 },
+      { header: 'שם פריט', key: 'name', width: 25 },
+      { header: 'תיאור', key: 'description', width: 30 },
+      { header: 'קטגוריה', key: 'category', width: 12 },
+      { header: 'אומדן', key: 'estimated', width: 15 },
+      { header: 'בפועל', key: 'actual', width: 15 },
+      { header: 'מצב נוכחי', key: 'best_estimate', width: 15 },
+      { header: 'הפרש', key: 'variance', width: 15 },
+      { header: 'הפרש %', key: 'variance_pct', width: 12 },
+      { header: 'סטטוס', key: 'status', width: 12 },
+    ];
+
+    filteredItems.forEach((item) => {
+      const hasActual = item.actual_amount != null && item.actual_amount > 0;
+      const bestEst = hasActual ? item.actual_amount! : item.estimated_amount;
+      const variance = bestEst - item.estimated_amount;
+      const variancePct = item.estimated_amount > 0 ? (variance / item.estimated_amount) * 100 : 0;
+
+      sheet.addRow({
+        project: item.project?.project_name || '',
+        name: item.name,
+        description: item.description || '',
+        category: categoryLabels[item.category],
+        estimated: item.estimated_amount,
+        actual: hasActual ? item.actual_amount : '-',
+        best_estimate: bestEst,
+        variance: variance,
+        variance_pct: `${variancePct.toFixed(1)}%`,
+        status: item.status,
+      });
     });
 
     // Style header row
@@ -312,29 +328,47 @@ export default function BudgetTabContent() {
     sheet.getRow(1).fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FFF3F4F6' } // gray-100
+      fgColor: { argb: 'FFF3F4F6' },
     };
 
-    // Export file
+    // Conditional formatting for variance column
+    sheet.getColumn(8).eachCell((cell, rowNumber) => {
+      if (rowNumber === 1) return;
+      const value = cell.value as number;
+      if (typeof value !== 'number') return;
+
+      if (value < 0) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
+        cell.font = { color: { argb: 'FF059669' }, bold: true };
+      } else if (value > 0) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+        cell.font = { color: { argb: 'FFDC2626' }, bold: true };
+      }
+    });
+
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `budget-variance-${new Date().toISOString().split('T')[0]}.xlsx`;
+    a.download = `costs-overview-${new Date().toISOString().split('T')[0]}.xlsx`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [filteredBudgetItems]);
+  }, [filteredItems]);
 
-  // Navigate to project budget tab
-  const handleRowClick = useCallback(
+  // Navigate to project costs tab
+  const handleProjectClick = useCallback(
     (projectId: string) => {
-      navigate(`/projects/${projectId}?tab=budget`);
+      navigate(`/projects/${projectId}?tab=costs`);
     },
     [navigate]
   );
+
+  const toggleProjectExpand = (projectId: string) => {
+    setExpandedProjectId(expandedProjectId === projectId ? null : projectId);
+  };
 
   if (isLoading) {
     return (
@@ -349,35 +383,97 @@ export default function BudgetTabContent() {
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <KPICard
-          icon="payments"
-          label="תקציב כולל"
-          value={formatCurrency(kpiData.totalBudget)}
+          icon="request_quote"
+          label="סה״כ אומדן"
+          value={formatCurrency(kpiData.totalEstimated)}
           subValue={`${kpiData.itemsCount} פריטים`}
           color="blue"
         />
         <KPICard
-          icon="account_balance"
-          label="שולם"
-          value={formatCurrency(kpiData.totalPaid)}
-          subValue={`${kpiData.spentPercentage.toFixed(0)}% מהתקציב`}
+          icon="paid"
+          label="סה״כ בפועל (חוזים)"
+          value={formatCurrency(kpiData.totalActual)}
+          subValue={`${kpiData.itemsWithActualCount} פריטים עם מחיר בפועל`}
           color="orange"
-          progress={kpiData.spentPercentage}
+          progress={kpiData.totalEstimated > 0 ? (kpiData.totalActual / kpiData.totalEstimated) * 100 : 0}
         />
         <KPICard
-          icon="savings"
-          label="יתרה"
-          value={formatCurrency(kpiData.remaining)}
-          subValue={kpiData.remaining >= 0 ? 'במסגרת התקציב' : 'חריגה מהתקציב'}
-          color={kpiData.remaining >= 0 ? 'green' : 'red'}
+          icon="monitoring"
+          label="מצב נוכחי"
+          value={formatCurrency(kpiData.bestEstimate)}
+          subValue={`${kpiData.itemsWithActualCount} בפועל + ${kpiData.itemsWithoutActualCount} באומדן`}
+          color="green"
         />
         <KPICard
-          icon="assessment"
-          label="פריטים עם אומדן"
-          value={kpiData.itemsWithEstimates.toString()}
-          subValue={`חריגה כוללת: ${formatCurrency(kpiData.totalVariance)}`}
-          color={kpiData.totalVariance < 0 ? 'green' : kpiData.totalVariance > 0 ? 'red' : 'blue'}
+          icon="trending_up"
+          label="הפרש מאומדן"
+          value={formatCurrency(kpiData.variance)}
+          subValue={
+            kpiData.variance === 0
+              ? 'בדיוק על האומדן'
+              : `${kpiData.variance > 0 ? '+' : ''}${kpiData.variancePercent.toFixed(1)}%`
+          }
+          color={kpiData.variance > 0 ? 'red' : kpiData.variance < 0 ? 'green' : 'blue'}
         />
       </div>
+
+      {/* Category Breakdown */}
+      {costItems.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          {categoryBreakdown
+            .filter((c) => c.count > 0)
+            .map(({ category, count, estimated, actual, pct }) => {
+              const colors = CATEGORY_COLORS[category];
+              return (
+                <div
+                  key={category}
+                  className={`${colors.bg} rounded-xl px-4 py-4 border ${colors.border}`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`material-symbols-outlined text-[18px] ${colors.sub}`}>
+                      {categoryIcons[category]}
+                    </span>
+                    <span className={`text-sm font-bold ${colors.sub}`}>
+                      {categoryLabels[category]}
+                    </span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                      {count} פריטים
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mb-2">
+                    <div>
+                      <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-0.5">
+                        אומדן
+                      </div>
+                      <div className={`text-lg font-bold ${colors.text}`}>
+                        {formatCurrency(estimated)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-0.5">
+                        בפועל
+                      </div>
+                      <div className={`text-lg font-bold ${colors.text}`}>
+                        {actual > 0 ? formatCurrency(actual) : '-'}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${colors.dot} rounded-full`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">
+                      {pct.toFixed(0)}% מהאומדן
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+      )}
 
       {/* Filters and Export */}
       <div className="flex flex-col md:flex-row gap-4 mb-6">
@@ -388,7 +484,7 @@ export default function BudgetTabContent() {
           </span>
           <input
             className="w-full h-10 pr-10 pl-3 rounded-lg border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
-            placeholder="חיפוש לפי תיאור, קוד, פרויקט..."
+            placeholder="חיפוש לפי פרויקט, שם פריט..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -397,55 +493,21 @@ export default function BudgetTabContent() {
           />
         </div>
 
-        {/* Project Filter */}
-        <select
-          className="w-full md:w-48 h-10 px-3 rounded-lg border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
-          value={projectFilter}
-          onChange={(e) => {
-            setProjectFilter(e.target.value);
-            setCurrentPage(1);
-          }}
-          aria-label="סינון לפי פרויקט"
-        >
-          <option value="all">כל הפרויקטים</option>
-          {projects.map((project) => (
-            <option key={project.id} value={project.id}>
-              {project.project_name}
-            </option>
-          ))}
-        </select>
-
         {/* Category Filter */}
         <select
           className="w-full md:w-40 h-10 px-3 rounded-lg border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark text-sm focus:ring-1 focus:ring-primary focus:border-primary"
           value={categoryFilter}
           onChange={(e) => {
-            setCategoryFilter(e.target.value);
+            setCategoryFilter(e.target.value as CostCategory | 'all');
             setCurrentPage(1);
           }}
           aria-label="סינון לפי קטגוריה"
         >
           <option value="all">כל הקטגוריות</option>
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
+          <option value="consultant">יועץ</option>
+          <option value="supplier">ספק</option>
+          <option value="contractor">קבלן</option>
         </select>
-
-        {/* Variance Only Filter */}
-        <label className="flex items-center gap-2 h-10 px-3 rounded-lg border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark text-sm cursor-pointer hover:border-primary transition-colors">
-          <input
-            type="checkbox"
-            checked={varianceOnlyFilter}
-            onChange={(e) => {
-              setVarianceOnlyFilter(e.target.checked);
-              setCurrentPage(1);
-            }}
-            className="size-4 rounded border-gray-300 text-primary focus:ring-primary"
-          />
-          <span className="whitespace-nowrap">רק עם חריגה</span>
-        </label>
 
         {/* Export Button */}
         <button
@@ -458,132 +520,62 @@ export default function BudgetTabContent() {
         </button>
       </div>
 
-      {/* Budget Table */}
+      {/* Per-Project Breakdown Table */}
       <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark overflow-hidden">
         {/* Desktop Table */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-right text-sm">
             <thead className="bg-background-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark">
               <tr>
-                <th className="px-4 py-3 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                <th scope="col" className="px-4 py-3 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs w-8"></th>
+                <th scope="col" className="px-4 py-3 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
                   פרויקט
                 </th>
-                <th className="px-4 py-3 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  קטגוריה
+                <th scope="col" className="px-4 py-3 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                  פריטים
                 </th>
-                <th className="px-4 py-3 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  פרק
-                </th>
-                <th className="px-4 py-3 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  מקור
-                </th>
-                <th className="px-4 py-3 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  תיאור
-                </th>
-                <th className="px-4 py-3 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                <th scope="col" className="px-4 py-3 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
                   אומדן
                 </th>
-                <th className="px-4 py-3 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  תקציב
+                <th scope="col" className="px-4 py-3 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                  בפועל
                 </th>
-                <th className="px-4 py-3 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  שולם
+                <th scope="col" className="px-4 py-3 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                  מצב נוכחי
                 </th>
-                <th className="px-4 py-3 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  חריגה ₪
+                <th scope="col" className="px-4 py-3 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                  הפרש
                 </th>
-                <th className="px-4 py-3 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
-                  חריגה %
+                <th scope="col" className="px-4 py-3 font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider text-xs">
+                  סטטוס
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-light dark:divide-border-dark">
-              {paginatedItems.length === 0 ? (
+              {paginatedProjects.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={10}
+                    colSpan={8}
                     className="px-6 py-12 text-center text-text-secondary-light dark:text-text-secondary-dark"
                   >
-                    <span className="material-symbols-outlined text-[48px] mb-4 opacity-50 block">payments</span>
-                    אין פריטי תקציב
+                    <span className="material-symbols-outlined text-[48px] mb-4 opacity-50 block">
+                      receipt_long
+                    </span>
+                    אין פריטי עלות
                   </td>
                 </tr>
               ) : (
-                paginatedItems.map((item) => {
-                  const hasEstimate = item.estimate_amount !== null && item.estimate_amount !== undefined && item.estimate_amount > 0;
+                paginatedProjects.map((agg) => {
+                  const isExpanded = expandedProjectId === agg.project.id;
                   return (
-                    <tr
-                      key={item.id}
-                      className="group hover:bg-background-light dark:hover:bg-background-dark/50 transition-colors cursor-pointer"
-                      onClick={() => handleRowClick(item.project_id)}
-                    >
-                      <td className="px-4 py-3 align-middle text-sm">
-                        {item.project?.project_name || 'לא ידוע'}
-                      </td>
-                      <td className="px-4 py-3 align-middle text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                        {item.category?.name || '-'}
-                      </td>
-                      <td className="px-4 py-3 align-middle text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                        {item.chapter?.name || '-'}
-                      </td>
-                      <td className="px-4 py-3 align-middle text-xs">
-                        {item.tender_id ? (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/projects/${item.project_id}?tab=tenders`);
-                            }}
-                            className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
-                          >
-                            <span className="material-symbols-outlined text-[14px]">gavel</span>
-                            מכרז
-                          </button>
-                        ) : item.source_estimate_id ? (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/projects/${item.project_id}?tab=planning-estimate`);
-                            }}
-                            className="flex items-center gap-1 text-purple-600 dark:text-purple-400 hover:underline"
-                          >
-                            <span className="material-symbols-outlined text-[14px]">assessment</span>
-                            אומדן
-                          </button>
-                        ) : (
-                          <span className="text-text-secondary-light dark:text-text-secondary-dark">הזנה ידנית</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        <div className="font-medium text-text-main-light dark:text-text-main-dark">
-                          {item.code && <span className="text-xs text-text-secondary-light mr-2">{item.code}</span>}
-                          {item.description}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 align-middle font-medium text-blue-600 dark:text-blue-400">
-                        {hasEstimate ? formatCurrency(item.estimate_amount!) : '-'}
-                      </td>
-                      <td className="px-4 py-3 align-middle font-bold">
-                        {formatCurrency(item.total_with_vat)}
-                      </td>
-                      <td className="px-4 py-3 align-middle font-medium text-orange-600 dark:text-orange-400">
-                        {formatCurrency(item.paid_amount)}
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        <VarianceCell
-                          estimateAmount={item.estimate_amount}
-                          varianceAmount={item.variance_amount}
-                          variancePercent={item.variance_percent}
-                        />
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        <VarianceCell
-                          estimateAmount={item.estimate_amount}
-                          varianceAmount={item.variance_amount}
-                          variancePercent={item.variance_percent}
-                          showPercent
-                        />
-                      </td>
-                    </tr>
+                    <ProjectRow
+                      key={agg.project.id}
+                      agg={agg}
+                      isExpanded={isExpanded}
+                      onToggleExpand={() => toggleProjectExpand(agg.project.id)}
+                      onProjectClick={() => handleProjectClick(agg.project.id)}
+                      onItemClick={(projectId) => handleProjectClick(projectId)}
+                    />
                   );
                 })
               )}
@@ -593,100 +585,90 @@ export default function BudgetTabContent() {
 
         {/* Mobile Cards */}
         <div className="block md:hidden divide-y divide-border-light dark:divide-border-dark">
-          {paginatedItems.length === 0 ? (
+          {paginatedProjects.length === 0 ? (
             <div className="p-12 text-center">
-              <span className="material-symbols-outlined text-[48px] mb-4 opacity-50 block">payments</span>
-              <p className="text-text-secondary-light dark:text-text-secondary-dark">אין פריטי תקציב</p>
+              <span className="material-symbols-outlined text-[48px] mb-4 opacity-50 block">
+                receipt_long
+              </span>
+              <p className="text-text-secondary-light dark:text-text-secondary-dark">
+                אין פריטי עלות
+              </p>
             </div>
           ) : (
-            paginatedItems.map((item) => {
-              const hasEstimate = item.estimate_amount !== null && item.estimate_amount !== undefined && item.estimate_amount > 0;
-              return (
-                <div
-                  key={item.id}
-                  className="p-4 flex flex-col gap-3 cursor-pointer hover:bg-background-light dark:hover:bg-background-dark/50 transition-colors"
-                  onClick={() => handleRowClick(item.project_id)}
-                >
-                  <div>
-                    <h3 className="font-bold text-sm text-text-main-light dark:text-text-main-dark mb-1">
-                      {item.description}
-                    </h3>
-                    <p className="text-xs text-text-secondary-light">{item.project?.project_name}</p>
-                    <div className="text-xs mt-1">
-                      {item.tender_id ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/projects/${item.project_id}?tab=tenders`);
-                          }}
-                          className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
-                        >
-                          <span className="material-symbols-outlined text-[12px]">gavel</span>
-                          מקור: מכרז
-                        </button>
-                      ) : item.source_estimate_id ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/projects/${item.project_id}?tab=planning-estimate`);
-                          }}
-                          className="flex items-center gap-1 text-purple-600 dark:text-purple-400 hover:underline"
-                        >
-                          <span className="material-symbols-outlined text-[12px]">assessment</span>
-                          מקור: אומדן
-                        </button>
-                      ) : (
-                        <span className="text-text-secondary-light dark:text-text-secondary-dark">מקור: הזנה ידנית</span>
+            paginatedProjects.map((agg) => (
+              <div
+                key={agg.project.id}
+                role="button"
+                tabIndex={0}
+                className="p-4 flex flex-col gap-3 cursor-pointer hover:bg-background-light dark:hover:bg-background-dark/50 transition-colors"
+                onClick={() => handleProjectClick(agg.project.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleProjectClick(agg.project.id); } }}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[20px] text-primary">folder</span>
+                    <div>
+                      <h3 className="text-base font-black text-text-main-light dark:text-text-main-dark">
+                        {agg.project.project_name}
+                      </h3>
+                      {agg.project.client_name && (
+                        <p className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
+                          {agg.project.client_name}
+                        </p>
                       )}
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-xs text-text-secondary-light mb-1">אומדן</p>
-                      <p className="font-bold text-blue-600 dark:text-blue-400">
-                        {hasEstimate ? formatCurrency(item.estimate_amount!) : '-'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-text-secondary-light mb-1">תקציב</p>
-                      <p className="font-bold">{formatCurrency(item.total_with_vat)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-text-secondary-light mb-1">חריגה ₪</p>
-                      <p className="font-bold">
-                        <VarianceCell
-                          estimateAmount={item.estimate_amount}
-                          varianceAmount={item.variance_amount}
-                          variancePercent={item.variance_percent}
-                        />
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-text-secondary-light mb-1">חריגה %</p>
-                      <p className="font-bold">
-                        <VarianceCell
-                          estimateAmount={item.estimate_amount}
-                          varianceAmount={item.variance_amount}
-                          variancePercent={item.variance_percent}
-                          showPercent
-                        />
-                      </p>
-                    </div>
+                  <span className="text-xs text-text-secondary-light">
+                    {agg.items.length} פריטים
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-xs text-text-secondary-light mb-1">אומדן</p>
+                    <p className="font-bold text-blue-600 dark:text-blue-400">
+                      {formatCurrency(agg.totalEstimated)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-text-secondary-light mb-1">בפועל</p>
+                    <p className="font-bold text-orange-600 dark:text-orange-400">
+                      {agg.totalActual > 0 ? formatCurrency(agg.totalActual) : '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-text-secondary-light mb-1">מצב נוכחי</p>
+                    <p className="font-bold">{formatCurrency(agg.bestEstimate)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-text-secondary-light mb-1">הפרש</p>
+                    <p
+                      className={`font-bold ${
+                        agg.variance > 0
+                          ? 'text-red-600 dark:text-red-400'
+                          : agg.variance < 0
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : ''
+                      }`}
+                    >
+                      {agg.variance > 0 ? '+' : ''}
+                      {formatCurrency(agg.variance)}
+                    </p>
                   </div>
                 </div>
-              );
-            })
+              </div>
+            ))
           )}
         </div>
       </div>
 
       {/* Pagination */}
-      {filteredBudgetItems.length > 0 && (
+      {projectAggregations.length > itemsPerPage && (
         <div className="flex items-center justify-between border-t border-border-light dark:border-border-dark pt-4 mt-6">
           <p className="text-sm text-text-secondary-light">
-            מציג {Math.min((currentPage - 1) * itemsPerPage + 1, filteredBudgetItems.length)}-
-            {Math.min(currentPage * itemsPerPage, filteredBudgetItems.length)} מתוך {filteredBudgetItems.length} פריטים
+            מציג{' '}
+            {Math.min((currentPage - 1) * itemsPerPage + 1, projectAggregations.length)}-
+            {Math.min(currentPage * itemsPerPage, projectAggregations.length)} מתוך{' '}
+            {projectAggregations.length} פרויקטים
           </p>
           <div className="flex gap-2">
             <button
@@ -709,5 +691,265 @@ export default function BudgetTabContent() {
         </div>
       )}
     </div>
+  );
+}
+
+// ============================================================
+// PROJECT ROW COMPONENT (with expandable items)
+// ============================================================
+
+interface ProjectRowProps {
+  agg: ProjectAggregation;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  onProjectClick: () => void;
+  onItemClick: (projectId: string) => void;
+}
+
+function ProjectRow({ agg, isExpanded, onToggleExpand, onProjectClick, onItemClick }: ProjectRowProps) {
+  return (
+    <>
+      <tr
+        className="group hover:bg-background-light dark:hover:bg-background-dark/50 transition-colors cursor-pointer"
+        onClick={onToggleExpand}
+      >
+        {/* Expand icon */}
+        <td className="px-4 py-3 align-middle">
+          <span
+            className={`material-symbols-outlined text-[18px] text-text-secondary-light transition-transform ${
+              isExpanded ? 'rotate-180' : ''
+            }`}
+          >
+            expand_more
+          </span>
+        </td>
+
+        {/* Project Name */}
+        <td className="px-4 py-4 align-middle">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[20px] text-primary">
+                folder
+              </span>
+              <span className="text-base font-black text-text-main-light dark:text-text-main-dark group-hover:text-primary transition-colors">
+                {agg.project.project_name}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 mr-7 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+              <span>{agg.items.length} פריטי עלות</span>
+              {agg.project.client_name && (
+                <>
+                  <span className="text-gray-300 dark:text-gray-600">|</span>
+                  <span>{agg.project.client_name}</span>
+                </>
+              )}
+            </div>
+          </div>
+        </td>
+
+        {/* Items Count */}
+        <td className="px-4 py-4 align-middle text-text-secondary-light dark:text-text-secondary-dark">
+          {agg.items.length}
+        </td>
+
+        {/* Estimated */}
+        <td className="px-4 py-3 align-middle font-medium text-blue-600 dark:text-blue-400">
+          {formatCurrency(agg.totalEstimated)}
+        </td>
+
+        {/* Actual */}
+        <td className="px-4 py-3 align-middle font-medium text-orange-600 dark:text-orange-400">
+          {agg.totalActual > 0 ? formatCurrency(agg.totalActual) : '-'}
+        </td>
+
+        {/* Best Estimate */}
+        <td className="px-4 py-3 align-middle font-bold">
+          {formatCurrency(agg.bestEstimate)}
+        </td>
+
+        {/* Variance */}
+        <td className="px-4 py-3 align-middle">
+          <div className="flex flex-col">
+            <span
+              className={`font-bold ${
+                agg.variance > 0
+                  ? 'text-red-600 dark:text-red-400'
+                  : agg.variance < 0
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-text-secondary-light'
+              }`}
+            >
+              {agg.variance > 0 ? '+' : ''}
+              {formatCurrency(agg.variance)}
+            </span>
+            {agg.variance !== 0 && (
+              <span
+                className={`text-[10px] font-semibold ${
+                  agg.variance > 0
+                    ? 'text-red-500'
+                    : 'text-emerald-500'
+                }`}
+              >
+                {agg.variance > 0 ? '+' : ''}
+                {agg.variancePercent.toFixed(1)}%
+              </span>
+            )}
+          </div>
+        </td>
+
+        {/* Status */}
+        <td className="px-4 py-3 align-middle">
+          <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+            {agg.itemsWithActual}/{agg.items.length} בפועל
+          </span>
+          <div className="w-16 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mt-1">
+            <div
+              className="h-full bg-emerald-500 rounded-full transition-all"
+              style={{
+                width: `${agg.items.length > 0 ? (agg.itemsWithActual / agg.items.length) * 100 : 0}%`,
+              }}
+            />
+          </div>
+        </td>
+      </tr>
+
+      {/* Expanded: show cost items for this project */}
+      {isExpanded && (
+        <>
+          {agg.items.map((item) => {
+            const hasActual = item.actual_amount != null && item.actual_amount > 0;
+            const itemBest = hasActual ? item.actual_amount! : item.estimated_amount;
+            const itemVariance = itemBest - item.estimated_amount;
+
+            return (
+              <tr
+                key={item.id}
+                className="bg-background-light/50 dark:bg-background-dark/30 hover:bg-background-light dark:hover:bg-background-dark/50 transition-colors cursor-pointer border-t border-border-light/50 dark:border-border-dark/50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onItemClick(item.project_id);
+                }}
+              >
+                {/* Indent */}
+                <td className="px-4 py-2.5 align-middle">
+                  <span className="text-xs text-gray-300 dark:text-gray-600 mr-2">
+                    &mdash;
+                  </span>
+                </td>
+
+                {/* Name */}
+                <td className="px-4 py-2.5 align-middle">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`size-1.5 rounded-full ${
+                        item.category === 'consultant'
+                          ? 'bg-purple-500'
+                          : item.category === 'supplier'
+                          ? 'bg-blue-500'
+                          : 'bg-orange-500'
+                      }`}
+                    />
+                    <span className="text-xs font-medium text-text-main-light dark:text-text-main-dark">
+                      {item.name}
+                    </span>
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                      {categoryLabels[item.category]}
+                    </span>
+                  </div>
+                </td>
+
+                {/* Items count - empty for sub-rows */}
+                <td className="px-4 py-2.5 align-middle"></td>
+
+                {/* Estimated */}
+                <td className="px-4 py-2.5 align-middle text-xs font-medium text-blue-600 dark:text-blue-400">
+                  {formatCurrency(item.estimated_amount)}
+                </td>
+
+                {/* Actual */}
+                <td className="px-4 py-2.5 align-middle text-xs font-medium text-orange-600 dark:text-orange-400">
+                  {hasActual ? formatCurrency(item.actual_amount!) : '-'}
+                </td>
+
+                {/* Best Estimate */}
+                <td className="px-4 py-2.5 align-middle text-xs font-bold">
+                  {formatCurrency(itemBest)}
+                </td>
+
+                {/* Variance */}
+                <td className="px-4 py-2.5 align-middle">
+                  {itemVariance !== 0 ? (
+                    <span
+                      className={`text-xs font-bold ${
+                        itemVariance > 0
+                          ? 'text-red-600 dark:text-red-400'
+                          : 'text-emerald-600 dark:text-emerald-400'
+                      }`}
+                    >
+                      {itemVariance > 0 ? '+' : ''}
+                      {formatCurrency(itemVariance)}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-400">-</span>
+                  )}
+                </td>
+
+                {/* Status */}
+                <td className="px-4 py-2.5 align-middle">
+                  <span
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      item.status === 'draft'
+                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                        : item.status === 'tender_draft' || item.status === 'tender_open'
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                        : item.status === 'tender_winner'
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                        : 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`size-1.5 rounded-full ${
+                        item.status === 'draft'
+                          ? 'bg-amber-500'
+                          : item.status === 'tender_draft' || item.status === 'tender_open'
+                          ? 'bg-blue-500'
+                          : item.status === 'tender_winner'
+                          ? 'bg-emerald-500'
+                          : 'bg-gray-500'
+                      }`}
+                    />
+                    {item.status === 'draft'
+                      ? 'אומדן'
+                      : item.status === 'tender_draft'
+                      ? 'טיוטה'
+                      : item.status === 'tender_open'
+                      ? 'מכרז'
+                      : item.status === 'tender_winner'
+                      ? 'זוכה'
+                      : item.status}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
+
+          {/* View Project Link */}
+          <tr className="bg-background-light/30 dark:bg-background-dark/20 border-t border-border-light/50 dark:border-border-dark/50">
+            <td colSpan={8} className="px-4 py-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onProjectClick();
+                }}
+                className="text-xs text-primary hover:underline flex items-center gap-1 font-medium"
+              >
+                <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                צפה בעלויות הפרויקט
+              </button>
+            </td>
+          </tr>
+        </>
+      )}
+    </>
   );
 }

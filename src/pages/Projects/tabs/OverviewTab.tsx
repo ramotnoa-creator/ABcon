@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Project, ProjectMilestone, CostItem, ScheduleItem } from '../../../types';
 import { formatDateForDisplay, formatDateHebrew } from '../../../utils/dateUtils';
 import { getProjectProfessionalsByProjectId } from '../../../services/projectProfessionalsService';
@@ -85,26 +85,37 @@ export default function OverviewTab({ project, statusColors, onTabChange }: Over
   };
 
   // Financial calculations
-  const totalEstimated = costItems.reduce((sum, item) => sum + (item.estimated_amount || 0), 0);
-  const totalContracted = costItems
-    .filter(item => item.status === 'tender_winner')
-    .reduce((sum, item) => sum + (item.actual_amount || 0), 0);
-  const totalPaid = scheduleItems
-    .filter(si => si.status === 'paid')
-    .reduce((sum, si) => sum + (si.paid_amount || si.amount), 0);
-  const paidCount = scheduleItems.filter(si => si.status === 'paid').length;
-  const paymentProgressPct = totalContracted > 0 ? Math.min(100, (totalPaid / totalContracted) * 100) : 0;
+  const { totalEstimated, totalContracted, totalPaid, paidCount, paymentProgressPct, nextPayment } = useMemo(() => {
+    const estimated = costItems.reduce((sum, item) => sum + (item.estimated_amount || 0), 0);
+    const contracted = costItems
+      .filter(item => item.status === 'tender_winner')
+      .reduce((sum, item) => sum + (item.actual_amount || 0), 0);
+    const paid = scheduleItems
+      .filter(si => si.status === 'paid')
+      .reduce((sum, si) => sum + (si.paid_amount || si.amount), 0);
+    const pCount = scheduleItems.filter(si => si.status === 'paid').length;
+    const progressPct = contracted > 0 ? Math.min(100, (paid / contracted) * 100) : 0;
 
-  // Next upcoming payment
-  const nextPayment = scheduleItems
-    .filter(si => si.status !== 'paid' && si.target_date)
-    .sort((a, b) => new Date(a.target_date!).getTime() - new Date(b.target_date!).getTime())[0];
+    // Next upcoming payment
+    const next = scheduleItems
+      .filter(si => si.status !== 'paid' && si.target_date)
+      .sort((a, b) => new Date(a.target_date!).getTime() - new Date(b.target_date!).getTime())[0];
 
-  const handleStatClick = (tabId: string) => {
+    return {
+      totalEstimated: estimated,
+      totalContracted: contracted,
+      totalPaid: paid,
+      paidCount: pCount,
+      paymentProgressPct: progressPct,
+      nextPayment: next,
+    };
+  }, [costItems, scheduleItems]);
+
+  const handleStatClick = useCallback((tabId: string) => {
     if (onTabChange) {
       onTabChange(tabId);
     }
-  };
+  }, [onTabChange]);
 
   return (
     <div className="space-y-6">
