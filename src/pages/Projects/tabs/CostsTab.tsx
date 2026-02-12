@@ -530,7 +530,7 @@ export default function CostsTab({ project }: CostsTabProps) {
           {/* Import from Excel Button */}
           <button
             onClick={() => setShowImportModal(true)}
-            className="px-4 py-2 border border-primary text-primary hover:bg-primary/10 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors"
+            className="px-6 py-3 bg-red-600 text-white rounded-lg flex items-center gap-2 text-lg font-bold shadow-lg border-4 border-red-800 animate-pulse"
           >
             <span className="material-symbols-outlined text-[20px]">upload_file</span>
             ייבוא מאקסל
