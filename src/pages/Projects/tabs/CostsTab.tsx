@@ -910,18 +910,7 @@ export default function CostsTab({ project }: CostsTabProps) {
                             </button>
                           )}
 
-                          {/* Edit Button */}
-                          <button
-                            onClick={() => setEditingItem(item)}
-                            className="relative group p-2 rounded-lg bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-primary hover:border-primary/30 transition-all hover:scale-105 active:scale-95"
-                            title="עריכה"
-                          >
-                            <span className="material-symbols-outlined text-[18px]">edit</span>
-                            <span className="absolute -top-10 left-1/2 -translate-x-1/2 px-2.5 py-1 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-[10px] font-bold rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-lg">
-                              עריכה
-                              <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-100"></span>
-                            </span>
-                          </button>
+                          {/* Edit button moved to expanded section */}
                         </div>
                       </td>
                     </tr>
@@ -1103,6 +1092,17 @@ export default function CostsTab({ project }: CostsTabProps) {
                                       </div>
                                     )}
                                   </div>
+                                </div>
+
+                                {/* Edit Cost Item Button */}
+                                <div className="md:col-span-2 flex justify-end">
+                                  <button
+                                    onClick={() => setEditingItem(item)}
+                                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary/10 dark:bg-primary/20 text-primary hover:bg-primary/20 dark:hover:bg-primary/30 border border-primary/20 dark:border-primary/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                                  >
+                                    <span className="material-symbols-outlined text-[18px]">edit</span>
+                                    <span className="text-sm font-bold">ערוך פריט עלות</span>
+                                  </button>
                                 </div>
                               </div>
                             </div>
