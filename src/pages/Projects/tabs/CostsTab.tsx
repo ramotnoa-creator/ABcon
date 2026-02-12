@@ -439,7 +439,7 @@ export default function CostsTab({ project }: CostsTabProps) {
                       style={{ width: `${pctGeneral}%` }}
                     />
                   </div>
-                  <div className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap min-w-[160px] text-left">
+                  <div className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap min-w-0 sm:min-w-[160px] text-left">
                     אומדן כללי: {formatCurrency(summary.generalEstimate)}
                   </div>
                 </div>
@@ -452,7 +452,7 @@ export default function CostsTab({ project }: CostsTabProps) {
                       style={{ width: `${pctEstimated}%` }}
                     />
                   </div>
-                  <div className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap min-w-[160px] text-left">
+                  <div className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap min-w-0 sm:min-w-[160px] text-left">
                     סה"כ אומדנים: {formatCurrency(summary.totalEstimated)}
                     {summary.gapEstimatedVsGeneral !== 0 && (
                       <span className={`mr-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
@@ -478,7 +478,7 @@ export default function CostsTab({ project }: CostsTabProps) {
                       style={{ width: `${pctUncontracted}%` }}
                     />
                   </div>
-                  <div className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap min-w-[160px] text-left">
+                  <div className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap min-w-0 sm:min-w-[160px] text-left">
                     <span className="text-emerald-600 dark:text-emerald-400">בפועל: {formatCurrency(summary.totalContracted)}</span>
                     <span className="text-gray-400 mx-1">+</span>
                     <span className="text-amber-600 dark:text-amber-400">ללא מחיר: {formatCurrency(summary.totalWithoutActual)}</span>
@@ -715,7 +715,7 @@ export default function CostsTab({ project }: CostsTabProps) {
                       {/* Variance - Enhanced with Visual Performance Bar */}
                       <td className="px-6 py-5">
                         {item.actual_amount ? (
-                          <div className="flex flex-col gap-2 min-w-[140px]">
+                          <div className="flex flex-col gap-2 min-w-0 sm:min-w-[140px]">
                             {/* Numeric Variance */}
                             <div className="flex items-center gap-2">
                               <div className={`p-1 rounded ${

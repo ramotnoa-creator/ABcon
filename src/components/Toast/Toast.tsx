@@ -35,7 +35,7 @@ export default function Toast({ id, message, type, duration = 5000, onClose }: T
 
   return (
     <div
-      className={`flex items-start gap-3 min-w-[320px] max-w-md p-4 rounded-lg border shadow-lg animate-in slide-in-from-right ${typeStyles[type]}`}
+      className={`flex items-start gap-3 min-w-[280px] sm:min-w-[320px] max-w-md p-4 rounded-lg border shadow-lg animate-in slide-in-from-right ${typeStyles[type]}`}
       role="alert"
     >
       <span className="material-symbols-outlined text-[20px] mt-0.5 flex-shrink-0">
